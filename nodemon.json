@@ -1,0 +1,5 @@
+{
+    "watch": ["server.js", "gameLogic.js"],
+    "ext": "js",
+    "ignore": ["public/", "test/"]
+}

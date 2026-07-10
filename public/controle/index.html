@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Configuração - Placar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans pb-10">
+
+    <!-- Navegação otimizada para toque -->
+    <nav class="bg-gray-900 text-white p-4 shadow-lg mb-8 flex flex-wrap justify-center gap-2 md:gap-6 font-bold text-sm md:text-base">
+        <a href="config.html" class="bg-gray-800 text-yellow-400 px-4 py-3 rounded-lg border-b-4 border-yellow-400">⚙️ CONFIGURAÇÃO</a>
+        <a id="link-jogo" href="controle.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">▶️ JOGO</a>
+        <!-- <a href="controle_futsal.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">⚽ Futsal</a> -->
+        <!-- <a href="controle_volei.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">🏐 VÔLEI</a> -->
+        <a href="controle_anuncios.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">📺 ANÚNCIOS</a>
+    </nav>
+
+    <div class="w-full md:max-w-5xl mx-auto px-4 space-y-8">
+        
+        <!-- Regras do Jogo -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-md border-t-4 border-gray-800">
+            <h2 class="text-2xl font-black text-gray-800 mb-6">Regras do Jogo</h2>
+            <div class="grid grid-cols-1 md:grid-cols-1 gap-8">
+                
+                <!-- Seleção de Esporte com Botões Grandes -->
+                <div class="here flex justify-center items-center">
+                    <!-- <label class="block text-sm text-gray-600 font-bold mb-3 uppercase tracking-wide">Qual esporte vai para o telão?</label> -->
+                    <div class="grid grid-cols-3 gap-3">
+                        <label class="cursor-pointer w-full">
+                            <input type="radio" name="esporte" value="basquete" class="peer sr-only" onchange="atualizarConfig()">
+                            <div class="rounded-xl border-2 border-gray-200 py-6 px-4 min-h-[140px] flex flex-col items-center justify-center text-center font-bold text-gray-500 hover:bg-gray-50 hover:scale-105 active:scale-95 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all duration-200">
+                                <div class="text-2xl mb-1">🏀</div>
+                                <div class="text-sm md:text-base">Basquete</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer w-full">
+                            <input type="radio" name="esporte" value="futsal" class="peer sr-only" onchange="atualizarConfig()">
+                            <div class="rounded-xl border-2 border-gray-200 py-6 px-4 min-h-[140px] flex flex-col items-center justify-center text-center font-bold text-gray-500 hover:bg-gray-50 hover:scale-105 active:scale-95 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all duration-200">
+                                <div class="text-2xl mb-1">⚽</div>
+                                <div class="text-sm md:text-base">Futsal</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer w-full">
+                            <input type="radio" name="esporte" value="volei" class="peer sr-only" onchange="atualizarConfig()">
+                            <div class="rounded-xl border-2 border-gray-200 py-6 px-4 min-h-[140px] flex flex-col items-center justify-center text-center font-bold text-gray-500 hover:bg-gray-50 hover:scale-105 active:scale-95 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all duration-200">
+                                <div class="text-2xl mb-1">🏐</div>
+                                <div class="text-sm md:text-base">Vôlei</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                
+            </div>
+        </div>
+
+        <!-- Times -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            
+            <!-- TIME A -->
+            <div class="bg-blue-50 p-6 md:p-8 rounded-2xl border-2 border-blue-200 shadow-sm">
+                <h3 class="font-black text-blue-800 text-2xl mb-6 flex items-center gap-2">🏠 TIME A (Local)</h3>
+                
+                <input type="text" id="nome_a" placeholder="Nome da Equipe" class="w-full border-2 border-white p-4 rounded-xl mb-5 font-black text-xl text-gray-800 shadow-sm focus:border-blue-400 outline-none" onchange="atualizarConfig()">
+                
+                <label class="block text-sm text-gray-600 mb-2 font-bold uppercase">Logo (Opcional):</label>
+                <input type="file" accept="image/*" class="w-full text-base mb-6 bg-white p-3 border-2 border-dashed border-blue-300 rounded-xl cursor-pointer" onchange="enviarLogo('timeA', this)">
+                
+                <label class="block text-sm text-gray-600 mb-2 font-bold uppercase">Elenco:</label>
+                <div id="elenco-timeA" class="space-y-2 mb-3"></div>
+                <button type="button" onclick="addJogador('timeA')" class="w-full bg-blue-200 hover:bg-blue-300 active:scale-95 text-blue-900 font-bold py-3 rounded-xl transition-transform text-sm">+ Adicionar Jogador</button>
+            </div>
+            
+            <!-- TIME B -->
+            <div class="bg-red-50 p-6 md:p-8 rounded-2xl border-2 border-red-200 shadow-sm">
+                <h3 class="font-black text-red-800 text-2xl mb-6 flex items-center gap-2">✈️ TIME B (Visitante)</h3>
+                
+                <input type="text" id="nome_b" placeholder="Nome da Equipe" class="w-full border-2 border-white p-4 rounded-xl mb-5 font-black text-xl text-gray-800 shadow-sm focus:border-red-400 outline-none" onchange="atualizarConfig()">
+                
+                <label class="block text-sm text-gray-600 mb-2 font-bold uppercase">Logo (Opcional):</label>
+                <input type="file" accept="image/*" class="w-full text-base mb-6 bg-white p-3 border-2 border-dashed border-red-300 rounded-xl cursor-pointer" onchange="enviarLogo('timeB', this)">
+                
+                <label class="block text-sm text-gray-600 mb-2 font-bold uppercase">Elenco:</label>
+                <div id="elenco-timeB" class="space-y-2 mb-3"></div>
+                <button type="button" onclick="addJogador('timeB')" class="w-full bg-red-200 hover:bg-red-300 active:scale-95 text-red-900 font-bold py-3 rounded-xl transition-transform text-sm">+ Adicionar Jogador</button>
+            </div>
+
+        </div>
+        
+        <!-- Ações -->
+        <div class="text-center mt-10">
+            <button id="salvar" onclick="salvarConfig()" class="w-full md:w-auto bg-green-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-green-700 active:bg-green-800 transition shadow-xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
+                ✅ SALVAR CONFIGURAÇÃO
+            </button>
+        </div>
+
+        <!-- Transmissão -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-md border-t-4 border-gray-800 text-center mt-8">
+            <h2 class="text-xl font-black text-gray-700 mb-2">Transmissão do Telão</h2>
+            <p id="status-transmissao" class="text-gray-400 text-sm mb-5">Status: <span id="texto-status" class="font-bold text-red-500">Desligada</span></p>
+            <button id="btn-transmissao" onclick="toggleTransmissao()"
+                class="w-full md:w-auto bg-green-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-green-700 active:bg-green-800 transition shadow-xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
+                📡 INICIAR TRANSMISSÃO
+            </button>
+        </div>
+
+        <div class="text-center mt-6 pb-8">
+            <button id="zerar" onclick="zerarTudo()" class="w-full md:w-auto bg-red-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-red-700 active:bg-red-800 transition shadow-xl border-b-4 border-red-800 active:border-b-0 active:translate-y-1">
+                ⚠️ ZERAR PLACAR E DADOS
+            </button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
+        let transmissaoAtiva = false;
+        let elenco = { timeA: [], timeB: [] };
+        let elencoCarregado = false;
+
+        socket.on('atualizar_tela', (dados) => {
+            const link = document.getElementById('link-jogo');
+            if (mapaControle[dados.esporte]) link.href = mapaControle[dados.esporte];
+            const radio = document.querySelector(`input[name="esporte"][value="${dados.esporte}"]`);
+            if (radio) radio.checked = true;
+
+            // Preencher nomes do estado atual
+            const nomeA = document.getElementById('nome_a');
+            const nomeB = document.getElementById('nome_b');
+            if (nomeA && !nomeA.value) nomeA.value = dados.timeA.nome !== 'Time Local' ? dados.timeA.nome : '';
+            if (nomeB && !nomeB.value) nomeB.value = dados.timeB.nome !== 'Visitante' ? dados.timeB.nome : '';
+
+            // Carregar elenco do servidor uma única vez (objetos {numero, nome, foto})
+            if (!elencoCarregado) {
+                elenco.timeA = (dados.timeA.elenco || []).map(normalizarJogador);
+                elenco.timeB = (dados.timeB.elenco || []).map(normalizarJogador);
+                renderElenco('timeA');
+                renderElenco('timeB');
+                elencoCarregado = true;
+            }
+
+            transmissaoAtiva = !!dados.transmissaoAtiva;
+            const btn = document.getElementById('btn-transmissao');
+            const textoStatus = document.getElementById('texto-status');
+            if (transmissaoAtiva) {
+                btn.textContent = '📴 ENCERRAR TRANSMISSÃO';
+                btn.className = btn.className.replace('bg-green-600', 'bg-gray-700').replace('hover:bg-green-700', 'hover:bg-gray-600').replace('active:bg-green-800', 'active:bg-gray-800').replace('border-green-800', 'border-gray-900');
+                textoStatus.textContent = 'Ativa';
+                textoStatus.className = 'font-bold text-green-600';
+            } else {
+                btn.textContent = '📡 INICIAR TRANSMISSÃO';
+                btn.className = btn.className.replace('bg-gray-700', 'bg-green-600').replace('hover:bg-gray-600', 'hover:bg-green-700').replace('active:bg-gray-800', 'active:bg-green-800').replace('border-gray-900', 'border-green-800');
+                textoStatus.textContent = 'Desligada';
+                textoStatus.className = 'font-bold text-red-500';
+            }
+        });
+
+        function toggleTransmissao() {
+            socket.emit('comando_transmissao', { ativa: !transmissaoAtiva });
+        }
+
+        function atualizarConfig() {
+            const esporteSelecionado = document.querySelector('input[name="esporte"]:checked');
+            const link = document.getElementById('link-jogo');
+            if (esporteSelecionado && mapaControle[esporteSelecionado.value]) {
+                link.href = mapaControle[esporteSelecionado.value];
+            }
+        }
+
+        function salvarConfig(){
+            const esporteSelecionado = document.querySelector('input[name="esporte"]:checked');
+            const nomeA = document.getElementById('nome_a').value.trim();
+            const nomeB = document.getElementById('nome_b').value.trim();
+
+            if (!esporteSelecionado || !nomeA || !nomeB) {
+                alert("Por favor, preencha todos os campos obrigatórios.");
+                return;
+            }
+
+            // Select all form controls
+            const elements = document.querySelectorAll(
+                'input, textarea, select, button'
+            );
+
+            // Disable each one
+            elements.forEach(el => {
+                el.disabled = true;
+            });
+
+            const limparElenco = (arr) => arr
+                .map(j => ({ numero: String(j.numero || '').trim(), nome: (j.nome || '').trim(), foto: j.foto || '' }))
+                .filter(j => j.nome || j.numero);
+
+            socket.emit('configurar_jogo', {
+                esporte: esporteSelecionado.value,
+                timeA_nome: document.getElementById('nome_a').value,
+                timeB_nome: document.getElementById('nome_b').value,
+                timeA_elenco: limparElenco(elenco.timeA),
+                timeB_elenco: limparElenco(elenco.timeB)
+            });
+
+            document.getElementById('zerar').disabled = false;
+            document.getElementById('btn-transmissao').disabled = false;
+        }
+        
+        // ---- Gestão de elenco (numero, nome, foto) ----
+        function normalizarJogador(j) {
+            if (typeof j === 'string') return { numero: '', nome: j, foto: '' };
+            return { numero: j.numero || '', nome: j.nome || '', foto: j.foto || '' };
+        }
+
+        function escAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+        function addJogador(time) {
+            elenco[time].push({ numero: '', nome: '', foto: '' });
+            renderElenco(time);
+        }
+
+        function removeJogador(time, i) {
+            elenco[time].splice(i, 1);
+            renderElenco(time);
+        }
+
+        function updateJogador(time, i, campo, valor) {
+            if (elenco[time][i]) elenco[time][i][campo] = valor;
+        }
+
+        function fotoJogador(time, i, input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = () => { elenco[time][i].foto = reader.result; renderElenco(time); };
+            reader.readAsDataURL(file);
+        }
+
+        function renderElenco(time) {
+            const container = document.getElementById('elenco-' + time);
+            if (!container) return;
+            container.innerHTML = '';
+            elenco[time].forEach((j, i) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 bg-white p-2 rounded-xl border border-gray-200';
+                const thumb = j.foto
+                    ? `<img src="${j.foto}" class="w-11 h-11 rounded-full object-cover">`
+                    : `<span class="text-xl">📷</span>`;
+                row.innerHTML = `
+                    <input type="number" value="${escAttr(j.numero)}" oninput="updateJogador('${time}', ${i}, 'numero', this.value)"
+                        placeholder="#" class="w-14 border border-gray-300 p-2 rounded-lg text-center font-black text-gray-800 outline-none focus:border-gray-500">
+                    <input type="text" value="${escAttr(j.nome)}" oninput="updateJogador('${time}', ${i}, 'nome', this.value)"
+                        placeholder="Nome do jogador" class="flex-1 min-w-0 border border-gray-300 p-2 rounded-lg text-gray-800 outline-none focus:border-gray-500">
+                    <label class="shrink-0 w-11 h-11 flex items-center justify-center bg-gray-100 rounded-lg cursor-pointer overflow-hidden border border-gray-300">
+                        ${thumb}
+                        <input type="file" accept="image/*" class="hidden" onchange="fotoJogador('${time}', ${i}, this)">
+                    </label>
+                    <button type="button" onclick="removeJogador('${time}', ${i})"
+                        class="shrink-0 w-9 h-9 flex items-center justify-center text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function enviarLogo(time, input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = () => { let p = {}; p[time + '_logo'] = reader.result; socket.emit('configurar_jogo', p); };
+            reader.readAsDataURL(file);
+        }
+        
+        function setTempo() { 
+            socket.emit('comando_cronometro', { acao: 'set', valor: parseInt(document.getElementById('minutos_set').value) }); 
+        }
+        
+        function zerarTudo() {
+            if (!confirm('Zerar placar e dados?')) return;
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            // Reabilita o formulário para nova configuração
+            document.querySelectorAll('input, textarea, select, button').forEach(el => {
+                el.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>

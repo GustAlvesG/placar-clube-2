@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Controle do Jogo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        .font-digital { font-family: 'Share Tech Mono', monospace; }
+        body { user-select: none; }
+    </style>
+</head>
+<body class="bg-gray-950 text-white flex flex-col h-screen overflow-hidden">
+
+    <!-- Navegação -->
+    <nav class="bg-gray-900 text-white p-3 shadow-lg flex flex-wrap justify-center gap-2 font-bold text-sm shrink-0 border-b border-gray-700">
+        <a href="index.html" class="px-4 py-2 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">⚙️ CONFIG</a>
+        <a id="link-jogo" href="controle.html" class="bg-gray-700 text-yellow-400 px-4 py-2 rounded-lg border-b-2 border-yellow-400">▶️ JOGO</a>
+        <a href="controle_anuncios.html" class="px-4 py-2 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">📺 ANÚNCIOS</a>
+        <span id="badge-esporte" class="px-3 py-2 rounded-lg bg-yellow-900 text-yellow-300 font-black tracking-wider text-xs">—</span>
+    </nav>
+
+    <!-- Área principal: TIME A | CENTRO | TIME B -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- TIME A -->
+        <div class="flex-1 bg-blue-950 flex flex-col items-center justify-center gap-3 p-3 border-r border-gray-700">
+            <span id="nome-a" class="text-sm font-black text-blue-300 uppercase tracking-widest text-center">TIME A</span>
+            <div id="score-a" class="font-digital text-7xl md:text-8xl text-white leading-none">0</div>
+
+            <!-- Botões + ponto -->
+            <div class="flex gap-2 w-full">
+                <button data-lockable onclick="marcar('timeA', 1)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
+                <button data-lockable id="btn-a-2" onclick="marcar('timeA', 2)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
+                <button data-lockable id="btn-a-3" onclick="marcar('timeA', 3)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
+            </div>
+
+            <!-- Botão - ponto -->
+            <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 text-xl font-bold py-3 rounded-xl transition-transform">−1 ponto</button>
+
+            <!-- Sets (vôlei) -->
+            <div id="sets-area-a" class="hidden w-full space-y-2">
+                <div class="text-center text-blue-400 text-sm font-bold">Sets: <span id="sets-a" class="text-white text-lg">0</span></div>
+                <div class="flex gap-2">
+                    <button onclick="cmdPlacar('timeA', 'add_set', 1)" class="flex-1 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold py-3 rounded-xl transition-transform">+Set</button>
+                    <button onclick="cmdPlacar('timeA', 'sub_set', 1)" class="flex-1 bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 font-bold py-3 rounded-xl transition-transform">−Set</button>
+                </div>
+            </div>
+
+            <!-- Faltas (futsal / basquete) -->
+            <div id="faltas-area-a" class="hidden w-full space-y-1">
+                <div class="text-center text-blue-400 text-xs font-bold uppercase tracking-wide">Faltas: <span id="faltas-a" class="text-white font-digital text-base">0</span></div>
+                <div class="flex gap-2">
+                    <button data-lockable onclick="cmdPlacar('timeA', 'add_falta', 1)" class="flex-1 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
+                    <button onclick="cmdPlacar('timeA', 'sub_falta', 1)" class="flex-1 bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 font-bold py-2 rounded-xl transition-transform text-sm">−Falta</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTRO (cronômetro + ações) -->
+        <div class="w-44 md:w-52 bg-gray-900 flex flex-col items-center justify-center gap-3 p-3 shrink-0">
+
+            <!-- Display do cronômetro -->
+            <div class="bg-black rounded-2xl w-full flex items-center justify-center py-4 border border-gray-700">
+                <span id="timer-display" class="font-digital text-3xl md:text-4xl text-yellow-400 leading-none">00:00</span>
+            </div>
+
+            <!-- Play / Pause -->
+            <button onclick="cmdCronometro('play')" class="w-full bg-green-700 hover:bg-green-600 active:scale-95 text-white font-black py-4 rounded-xl text-base transition-transform">▶ PLAY</button>
+            <button onclick="cmdCronometro('pause')" class="w-full bg-yellow-700 hover:bg-yellow-600 active:scale-95 text-white font-black py-4 rounded-xl text-base transition-transform">⏸ PAUSA</button>
+
+            <!-- Definir tempo MM:SS -->
+            <div class="w-full space-y-1">
+                <div class="text-xs text-gray-400 text-center">Definir tempo</div>
+                <div class="flex gap-1 items-center">
+                    <input id="set-minutos" type="number" min="0" max="99" value="10"
+                        class="w-0 flex-1 bg-gray-800 text-white text-center text-lg py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
+                    <span class="text-gray-400 font-bold text-lg">:</span>
+                    <input id="set-segundos" type="number" min="0" max="59" value="00"
+                        class="w-0 flex-1 bg-gray-800 text-white text-center text-lg py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
+                    <button onclick="setTempo()" class="bg-gray-600 hover:bg-gray-500 active:scale-95 text-white px-3 py-2 rounded-lg font-bold transition-transform text-sm">SET</button>
+                </div>
+            </div>
+
+            <!-- Período (futsal / basquete) -->
+            <div id="periodo-area" class="hidden w-full space-y-1">
+                <div class="text-xs text-gray-400 text-center font-bold uppercase">Período: <span id="periodo-display" class="text-white font-digital">1</span></div>
+                <div class="flex gap-1 w-full">
+                    <button onclick="cmdPlacar('nenhum', 'add_periodo', 1)" class="flex-1 bg-gray-700 hover:bg-gray-600 active:scale-95 text-white font-bold py-2 rounded-lg transition-transform text-sm">+Per.</button>
+                    <button onclick="cmdPlacar('nenhum', 'sub_periodo', 1)" class="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-2 rounded-lg transition-transform text-sm">−Per.</button>
+                </div>
+            </div>
+
+            <!-- Zerar tudo -->
+            <button onclick="zerarTudo()" class="w-full bg-red-950 hover:bg-red-900 active:scale-95 text-red-400 font-bold py-3 rounded-xl text-xs border border-red-800 transition-transform mt-1">⚠ ZERAR TUDO</button>
+        </div>
+
+        <!-- TIME B -->
+        <div class="flex-1 bg-red-950 flex flex-col items-center justify-center gap-3 p-3 border-l border-gray-700">
+            <span id="nome-b" class="text-sm font-black text-red-300 uppercase tracking-widest text-center">TIME B</span>
+            <div id="score-b" class="font-digital text-7xl md:text-8xl text-white leading-none">0</div>
+
+            <!-- Botões + ponto -->
+            <div class="flex gap-2 w-full">
+                <button data-lockable onclick="marcar('timeB', 1)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
+                <button data-lockable id="btn-b-2" onclick="marcar('timeB', 2)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
+                <button data-lockable id="btn-b-3" onclick="marcar('timeB', 3)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
+            </div>
+
+            <!-- Botão - ponto -->
+            <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 text-xl font-bold py-3 rounded-xl transition-transform">−1 ponto</button>
+
+            <!-- Sets (vôlei) -->
+            <div id="sets-area-b" class="hidden w-full space-y-2">
+                <div class="text-center text-red-400 text-sm font-bold">Sets: <span id="sets-b" class="text-white text-lg">0</span></div>
+                <div class="flex gap-2">
+                    <button onclick="cmdPlacar('timeB', 'add_set', 1)" class="flex-1 bg-red-700 hover:bg-red-600 active:scale-95 text-white font-bold py-3 rounded-xl transition-transform">+Set</button>
+                    <button onclick="cmdPlacar('timeB', 'sub_set', 1)" class="flex-1 bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 font-bold py-3 rounded-xl transition-transform">−Set</button>
+                </div>
+            </div>
+
+            <!-- Faltas (futsal / basquete) -->
+            <div id="faltas-area-b" class="hidden w-full space-y-1">
+                <div class="text-center text-red-400 text-xs font-bold uppercase tracking-wide">Faltas: <span id="faltas-b" class="text-white font-digital text-base">0</span></div>
+                <div class="flex gap-2">
+                    <button data-lockable onclick="cmdPlacar('timeB', 'add_falta', 1)" class="flex-1 bg-red-700 hover:bg-red-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
+                    <button onclick="cmdPlacar('timeB', 'sub_falta', 1)" class="flex-1 bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 font-bold py-2 rounded-xl transition-transform text-sm">−Falta</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let estadoAtual = null;
+
+        socket.on('atualizar_tela', (dados) => {
+            if (dados.serverTime && dados.cronometro) {
+                const clockOffset = Date.now() - dados.serverTime;
+                dados.cronometro.inicioTimestamp += clockOffset;
+            }
+            estadoAtual = dados;
+            atualizarUI(dados);
+        });
+
+        const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
+
+         function atualizarUI(dados) {
+            document.getElementById('nome-a').innerText = dados.timeA.nome;
+            document.getElementById('nome-b').innerText = dados.timeB.nome;
+            document.getElementById('score-a').innerText = dados.timeA.placar;
+            document.getElementById('score-b').innerText = dados.timeB.placar;
+            document.getElementById('sets-a').innerText = dados.timeA.sets;
+            document.getElementById('sets-b').innerText = dados.timeB.sets;
+            document.getElementById('faltas-a').innerText = dados.timeA.faltas ?? 0;
+            document.getElementById('faltas-b').innerText = dados.timeB.faltas ?? 0;
+            document.getElementById('periodo-display').innerText = dados.periodo || 1;
+
+            const esporte = dados.esporte;
+            const nomesEsporte = { futsal: 'FUTSAL', basquete: 'BASQUETE', volei: 'VÔLEI' };
+            document.getElementById('badge-esporte').innerText = nomesEsporte[esporte] || esporte.toUpperCase();
+
+            const linkJogo = document.getElementById('link-jogo');
+            if (mapaControle[esporte]) linkJogo.href = mapaControle[esporte];
+
+            const ehBasquete = esporte === 'basquete';
+            const ehVolei = esporte === 'volei';
+            const temFaltas = esporte === 'futsal' || esporte === 'basquete';
+            const temPeriodo = esporte === 'futsal' || esporte === 'basquete';
+
+            ['btn-a-2', 'btn-a-3', 'btn-b-2', 'btn-b-3'].forEach(id =>
+                document.getElementById(id).classList.toggle('hidden', !ehBasquete)
+            );
+            ['sets-area-a', 'sets-area-b'].forEach(id =>
+                document.getElementById(id).classList.toggle('hidden', !ehVolei)
+            );
+            ['faltas-area-a', 'faltas-area-b'].forEach(id =>
+                document.getElementById(id).classList.toggle('hidden', !temFaltas)
+            );
+            document.getElementById('periodo-area').classList.toggle('hidden', !temPeriodo);
+
+            atualizarBloqueio(dados.cronometro.rodando);
+        }
+
+        function atualizarBloqueio(rodando) {
+            document.querySelectorAll('[data-lockable]').forEach(btn => {
+                btn.disabled = !rodando;
+                btn.classList.toggle('opacity-40', !rodando);
+                btn.classList.toggle('cursor-not-allowed', !rodando);
+            });
+        }
+
+        // Cronômetro em tempo real (50ms para centissegundos do basquete)
+        setInterval(() => {
+            if (!estadoAtual) return;
+            const crono = estadoAtual.cronometro;
+            const esporte = estadoAtual.esporte;
+            let elapsed = crono.tempoAcumulado;
+            if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
+
+            let display = '';
+            if (esporte === 'futsal' || esporte === 'volei') {
+                const totalSeg = Math.floor(elapsed / 1000);
+                const min = Math.floor(totalSeg / 60);
+                const seg = totalSeg % 60;
+                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+            } else if (esporte === 'basquete') {
+                const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
+                const min = Math.floor(restante / 60000);
+                const seg = Math.floor((restante % 60000) / 1000);
+                const cs = Math.floor((restante % 1000) / 10);
+                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+            }
+
+            document.getElementById('timer-display').innerText = display;
+        }, 50);
+
+        function marcar(time, valor) {
+            socket.emit('comando_placar', { time, acao: 'add_ponto', valor });
+        }
+
+        function cmdPlacar(time, acao, valor) {
+            socket.emit('comando_placar', { time, acao, valor });
+        }
+
+        function cmdCronometro(acao) {
+            socket.emit('comando_cronometro', { acao });
+        }
+
+        function setTempo() {
+            const minutos = parseInt(document.getElementById('set-minutos').value) || 0;
+            const segundos = parseInt(document.getElementById('set-segundos').value) || 0;
+            if (minutos > 0 || segundos > 0) {
+                socket.emit('comando_cronometro', { acao: 'set', valor: minutos, segundos });
+            }
+        }
+
+        function zerarTudo() {
+            if (confirm('Zerar placar, sets, faltas e cronômetro?')) {
+                socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            }
+        }
+    </script>
+</body>
+</html>

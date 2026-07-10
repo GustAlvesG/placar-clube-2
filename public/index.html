@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Placar</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+    </style>
+</head>
+<body>
+
+    <!-- Animação de ponto / falta -->
+    <div id="anim-overlay" style="display:none;position:fixed;inset:0;z-index:85;align-items:center;justify-content:center;pointer-events:none;">
+        <div id="anim-card" style="background:rgba(0,0,0,0.88);padding:2.5rem 3.5rem;border-radius:1.5rem;text-align:center;min-width:18rem;">
+            <div id="anim-time" style="color:#9ca3af;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.15em;font-family:sans-serif;font-weight:700;margin-bottom:0.5rem;"></div>
+            <div id="anim-acao" style="color:#facc15;font-size:5rem;font-weight:900;font-family:sans-serif;line-height:1;"></div>
+            <div id="anim-jogador-box" style="display:flex;align-items:center;justify-content:center;gap:1.25rem;margin-top:1rem;">
+                <img id="anim-foto" style="width:7rem;height:7rem;border-radius:9999px;object-fit:cover;border:4px solid #facc15;display:none;">
+                <div id="anim-jogador-texto">
+                    <div id="anim-numero" style="color:#facc15;font-size:3rem;font-weight:900;font-family:sans-serif;line-height:1;"></div>
+                    <div id="anim-nome" style="color:#fff;font-size:2rem;font-weight:700;font-family:sans-serif;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela inicial / standby (visível até a transmissão ser iniciada) -->
+    <div id="tela-inicial" style="position:fixed;inset:0;z-index:90;background:linear-gradient(to bottom,#490025 , #1D0518) ;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
+        <div id="icone-esporte" style="font-size:9rem;line-height:1;">⚽</div>
+        <h1 style="color:#fff;font-size:2.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;font-family:sans-serif;">Clube dos Funcionários</h1>
+        <p style="color:#6b7280;font-size:1.25rem;font-family:sans-serif;animation:pulse 2s infinite;">Aguardando transmissão...</p>
+    </div>
+    <style>
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes animPop {
+            0%   { opacity:0; transform:scale(0.75) }
+            12%  { opacity:1; transform:scale(1.05) }
+            20%  { transform:scale(1) }
+            80%  { opacity:1; transform:scale(1) }
+            100% { opacity:0; transform:scale(0.9) }
+        }
+    </style>
+
+    <!-- Player de vídeo para comerciais (sobrepõe tudo) -->
+    <video id="videoPlayer" class="hidden" style="position:fixed;inset:0;width:100%;height:100%;z-index:100;background:#000;object-fit:contain;" playsinline></video>
+
+    <div class="placar-container">
+
+        <div id="box" class="box"></div>
+
+        <div id="element-1" class="element element-1"></div>
+        <div id="element-2" class="element element-2"></div>
+
+        <!-- Indicador de saque (vôlei): fundo + bola piscando ao lado do time sacando -->
+        <div id="saque-A" class="saque-indicador">
+            <div class="saque-fundo"></div>
+            <div class="saque-bola"></div>
+        </div>
+        <div id="saque-B" class="saque-indicador">
+            <div class="saque-fundo"></div>
+            <div class="saque-bola"></div>
+        </div>
+
+        <div id="logos">
+            <div class="logo logo-mandante flex items-center justify-center">
+                <img id="logo-mandante" alt="Logo Mandante">
+                <div id="sigla-mandante" class="hidden text-white font-bold text-5xl text-center w-full h-full flex items-center justify-center"></div>
+            </div>
+            <div class="logo logo-visitante flex items-center justify-center">
+                <img id="logo-visitante" alt="Logo Visitante">
+                <div id="sigla-visitante" class="hidden text-white font-bold text-5xl text-center w-full h-full flex items-center justify-center"></div>
+            </div>
+        </div>
+
+        <div id="tempo" class="tempo"></div>
+
+        <div id="nomes">
+            <div id="nomeA" class="nome nome-mandante"></div>
+            <div id="nomeB" class="nome nome-visitante"></div>
+        </div>
+
+        <div id="pontos">
+            <div id="placarA" class="pontos pontos-mandante"></div>
+            <div id="placarB" class="pontos pontos-visitante"></div>
+        </div>
+
+        <div id="area_quarter">
+            <div class="quarter"></div>
+            <div class="posse"></div>
+        </div>
+
+        <div id="area_fault">
+            <div class="faltas-mandante"></div>
+            <div class="periodo"></div>
+            <div class="faltas-visitante"></div>
+        </div>
+
+        <div id="area_sets">
+            <div id="setsA" class="volei sets sets-mandante"></div>
+            <div id="setsT" class="volei sets sets-atual"></div>
+            <div id="setsB" class="volei sets sets-visitante"></div>
+        </div>
+	<div class="sponsor-carousel-container">
+		<div class="sponsor-track" id="sponsorTrack">
+			<div class="sponsor-group">
+				<div class="sponsor-item"> 
+					<img src="patrocinadores/CEJA.png" alt="CEJA">
+				</div>
+				<div class="sponsor-item"> 
+					<img src="patrocinadores/7RPX.png" alt="7RPX">
+				</div>
+				<div class="sponsor-item"> 
+					<img src="patrocinadores/GOV.png" alt="GOV">
+				</div>
+				<div class="sponsor-item"> 
+					<img src="patrocinadores/Regener.png" alt="Regener">
+				</div>
+				<div class="sponsor-item"> 
+					<img src="patrocinadores/TVRIOSUL.png" alt="TV Rio Sul">
+				</div>
+
+			</div>
+		</div>
+	</div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let estadoLocal = null;
+
+        // Lógica de Vídeo com playlist sequencial
+        const videoPlayer = document.getElementById('videoPlayer');
+        let videoQueue = [];
+
+        function playNext() {
+            if (videoQueue.length === 0) {
+                videoPlayer.src = '';
+                videoPlayer.classList.add('hidden');
+                return;
+            }
+            const arquivo = videoQueue.shift();
+            videoPlayer.src = `/videos/${arquivo}`;
+            videoPlayer.classList.remove('hidden');
+            videoPlayer.load();
+            videoPlayer.muted = false;
+            videoPlayer.play().catch(() => {
+                // Navegador bloqueou o autoplay com áudio: tenta o MESMO vídeo sem som.
+                videoPlayer.muted = true;
+                videoPlayer.play().catch((err) => {
+                    console.error('Falha ao reproduzir o vídeo:', arquivo, err);
+                    playNext();
+                });
+            });
+        }
+
+        socket.on('executar_video', (dados) => {
+            if (dados.acao === 'playlist') {
+                videoQueue = [...(dados.arquivos || [])];
+                playNext();
+            } else if (dados.acao === 'play') {
+                videoQueue = [dados.arquivo];
+                playNext();
+            } else if (dados.acao === 'stop') {
+                videoQueue = [];
+                videoPlayer.pause();
+                videoPlayer.src = '';
+                videoPlayer.classList.add('hidden');
+            }
+        });
+
+        videoPlayer.addEventListener('ended', playNext);
+
+        // Animação de ponto / falta
+        socket.on('animacao_ponto', ({ texto, jogador, timeNome }) => {
+            document.getElementById('anim-time').innerText = timeNome || '';
+            document.getElementById('anim-acao').innerText = texto || '';
+
+            // jogador pode ser objeto {numero, nome, foto} ou string (legado)
+            const j = (jogador && typeof jogador === 'object') ? jogador : { numero: '', nome: jogador || '', foto: '' };
+            document.getElementById('anim-numero').innerText = j.numero ? `#${j.numero}` : '';
+            document.getElementById('anim-nome').innerText = j.nome || '';
+
+            const fotoEl = document.getElementById('anim-foto');
+            const textoEl = document.getElementById('anim-jogador-texto');
+            if (j.foto) {
+                fotoEl.src = j.foto;
+                fotoEl.style.display = 'block';
+                textoEl.style.textAlign = 'left';
+            } else {
+                fotoEl.style.display = 'none';
+                fotoEl.src = '';
+                textoEl.style.textAlign = 'center';
+            }
+
+            const overlay = document.getElementById('anim-overlay');
+            const card = document.getElementById('anim-card');
+            overlay.style.display = 'flex';
+            card.style.animation = 'none';
+            card.offsetHeight;
+            card.style.animation = 'animPop 3s forwards';
+            clearTimeout(window._animTimer);
+            window._animTimer = setTimeout(() => { overlay.style.display = 'none'; }, 3000);
+        });
+
+        // Cronômetro em tempo real (50ms para suavidade nos centissegundos do basquete)
+        setInterval(() => {
+            if (!estadoLocal || !estadoLocal.cronometro) return;
+            const crono = estadoLocal.cronometro;
+            const esporte = estadoLocal.esporte;
+            let elapsed = crono.tempoAcumulado;
+            if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
+
+            let display = '';
+            if (esporte === 'futsal' || esporte === 'volei') {
+                // Conta para cima: MM:SS
+                const totalSeg = Math.floor(elapsed / 1000);
+                const min = Math.floor(totalSeg / 60);
+                const seg = totalSeg % 60;
+                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+            } else if (esporte === 'basquete') {
+                // Conta para baixo com centissegundos: MM:SS.cc
+                const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
+                const min = Math.floor(restante / 60000);
+                const seg = Math.floor((restante % 60000) / 1000);
+                const cs = Math.floor((restante % 1000) / 10);
+                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+            }
+
+            const tempoEl = document.getElementById('tempo');
+            if (tempoEl && display) tempoEl.innerText = display;
+        }, 50);
+
+        // Atualização principal da tela
+        socket.on('atualizar_tela', (dados) => {
+            // Sincroniza relógio do cliente com servidor
+            if (dados.serverTime && dados.cronometro) {
+                const clockOffset = Date.now() - dados.serverTime;
+                dados.cronometro.inicioTimestamp += clockOffset;
+            }
+
+            // Tela inicial: oculta quando transmissão está ativa
+            const telaInicial = document.getElementById('tela-inicial');
+            const icones = { futsal: '⚽', basquete: '🏀', volei: '🏐' };
+            document.getElementById('icone-esporte').innerText = icones[dados.esporte] || '🏆';
+            telaInicial.style.display = dados.transmissaoAtiva ? 'none' : 'flex';
+
+            changeCssSport(dados.esporte);
+            estadoLocal = dados;
+
+            // Nomes
+            document.getElementById('nomeA').innerText = dados.timeA.nome;
+            document.getElementById('nomeB').innerText = dados.timeB.nome;
+
+            // Placar
+            document.getElementById('placarA').innerText = dados.timeA.placar;
+            document.getElementById('placarB').innerText = dados.timeB.placar;
+
+            // Sets (vôlei)
+            document.getElementById('setsA').innerText = dados.timeA.sets;
+            document.getElementById('setsB').innerText = dados.timeB.sets;
+
+            // Faltas e período (futsal / basquete)
+            document.querySelector('.faltas-mandante').innerText = dados.timeA.faltas ?? 0;
+            document.querySelector('.faltas-visitante').innerText = dados.timeB.faltas ?? 0;
+            document.querySelector('.periodo').innerText = dados.periodo ? `${dados.periodo}º` : '1º';
+
+            // Logos / Siglas
+            function getSigla(nome) {
+                if (!nome) return "---";
+                const palavras = nome.trim().split(/\s+/);
+                if (palavras.length > 1) return palavras.slice(0, 3).map(p => p[0]).join('').toUpperCase();
+                return nome.substring(0, 3).toUpperCase();
+            }
+
+            if (dados.timeA.logo) {
+                document.getElementById('logo-mandante').src = dados.timeA.logo;
+                document.getElementById('logo-mandante').classList.remove('hidden');
+                document.getElementById('sigla-mandante').classList.add('hidden');
+            } else {
+                document.getElementById('logo-mandante').classList.add('hidden');
+                document.getElementById('sigla-mandante').innerText = getSigla(dados.timeA.nome);
+                document.getElementById('sigla-mandante').classList.remove('hidden');
+            }
+
+            if (dados.timeB.logo) {
+                document.getElementById('logo-visitante').src = dados.timeB.logo;
+                document.getElementById('logo-visitante').classList.remove('hidden');
+                document.getElementById('sigla-visitante').classList.add('hidden');
+            } else {
+                document.getElementById('logo-visitante').classList.add('hidden');
+                document.getElementById('sigla-visitante').innerText = getSigla(dados.timeB.nome);
+                document.getElementById('sigla-visitante').classList.remove('hidden');
+            }
+
+            // Indicador de saque (vôlei)
+            if (dados.esporte === 'volei') {
+                document.getElementById('setsT').innerText = dados.timeA.sets + dados.timeB.sets + 1; // Exibe o número do set atual (soma dos sets + 1)
+            } else {
+                document.getElementById('setsT').innerText = '';
+            }
+
+            // Bola de saque piscando ao lado do time que está sacando (somente vôlei)
+            const ehVolei = dados.esporte === 'volei';
+            document.getElementById('saque-A').classList.toggle('ativo', ehVolei && dados.sacando === 'timeA');
+            document.getElementById('saque-B').classList.toggle('ativo', ehVolei && dados.sacando === 'timeB');
+
+            
+        });
+
+        function changeCssSport(sport) {
+            const bola = document.getElementById("element-1");
+            const logo = document.getElementById("element-2");
+            const box = document.getElementById("box");
+
+            const pontoMandante = document.querySelector(".pontos-mandante");
+            const pontoVisitante = document.querySelector(".pontos-visitante");
+            const nomeMandante = document.querySelector(".nome-mandante");
+            const nomeVisitante = document.querySelector(".nome-visitante");
+            const logoMandante = document.querySelector(".logo-mandante");
+            const logoVisitante = document.querySelector(".logo-visitante");
+            const tempo = document.querySelector(".tempo");
+
+            const areaSets = document.getElementById("area_sets");
+            const areaQuarter = document.getElementById("area_quarter");
+            const areaFault = document.getElementById("area_fault");
+
+            logo.style.backgroundImage = `url('./base/${sport}/element-2.png')`;
+            bola.style.backgroundImage = `url('./base/${sport}/element-1.png')`;
+            box.style.backgroundImage = `url('./base/${sport}/box.png')`;
+
+            areaSets.hidden = true;
+            areaQuarter.hidden = true;
+            areaFault.hidden = true;
+
+            const sportConfig = {
+                volei: {
+                    pontos: {
+                        mandante: { top: "45.5%", left: "40.5%" },
+                        visitante: { top: "45.5%", left: "59.2%" }
+                    },
+                    nomes: { top: "67%" },
+                    tempo: { top: "19.5%", left: "50%" },
+                    logo: {
+                        mandante: { top: "45.5%", left: "18.4%" },
+                        visitante: { top: "45.5%", left: "81.7%" }
+                    },
+                    extraArea: areaSets
+                },
+                basquete: {
+                    pontos: {
+                        mandante: { top: "56.5%", left: "40.5%" },
+                        visitante: { top: "56.5%", left: "59.2%" }
+                    },
+                    nomes: { top: "80%" },
+                    tempo: { top: "28.5%", left: "43%" },
+                    logo: {
+                        mandante: { top: "58.8%", left: "18.4%" },
+                        visitante: { top: "58.8%", left: "81.7%" }
+                    },
+                    extraArea: areaFault
+                },
+                futsal: {
+                    pontos: {
+                        mandante: { top: "56.5%", left: "40.5%" },
+                        visitante: { top: "56.5%", left: "59.2%" }
+                    },
+                    nomes: { top: "80.5%" },
+                    tempo: { top: "28.5%", left: "43%" },
+                    logo: {
+                        mandante: { top: "58.8%", left: "18.4%" },
+                        visitante: { top: "58.8%", left: "81.7%" }
+                    },
+                    extraArea: areaFault
+                }
+            };
+
+            const config = sportConfig[sport];
+            if (!config) { console.warn(`Esporte "${sport}" não configurado.`); return; }
+
+            pontoMandante.style.top = config.pontos.mandante.top;
+            pontoMandante.style.left = config.pontos.mandante.left;
+            pontoVisitante.style.top = config.pontos.visitante.top;
+            pontoVisitante.style.left = config.pontos.visitante.left;
+
+            logoMandante.style.top = config.logo.mandante.top;
+            logoMandante.style.left = config.logo.mandante.left;
+            logoVisitante.style.top = config.logo.visitante.top;
+            logoVisitante.style.left = config.logo.visitante.left;
+
+            nomeMandante.style.top = config.nomes.top;
+            nomeVisitante.style.top = config.nomes.top;
+
+            tempo.style.top = config.tempo.top;
+            tempo.style.left = config.tempo.left;
+
+            config.extraArea.hidden = false;
+        }
+    </script>
+</body>
+</html>

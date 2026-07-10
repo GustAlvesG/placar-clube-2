@@ -1,0 +1,538 @@
+/* --- CONFIGURAÇÕES BÁSICAS --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    #background-color: #3c0002;
+    background:linear-gradient(to bottom,#490025 , #1D0518) ;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+}
+
+.placar-container {
+    position: relative;
+
+    /* Responsividade */
+    width: 1024px;
+    aspect-ratio: 16 / 8;
+    background-color:#3c0002;
+    background-image: url('./base/background.png');
+    background-size: cover;
+    background-position: center;
+
+    container-type: inline-size;
+
+    overflow: hidden;
+}
+
+/* BOX acima de tudo */
+.box {
+    position: absolute;
+    inset: 0;
+
+    background-image: url('./base/volei/box.png');
+    background-size: cover;
+    background-position: center;
+
+    z-index: 3;
+}
+
+/* ELEMENTOS entre fundo e box */
+.element-1,
+.element-2 {
+    position: absolute;
+
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    z-index: 2;
+}
+
+.element-1 {
+    transform: translate(-50%, -50%);
+    width: 60%;
+    aspect-ratio: 1 / 1;
+
+    top: 70%;
+    left: 92%;
+
+    background-image: url('./base/volei/element-1.png');
+
+    animation: flutuar-1 10s ease-in-out infinite;
+}
+
+.element-2 {
+    transform: translate(-50%, -50%);
+    width: 50%;
+    aspect-ratio: 1 / 1;
+
+    top: 30%;
+    left: -15%;
+
+    background-image: url('./base/volei/element-2.png');
+
+    animation: flutuar-2 6s ease-in-out, spin 90s linear infinite;
+
+}
+
+/* =========================
+   INDICADOR DE SAQUE (vôlei)
+   element-3 = fundo / element-4 = bola piscando
+========================= */
+.saque-indicador {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 6%;
+    aspect-ratio: 1 / 1;
+    z-index: 4;
+    display: none;
+}
+
+.saque-indicador.ativo {
+    display: block;
+}
+
+#saque-A {
+    top: 45%;
+    left: 6%;
+}
+
+#saque-B {
+    top: 45%;
+    left: 94%;
+}
+
+.saque-fundo,
+.saque-bola {
+    position: absolute;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* Fundo ocupa todo o indicador */
+.saque-fundo {
+    inset: 0;
+    background-image: url('./base/volei/element-3.png');
+}
+
+/* Bola menor, centralizada sobre o fundo, piscando via brilho/opacidade */
+.saque-bola {
+    top: 23%;
+    left: 21.5%;
+    width: 55%;
+    aspect-ratio: 1 / 1;
+    transform: translate(-50%, -50%);
+    background-image: url('./base/volei/element-4-on.png');
+    animation: piscar-saque 1s ease-in-out infinite, spin 30s linear infinite;
+}
+
+@keyframes piscar-saque {
+    0%, 100% { opacity: 1; filter: brightness(1.4); }
+    50%      { opacity: 0.25; filter: brightness(0.7); }
+}
+
+
+
+
+/* =========================
+   ANIMAÇÕES
+========================= */
+
+@keyframes flutuar-1 {
+
+    0%{
+        transform:
+            translate(-50%, -50%)
+            scale(1)
+            rotate(0deg)
+            translateY(0px);
+    }
+
+    20%{
+        transform:
+            translate(-50%, -50%)
+            scale(1.03)
+            rotate(1.2deg)
+            translateY(-6px);
+    }
+
+    40%{
+        transform:
+            translate(-50%, -50%)
+            scale(0.985)
+            rotate(-1.5deg)
+            translateY(3px);
+    }
+
+    60%{
+        transform:
+            translate(-50%, -50%)
+            scale(1.02)
+            rotate(0.8deg)
+            translateY(-4px);
+    }
+
+    80%{
+        transform:
+            translate(-50%, -50%)
+            scale(1.01)
+            rotate(-0.6deg)
+            translateY(2px);
+    }
+
+    100%{
+        transform:
+            translate(-50%, -50%)
+            scale(1)
+            rotate(0deg)
+            translateY(0px);
+    }
+}
+
+/* =========================
+   ANIMAÇÃO ELEMENT-2
+========================= */
+
+@keyframes flutuar-2 {
+
+    0%{
+        transform:
+            translate(-50%, -50%)
+            scale(1)
+            rotate(0deg)
+            translateX(0px);
+    }
+
+    25%{
+        transform:
+            translate(-50%, -50%)
+            scale(1.02)
+            rotate(-1deg)
+            translateX(-4px);
+    }
+
+    50%{
+        transform:
+            translate(-50%, -50%)
+            scale(1.04)
+            rotate(1.4deg)
+            translateX(3px);
+    }
+
+    75%{
+        transform:
+            translate(-50%, -50%)
+            scale(0.99)
+            rotate(-0.5deg)
+            translateX(5px);
+    }
+
+    100%{
+        transform:
+            translate(-50%, -50%)
+            scale(1)
+            rotate(0deg)
+            translateX(0px);
+    }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Conteúdo do placar acima dos elementos */
+.logo,
+.tempo,
+.nome,
+.pontos,
+.quarter,
+.faltas-mandante,
+.faltas-visitante,
+.periodo,
+.posse,
+.volei {
+    position: absolute;
+    z-index: 4;
+}
+
+
+/* ================= REGRAS GERAIS DE ALINHAMENTO ================= */
+.elemento-absoluto {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+.quarter{
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    font-size: 4cqw; 
+
+    top: 30.3%;
+    left: 55.8%;
+}
+
+.posse{
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    font-size: 4cqw; 
+
+    top: 30.3%;
+    left: 68.6%;
+}
+
+.faltas-mandante {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    font-size: 4cqw; 
+
+    top: 28.5%;
+    left: 18.4%
+}
+.faltas-visitante {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    font-size: 4cqw; 
+    top: 28.5%;
+    left: 81.6%
+}
+.periodo {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    font-size: 4cqw; 
+
+    top: 28.5%;
+    left: 60%;
+}
+
+.tempo{
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    font-size: 4cqw; 
+
+    /* 
+    FUTSAL 
+    */
+    /* top: 18.7%;
+    left: 49.7%; */
+
+    /* 
+    BASQUETE 
+    */
+    /* top: 30%;
+    left: 44%; */
+
+    /* 
+    VOLEI 
+    */
+    top: 18.7%;
+    left: 49.7%;
+
+}   
+
+/* ================= LOGOS ================= */
+.logo {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 13%; 
+    aspect-ratio: 1 / 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background:cover;
+    filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.6));
+}
+
+.logo-mandante {
+    top: 45.5%;
+    left: 18.4%;
+}
+
+.logo-visitante {
+    top: 45.5%;
+    left: 81.7%;
+}
+
+/* ================= NOMES ================= */
+.nome {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    
+    /* Substituído vw por cqw (Container Query Width) */
+    font-size: 2.5cqw; 
+    
+    text-transform: uppercase;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
+    text-align: center;
+    width: 25%;
+}
+
+.nome-mandante {
+    top: 67%;
+    left: 18.4%;
+}
+
+.nome-visitante {
+    top: 67%;  
+    left: 81.7%;
+}
+
+/* ================= PLACAR CENTRAL ================= */
+.pontos {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    
+    /* Substituído vw por cqw */
+    font-size: 8cqw; 
+    
+    text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.8);
+}
+
+.pontos-mandante {
+    /* FUTSAL */
+    /* top: 45.5%;
+    left: 40.5%; */
+
+    /* BASQUETE */
+    /* top: 56.5%;
+    left: 40.5%; */
+
+    /* VOLEI */
+    top: 45.5%;
+    left: 40.5%;
+}
+
+
+.pontos-visitante {
+    /* FUTSAL */
+    /* top: 45.5%;
+    left: 59.2%; */
+
+    /* BASQUETE */
+    /* top: 56.5%;
+    left: 59.2%; */
+
+    /* VOLEI */
+    top: 45.5%;
+    left: 59.2%;
+}
+
+/* ================= SETS ================= */
+.sets {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-weight: bold;
+    
+    /* Substituído vw por cqw */
+    font-size: 4cqw; 
+    
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
+}
+
+.sets-mandante {
+    top: 78.5%;
+    left: 36.4%;
+}
+
+.sets-atual{
+    top: 77.5%;
+    left: 50%;
+}
+
+.sets-visitante {
+    top: 78.5%;
+    left: 63.7%;
+}
+
+
+.sponsor-carousel-container{
+	position:absolute;
+	top:86.5%;
+	width:100%;
+	overflow:hidden;
+	background-color:transparent;
+	padding:10px;
+	box-sizing:border-box;
+}
+.sponsor-track{
+	display:flex;
+	
+	width:max-content;
+	animation:infiniteScroll 14s linear infinite;
+	
+}
+.sponsor-group{
+	display:flex;
+	gap:50px;
+	padding right:30px;
+}
+.sponsor-item{
+	width:150px;
+	height:60px;
+	background-color:transparent;
+	color:white;
+	display:flex;
+	justify-content:center;
+	align-items:center;
+	border-radius:8px;
+	font-family:sans-serif;
+	font-weight:bold;
+}
+.sponsor-item img{
+	max-height: 75%;
+	min-height:70%;
+	object-fit:contain;
+}
+@keyframes infiniteScroll{
+	0%{
+		transform: translateX(200%);
+	}
+	100%{
+		transform: translateX(-100%);
+	}
+}

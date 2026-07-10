@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Controle - Vôlei</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        .font-digital { font-family: 'Share Tech Mono', monospace; }
+        body { user-select: none; height: 100vh; height: 100dvh; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white w-full flex flex-col overflow-hidden">
+
+    <nav class="bg-gray-900 shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-700 text-sm">
+        <a href="index.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">⚙️ CONFIG</a>
+        <span class="text-blue-300 font-black tracking-wider">🏐 VÔLEI</span>
+        <a href="controle_anuncios.html" class="ml-auto text-gray-400 hover:text-yellow-400 font-bold transition">📺 ANÚNCIOS</a>
+    </nav>
+
+    <div class="flex-1 min-h-0 flex flex-row p-2 gap-2 overflow-hidden">
+
+        <!-- TIME A -->
+        <div class="flex-1 bg-gray-800 rounded-3xl p-2 flex flex-col border-4 border-blue-900 shadow-2xl">
+            <div class="w-full flex flex-col items-center gap-1.5">
+                <h2 id="nome-a" class="text-base font-bold text-blue-400 tracking-widest uppercase text-center">TIME A</h2>
+                <div class="bg-black w-full rounded-2xl py-2 flex justify-center items-center shadow-inner">
+                    <span id="score-a" class="font-digital text-5xl md:text-6xl text-blue-500 leading-none">0</span>
+                </div>
+                <button data-lockable onclick="marcar('timeA')" class="w-full bg-blue-600 active:bg-blue-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
+                <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
+            </div>
+            <!-- Sets -->
+            <div class="w-full space-y-1 mt-auto pt-2">
+                <div class="text-center text-blue-400 text-sm font-bold">
+                    Sets: <span id="sets-a" class="text-white text-xl font-digital">0</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="cmdPlacar('timeA', 'add_set', 1)" class="flex-1 bg-blue-700 active:bg-blue-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform">+Set</button>
+                    <button onclick="cmdPlacar('timeA', 'sub_set', 1)" class="flex-1 bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 font-bold py-1.5 rounded-xl transition-transform">−Set</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTRO -->
+        <div class="w-28 md:w-40 bg-gray-950 flex flex-col items-center justify-center gap-2 p-2 rounded-3xl border border-gray-700 overflow-hidden">
+
+            <!-- Cronômetro crescente -->
+            <div class="bg-black rounded-2xl w-full flex items-center justify-center py-3 border border-gray-700">
+                <span id="timer-display" class="font-digital text-2xl md:text-3xl text-yellow-400 leading-none">00:00</span>
+            </div>
+            <button onclick="cmdCronometro('play')" class="w-full bg-green-700 active:bg-green-600 active:scale-95 text-white font-black py-3 rounded-xl text-sm transition-transform">▶ PLAY</button>
+            <button onclick="cmdCronometro('pause')" class="w-full bg-yellow-700 active:bg-yellow-600 active:scale-95 text-white font-black py-3 rounded-xl text-sm transition-transform">⏸ PAUSA</button>
+
+            <!-- Indicador de saque -->
+            <!-- <div class="w-full border-t border-gray-700 pt-3">
+                <div class="text-xs text-gray-400 font-bold uppercase tracking-widest text-center mb-2">Sacando</div>
+                <div class="flex flex-col gap-2 w-full">
+                    <button onclick="setSaque('timeA')" id="btn-saque-a" class="w-full bg-blue-800 active:bg-blue-600 active:scale-95 text-blue-200 font-bold py-2 rounded-xl text-xs transition-transform border-2 border-transparent">◀ TIME A</button>
+                    <button onclick="setSaque(null)" class="w-full bg-gray-700 active:bg-gray-600 active:scale-95 text-gray-300 font-bold py-2 rounded-xl text-xs transition-transform">nenhum</button>
+                    <button onclick="setSaque('timeB')" id="btn-saque-b" class="w-full bg-red-800 active:bg-red-600 active:scale-95 text-red-200 font-bold py-2 rounded-xl text-xs transition-transform border-2 border-transparent">TIME B ▶</button>
+                </div>
+            </div> -->
+
+            <!-- Zerar -->
+            <button onclick="zerarTudo()" class="w-full bg-red-950 active:bg-red-900 active:scale-95 text-red-400 font-bold py-2 rounded-xl text-xs border border-red-800 transition-transform">⚠ ZERAR</button>
+        </div>
+
+        <!-- TIME B -->
+        <div class="flex-1 bg-gray-800 rounded-3xl p-2 flex flex-col border-4 border-red-900 shadow-2xl">
+            <div class="w-full flex flex-col items-center gap-1.5">
+                <h2 id="nome-b" class="text-base font-bold text-red-400 tracking-widest uppercase text-center">TIME B</h2>
+                <div class="bg-black w-full rounded-2xl py-2 flex justify-center items-center shadow-inner">
+                    <span id="score-b" class="font-digital text-5xl md:text-6xl text-red-500 leading-none">0</span>
+                </div>
+                <button data-lockable onclick="marcar('timeB')" class="w-full bg-red-600 active:bg-red-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
+                <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 active:bg-red-800 active:scale-95 text-red-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
+            </div>
+            <!-- Sets -->
+            <div class="w-full space-y-1 mt-auto pt-2">
+                <div class="text-center text-red-400 text-sm font-bold">
+                    Sets: <span id="sets-b" class="text-white text-xl font-digital">0</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="cmdPlacar('timeB', 'add_set', 1)" class="flex-1 bg-red-700 active:bg-red-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform">+Set</button>
+                    <button onclick="cmdPlacar('timeB', 'sub_set', 1)" class="flex-1 bg-red-900 active:bg-red-800 active:scale-95 text-red-300 font-bold py-1.5 rounded-xl transition-transform">−Set</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal de seleção de jogador -->
+    <div id="modal-jogador" class="hidden fixed inset-0 z-50 bg-black/80 flex flex-col">
+        <div class="shrink-0 p-4 border-b border-gray-700 bg-gray-900">
+            <p id="modal-titulo" class="text-center text-white font-black text-xl"></p>
+        </div>
+        <div id="modal-lista" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 gap-3 content-start"></div>
+        <div class="shrink-0 p-4 border-t border-gray-700 bg-gray-900">
+            <button onclick="confirmarSemJogador()" class="w-full bg-gray-700 active:bg-gray-600 active:scale-95 text-gray-200 font-bold py-4 rounded-xl text-lg transition-transform">
+                Sem jogador específico
+            </button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let estadoAtual = null;
+        let pendingAcao = null;
+
+        function atualizarBloqueio(rodando) {
+            document.querySelectorAll('[data-lockable]').forEach(btn => {
+                btn.disabled = !rodando;
+                btn.classList.toggle('opacity-40', !rodando);
+                btn.classList.toggle('cursor-not-allowed', !rodando);
+            });
+        }
+
+        socket.on('atualizar_tela', (dados) => {
+            if (dados.serverTime && dados.cronometro) {
+                const clockOffset = Date.now() - dados.serverTime;
+                dados.cronometro.inicioTimestamp += clockOffset;
+            }
+            //Checar se existe um esporte, se nao, voltar para a tela de escolha
+
+            estadoAtual = dados;
+            document.getElementById('nome-a').innerText = dados.timeA.nome || 'TIME A';
+            document.getElementById('nome-b').innerText = dados.timeB.nome || 'TIME B';
+            document.getElementById('score-a').innerText = dados.timeA.placar;
+            document.getElementById('score-b').innerText = dados.timeB.placar;
+            document.getElementById('sets-a').innerText = dados.timeA.sets;
+            document.getElementById('sets-b').innerText = dados.timeB.sets;
+
+            atualizarBloqueio(dados.cronometro.rodando);
+        });
+
+        // Cronômetro crescente (MM:SS)
+        setInterval(() => {
+            if (!estadoAtual) return;
+            const crono = estadoAtual.cronometro;
+            let elapsed = crono.tempoAcumulado;
+            if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
+            const totalSeg = Math.floor(elapsed / 1000);
+            const min = Math.floor(totalSeg / 60);
+            const seg = totalSeg % 60;
+            document.getElementById('timer-display').innerText =
+                `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+        }, 500);
+
+        function marcar(time) {
+            const elenco = estadoAtual?.[time]?.elenco || [];
+            if (elenco.length > 0) abrirModal(time, 'add_ponto', 1, elenco);
+            else socket.emit('comando_placar', { time, acao: 'add_ponto', valor: 1 });
+        }
+
+        function cmdPlacar(time, acao, valor) {
+            socket.emit('comando_placar', { time, acao, valor });
+        }
+
+        function abrirModal(time, acao, valor, elenco) {
+            pendingAcao = { time, acao, valor };
+            const titulos = { add_ponto: `+${valor} — Quem marcou?`, add_falta: 'Falta — Qual jogador?' };
+            document.getElementById('modal-titulo').innerText = titulos[acao] || 'Selecione o jogador';
+            const lista = document.getElementById('modal-lista');
+            lista.innerHTML = '';
+            elenco.forEach(j => {
+                const btn = document.createElement('button');
+                btn.className = 'bg-gray-700 active:bg-gray-600 active:scale-95 text-white rounded-xl py-4 px-2 flex flex-col items-center justify-center gap-1 transition-transform';
+                btn.innerHTML = `<span class="font-black leading-none text-5xl">${j.numero || '—'}</span><span class="text-xs text-gray-300 truncate max-w-full">${(j.nome || '').replace(/</g, '&lt;')}</span>`;
+                btn.onclick = () => confirmarComJogador(j);
+                lista.appendChild(btn);
+            });
+            document.getElementById('modal-jogador').classList.remove('hidden');
+        }
+
+        function confirmarComJogador(jogador) {
+            document.getElementById('modal-jogador').classList.add('hidden');
+            if (!pendingAcao) return;
+            socket.emit('comando_placar', { ...pendingAcao, jogador });
+            pendingAcao = null;
+        }
+
+        function confirmarSemJogador() {
+            document.getElementById('modal-jogador').classList.add('hidden');
+            if (!pendingAcao) return;
+            socket.emit('comando_placar', { ...pendingAcao });
+            pendingAcao = null;
+        }
+
+        function cmdCronometro(acao) {
+            socket.emit('comando_cronometro', { acao });
+        }
+
+        function zerarTudo() {
+            if (confirm('Zerar placar e sets?')) {
+                socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            }
+        }
+    </script>
+</body>
+</html>

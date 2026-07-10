@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Placar</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+
+    <div class="placar-container">
+
+        <div id="box" class="box"></div>
+
+        <div id="element-1" class="element-1"></div>
+        <div id="element-2" class="element-2"></div>
+        
+        <div id="logos">
+            <div id="logo-mandante" class="logo logo-mandante">
+                <!-- <img src="logo-time-a.png" alt="Logo Mandante"> -->
+            </div>
+            <div id="logo-visitante" class="logo logo-visitante">
+                <!-- <img src="logo-time-b.png" alt="Logo Visitante"> -->
+            </div>
+        </div>
+
+        <div id="tempo" class="tempo">00:00:00</div>
+
+        <div id="nomes">
+            <div id="nomeA" class="nome nome-mandante">TIME MANDANTE</div>
+            <div id="nomeB" class="nome nome-visitante">TIME VISITANTE</div>
+        </div>
+
+        <div id="pontos">
+            <div id="placarA" class="pontos pontos-mandante">14</div>
+            <div id="placarB" class="pontos pontos-visitante">12</div>
+        </div>
+
+        <div id="area_quarter">
+            <div class="quarter">1</div>
+            <div class="posse">60</div>
+        </div>
+
+        <div id="area_fault">
+            <div class="faltas-mandante">2</div>
+            <div class="periodo">2</div>
+            <div class="faltas-visitante">3</div>
+        </div>
+
+        <div id="area_sets">
+            <div id="setsA" class="volei sets sets-mandante">2</div>
+            <div id="setsT" class="volei sets sets-atual">1</div>
+            <div id="setsB" class="volei sets sets-visitante">1</div>
+        </div>
+
+    </div>
+<script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let estadoLocal = null;
+        let timeoutAnimacao;
+
+        // Lógica de Vídeo {
+        // const videoPlayer = document.getElementById('videoPlayer');
+        // socket.on('executar_video', (dados) => {
+        //     if (dados.acao === 'play') {
+        //         videoPlayer.src = `/videos/${dados.arquivo}`;
+                
+        //         // ADICIONE ESTA LINHA: Força o navegador a engolir o novo arquivo
+        //         videoPlayer.load(); 
+                
+        //         videoPlayer.classList.remove('hidden');
+                
+        //         // O resto continua igual
+        //         videoPlayer.play().catch((erro) => {
+        //             console.error("Erro ao reproduzir o vídeo:", erro);
+        //             videoPlayer.classList.add('hidden');
+        //         });
+
+        //     } else if (dados.acao === 'stop') {
+        //         videoPlayer.pause();
+        //         videoPlayer.src = '';
+        //         videoPlayer.classList.add('hidden');
+        //     }
+        // });
+        // videoPlayer.addEventListener('ended', () => videoPlayer.classList.add('hidden'));
+        // }
+        // Lógica do Placar e Layout
+        
+        socket.on('atualizar_tela', (dados) => {
+            console.log("Atualizar tela")
+            if (dados.serverTime && dados.cronometro) {
+                const clockOffset = Date.now() - dados.serverTime;
+                dados.cronometro.inicioTimestamp += clockOffset;
+            }
+
+            changeCssSport(dados.esporte);
+            estadoLocal = dados;
+            console.log(dados);
+            document.getElementById('nomeA').innerText = dados.timeA.nome;
+            document.getElementById('nomeB').innerText = dados.timeB.nome;
+            // document.getElementById('placarA').innerText = dados.timeA.placar;
+            // document.getElementById('placarB').innerText = dados.timeB.placar;
+            // document.getElementById('setsA').innerText = dados.timeA.sets;
+            // document.getElementById('setsB').innerText = dados.timeB.sets;
+            
+
+            if(dados.timeA.logo) { document.getElementById('logoA').src = dados.timeA.logo; document.getElementById('logoA').classList.remove('hidden'); }
+            if(dados.timeB.logo) { document.getElementById('logoB').src = dados.timeB.logo; document.getElementById('logoB').classList.remove('hidden'); }
+
+            // document.getElementById('saqueA').classList.add('hidden'); document.getElementById('saqueB').classList.add('hidden');
+            // if(dados.esporte === 'volei') {
+            //     if (dados.sacando === 'timeA') document.getElementById('saqueA').classList.remove('hidden');
+            //     if (dados.sacando === 'timeB') document.getElementById('saqueB').classList.remove('hidden');
+            // }
+
+            
+        });
+
+        function changeCssSport(sport) {
+            console.log("Definindo posições dos elementos via CSS")
+
+            bola = document.getElementById('element-1')
+            logo = document.getElementById('element-2')
+            box = document.getElementById('box')
+            pontoMandante = document.querySelector('.pontos-mandante');
+            pontoVisitante = document.querySelector('.pontos-visitante');
+            nomeMandante = document.querySelector('.nome-mandante');
+            nomeVisitante = document.querySelector('.nome-visitante');
+            
+            tempo = document.querySelector('.tempo');
+            periodo = document.querySelector('.periodo');
+
+            logo.style.backgroundImage = "url('./base/" + sport + "/element-2.png')";
+            bola.style.backgroundImage = "url('./base/" + sport + "/element-1.png')";
+            box.style.backgroundImage = "url('./base/" + sport + "/box.png')";
+            
+            document.getElementById('area_sets').hidden = true;
+            document.getElementById('area_quarter').hidden = true;
+            document.getElementById('area_fault').hidden = true;
+
+            if (sport == 'volei'){
+                pontoMandante.style.top = "45.5%"
+                pontoMandante.style.left = "40.5%"
+
+                pontoVisitante.style.top = "45.5%"
+                pontoVisitante.style.left = "59.2%"
+
+                nomeMandante.style.top = "67%"
+                nomeVisitante.style.top = "67%"
+                
+                tempo.style.top = "19%"
+                tempo.style.left = "50%"
+                tempo.innerText = "00:00"
+
+
+                document.getElementById('area_sets').hidden = false;
+            } else if (sport == 'basquete'){
+                pontoMandante.style.top = "56.5%"
+                pontoMandante.style.left = "40.5%"
+                
+                pontoVisitante.style.top = "56.5%"
+                pontoVisitante.style.left = "59.2%"
+
+                nomeMandante.style.top = "80%"
+                nomeVisitante.style.top = "80%"
+                
+                tempo.style.top = "30.3%"
+                tempo.style.left = "37.3%"
+                tempo.innerText = "00:00:00"
+
+                document.getElementById('area_quarter').hidden = false;
+            } else if (sport == 'futsal'){
+                pontoMandante.style.top = "56.5%"
+                pontoMandante.style.left = "40.5%"
+                
+                pontoVisitante.style.top = "56.5%"
+                pontoVisitante.style.left = "59.2%"
+                
+                nomeMandante.style.top = "80.5%"
+                nomeVisitante.style.top = "80.5%"
+
+                // periodo.style.top = "28%"
+                // periodo.style.left = "60%"
+                
+                tempo.style.top = "28%"
+                tempo.style.left = "44%"
+                tempo.innerText = "00:00"
+                document.getElementById('area_fault').hidden = false;
+            }
+            
+        }
+    </script>
+</body>
+</html>

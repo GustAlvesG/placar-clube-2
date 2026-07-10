@@ -28,7 +28,7 @@
                 <div class="bg-black w-full rounded-2xl py-2 flex justify-center items-center shadow-inner">
                     <span id="score-a" class="font-digital text-5xl md:text-6xl text-blue-500 leading-none">0</span>
                 </div>
-                <button data-lockable onclick="marcar('timeA')" class="w-full bg-blue-600 active:bg-blue-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
+                <button onclick="marcar('timeA')" class="w-full bg-blue-600 active:bg-blue-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
                 <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
             </div>
             <!-- Sets -->
@@ -74,7 +74,7 @@
                 <div class="bg-black w-full rounded-2xl py-2 flex justify-center items-center shadow-inner">
                     <span id="score-b" class="font-digital text-5xl md:text-6xl text-red-500 leading-none">0</span>
                 </div>
-                <button data-lockable onclick="marcar('timeB')" class="w-full bg-red-600 active:bg-red-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
+                <button onclick="marcar('timeB')" class="w-full bg-red-600 active:bg-red-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
                 <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 active:bg-red-800 active:scale-95 text-red-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
             </div>
             <!-- Sets -->
@@ -110,14 +110,6 @@
         let estadoAtual = null;
         let pendingAcao = null;
 
-        function atualizarBloqueio(rodando) {
-            document.querySelectorAll('[data-lockable]').forEach(btn => {
-                btn.disabled = !rodando;
-                btn.classList.toggle('opacity-40', !rodando);
-                btn.classList.toggle('cursor-not-allowed', !rodando);
-            });
-        }
-
         socket.on('atualizar_tela', (dados) => {
             if (dados.serverTime && dados.cronometro) {
                 const clockOffset = Date.now() - dados.serverTime;
@@ -132,8 +124,6 @@
             document.getElementById('score-b').innerText = dados.timeB.placar;
             document.getElementById('sets-a').innerText = dados.timeA.sets;
             document.getElementById('sets-b').innerText = dados.timeB.sets;
-
-            atualizarBloqueio(dados.cronometro.rodando);
         });
 
         // Cronômetro crescente (MM:SS)

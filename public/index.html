@@ -286,9 +286,10 @@
             document.getElementById('nomeA').innerText = dados.timeA.nome;
             document.getElementById('nomeB').innerText = dados.timeB.nome;
 
-            // Placar
-            document.getElementById('placarA').innerText = dados.timeA.placar;
-            document.getElementById('placarB').innerText = dados.timeB.placar;
+            // Placar (basquete sempre com 2 dígitos: 01, 02... 09, 10)
+            const formatarPlacar = (p) => dados.esporte === 'basquete' ? String(p).padStart(2, '0') : p;
+            document.getElementById('placarA').innerText = formatarPlacar(dados.timeA.placar);
+            document.getElementById('placarB').innerText = formatarPlacar(dados.timeB.placar);
 
             // Sets (vôlei)
             document.getElementById('setsA').innerText = dados.timeA.sets;

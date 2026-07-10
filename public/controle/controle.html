@@ -31,9 +31,9 @@
 
             <!-- Botões + ponto -->
             <div class="flex gap-2 w-full">
-                <button data-lockable onclick="marcar('timeA', 1)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
-                <button data-lockable id="btn-a-2" onclick="marcar('timeA', 2)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
-                <button data-lockable id="btn-a-3" onclick="marcar('timeA', 3)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
+                <button onclick="marcar('timeA', 1)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
+                <button id="btn-a-2" onclick="marcar('timeA', 2)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
+                <button id="btn-a-3" onclick="marcar('timeA', 3)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
             </div>
 
             <!-- Botão - ponto -->
@@ -52,7 +52,7 @@
             <div id="faltas-area-a" class="hidden w-full space-y-1">
                 <div class="text-center text-blue-400 text-xs font-bold uppercase tracking-wide">Faltas: <span id="faltas-a" class="text-white font-digital text-base">0</span></div>
                 <div class="flex gap-2">
-                    <button data-lockable onclick="cmdPlacar('timeA', 'add_falta', 1)" class="flex-1 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
+                    <button onclick="cmdPlacar('timeA', 'add_falta', 1)" class="flex-1 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
                     <button onclick="cmdPlacar('timeA', 'sub_falta', 1)" class="flex-1 bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 font-bold py-2 rounded-xl transition-transform text-sm">−Falta</button>
                 </div>
             </div>
@@ -103,9 +103,9 @@
 
             <!-- Botões + ponto -->
             <div class="flex gap-2 w-full">
-                <button data-lockable onclick="marcar('timeB', 1)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
-                <button data-lockable id="btn-b-2" onclick="marcar('timeB', 2)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
-                <button data-lockable id="btn-b-3" onclick="marcar('timeB', 3)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
+                <button onclick="marcar('timeB', 1)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
+                <button id="btn-b-2" onclick="marcar('timeB', 2)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
+                <button id="btn-b-3" onclick="marcar('timeB', 3)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
             </div>
 
             <!-- Botão - ponto -->
@@ -124,7 +124,7 @@
             <div id="faltas-area-b" class="hidden w-full space-y-1">
                 <div class="text-center text-red-400 text-xs font-bold uppercase tracking-wide">Faltas: <span id="faltas-b" class="text-white font-digital text-base">0</span></div>
                 <div class="flex gap-2">
-                    <button data-lockable onclick="cmdPlacar('timeB', 'add_falta', 1)" class="flex-1 bg-red-700 hover:bg-red-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
+                    <button onclick="cmdPlacar('timeB', 'add_falta', 1)" class="flex-1 bg-red-700 hover:bg-red-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
                     <button onclick="cmdPlacar('timeB', 'sub_falta', 1)" class="flex-1 bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 font-bold py-2 rounded-xl transition-transform text-sm">−Falta</button>
                 </div>
             </div>
@@ -181,16 +181,6 @@
                 document.getElementById(id).classList.toggle('hidden', !temFaltas)
             );
             document.getElementById('periodo-area').classList.toggle('hidden', !temPeriodo);
-
-            atualizarBloqueio(dados.cronometro.rodando);
-        }
-
-        function atualizarBloqueio(rodando) {
-            document.querySelectorAll('[data-lockable]').forEach(btn => {
-                btn.disabled = !rodando;
-                btn.classList.toggle('opacity-40', !rodando);
-                btn.classList.toggle('cursor-not-allowed', !rodando);
-            });
         }
 
         // Cronômetro em tempo real (50ms para centissegundos do basquete)

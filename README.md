@@ -142,7 +142,7 @@ Telão (index.html) + Controles (recebem estado)
 | `comando_placar` | `{ time, acao, valor, jogador? }` | Marca pontos, faltas, sets, período |
 | `comando_cronometro` | `{ acao, valor?, segundos? }` | Controla timer (play/pause/set) |
 | `comando_transmissao` | `{ ativa: boolean }` | Liga/desliga transmissão |
-| `comando_video` | `{ acao, arquivo? }` | Play/stop de vídeos |
+| `comando_video` | `{ acao, arquivo?, arquivos?, loop? }` | Play/stop de vídeos; `loop: true` repete a playlist até o STOP |
 | `solicitar_videos` | `{}` | Lista vídeos em `public/videos/` |
 
 #### Do Servidor para Clientes
@@ -152,7 +152,18 @@ Telão (index.html) + Controles (recebem estado)
 | `atualizar_tela` | `{ ...gameState, serverTime }` | Broadcast do estado completo |
 | `animacao_ponto` | `{ texto, jogador, timeNome }` | Animação ao marcar ponto/falta |
 | `executar_video` | `{ acao, arquivo? }` | Instrui telão a tocar vídeo |
-| `lista_videos` | `[filenames]` | Lista de vídeos disponíveis |
+| `lista_videos` | `[filenames]` | Lista de vídeos disponíveis (também broadcast após upload/exclusão) |
+
+#### Endpoints HTTP (upload/exclusão de arquivos)
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/api/upload/video?nome=arquivo.mp4` | Grava o corpo da requisição em `public/videos/` (stream) |
+| `POST` | `/api/upload/patrocinador?nome=logo.png` | Grava em `public/patrocinadores/` e rebroadcast o estado |
+| `DELETE` | `/api/video/:nome` | Exclui o vídeo do servidor |
+| `DELETE` | `/api/patrocinador/:nome` | Exclui a logo e rebroadcast o estado |
+
+Nomes são sanitizados no servidor (sem path traversal) e a extensão precisa ser válida para o tipo (vídeos: `.mp4 .webm .mov .avi .mkv`; imagens: `.png .jpg .jpeg .gif .webp .svg`).
 
 ---
 
@@ -164,6 +175,9 @@ Telão (index.html) + Controles (recebem estado)
   sacando: 'timeA' | 'timeB' | null,
   periodo: number,                    // 1, 2, 3...
   transmissaoAtiva: boolean,
+  patrocinadores: [string],             // nomes dos arquivos de imagem em
+                                        // public/patrocinadores/ (carrossel do telão),
+                                        // sincronizado pelo servidor a cada upload/exclusão
   
   timeA: {
     nome: string,
@@ -295,6 +309,7 @@ Instancia Express + Socket.IO, expõe handlers de socket para receber eventos do
 - Seleciona esporte (futsal/basquete/vôlei)
 - Cadastra nome e logo de cada time (upload de imagem)
 - **Cadastro de Elenco**: adiciona jogadores com número, nome e foto (opcional)
+- **Importar elenco** (.txt/.csv/.xlsx): uma linha por jogador, ex. `10;João Silva` (aceita `;`, `,`, TAB ou espaço como separador; em planilhas, colunas Número/Nome) — a página traz um guia com exemplos dos dois formatos
 - Clicar **SALVAR** emite `configurar_jogo` com `timeA_elenco` e `timeB_elenco`
 - Botão de **INICIAR/ENCERRAR TRANSMISSÃO** toggle `transmissaoAtiva`
 
@@ -339,10 +354,14 @@ Ao clicar +ponto/+falta, se o time tiver elenco cadastrado:
 ### 4. Anúncios (`/controle/controle_anuncios.html`)
 
 - **Coluna esquerda**: lista de vídeos em `public/videos/`
+  - **⬆ Enviar vídeo**: faz upload permanente para o servidor (`public/videos/`)
+  - **🗑** em cada vídeo: exclui o arquivo do servidor (com confirmação)
 - **Coluna direita**: fila de reprodução
 - Adicionar vídeo à fila com botão **+ Adicionar**
 - **REPRODUZIR FILA**: emite `comando_video` com array de arquivos
-- Telão toca sequencialmente, ao terminar o último retorna ao placar
+- Toggle **🔁 LOOP**: com ele marcado, a fila reinicia do começo ao terminar o último vídeo (até clicar em ⏹ PARAR)
+- **Patrocinadores**: seção com as logos do carrossel do telão — **⬆ Enviar logo** grava em `public/patrocinadores/` e o **×** exclui; o telão atualiza na hora em todas as telas
+- Telão toca sequencialmente, ao terminar o último retorna ao placar (ou reinicia a fila, se em loop)
 
 ### 5. Telão (Placar) (`/index.html`)
 

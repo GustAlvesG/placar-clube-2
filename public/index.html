@@ -102,27 +102,9 @@
             <div id="setsT" class="volei sets sets-atual"></div>
             <div id="setsB" class="volei sets sets-visitante"></div>
         </div>
-	<div class="sponsor-carousel-container">
-		<div class="sponsor-track" id="sponsorTrack">
-			<div class="sponsor-group">
-				<div class="sponsor-item"> 
-					<img src="patrocinadores/CEJA.png" alt="CEJA">
-				</div>
-				<div class="sponsor-item"> 
-					<img src="patrocinadores/7RPX.png" alt="7RPX">
-				</div>
-				<div class="sponsor-item"> 
-					<img src="patrocinadores/GOV.png" alt="GOV">
-				</div>
-				<div class="sponsor-item"> 
-					<img src="patrocinadores/Regener.png" alt="Regener">
-				</div>
-				<div class="sponsor-item"> 
-					<img src="patrocinadores/TVRIOSUL.png" alt="TV Rio Sul">
-				</div>
-
-			</div>
-		</div>
+	<!-- Preenchido dinamicamente com as imagens de public/patrocinadores/ (via estado) -->
+	<div class="sponsor-carousel-container" style="display:none;">
+		<div class="sponsor-track" id="sponsorTrack"></div>
 	</div>
     </div>
 
@@ -131,15 +113,32 @@
         const socket = io();
         let estadoLocal = null;
 
-        // Lógica de Vídeo com playlist sequencial
+        // Lógica de Vídeo com playlist sequencial (com loop opcional)
         const videoPlayer = document.getElementById('videoPlayer');
         let videoQueue = [];
+        let playlistOriginal = [];
+        let playlistLoop = false;
+        let tocouNoCiclo = false; // evita loop infinito se todos os vídeos falharem
+
+        function pararReproducao() {
+            videoQueue = [];
+            playlistOriginal = [];
+            playlistLoop = false;
+            tocouNoCiclo = false;
+            videoPlayer.pause();
+            videoPlayer.src = '';
+            videoPlayer.classList.add('hidden');
+        }
 
         function playNext() {
             if (videoQueue.length === 0) {
-                videoPlayer.src = '';
-                videoPlayer.classList.add('hidden');
-                return;
+                if (playlistLoop && playlistOriginal.length > 0 && tocouNoCiclo) {
+                    videoQueue = [...playlistOriginal];
+                    tocouNoCiclo = false;
+                } else {
+                    pararReproducao();
+                    return;
+                }
             }
             const arquivo = videoQueue.shift();
             videoPlayer.src = `/videos/${arquivo}`;
@@ -158,20 +157,23 @@
 
         socket.on('executar_video', (dados) => {
             if (dados.acao === 'playlist') {
-                videoQueue = [...(dados.arquivos || [])];
+                playlistOriginal = [...(dados.arquivos || [])];
+                playlistLoop = !!dados.loop;
+                tocouNoCiclo = false;
+                videoQueue = [...playlistOriginal];
                 playNext();
             } else if (dados.acao === 'play') {
-                videoQueue = [dados.arquivo];
+                playlistOriginal = [dados.arquivo];
+                playlistLoop = !!dados.loop;
+                tocouNoCiclo = false;
+                videoQueue = [...playlistOriginal];
                 playNext();
             } else if (dados.acao === 'stop') {
-                videoQueue = [];
-                videoPlayer.pause();
-                videoPlayer.src = '';
-                videoPlayer.classList.add('hidden');
+                pararReproducao();
             }
         });
 
-        videoPlayer.addEventListener('ended', playNext);
+        videoPlayer.addEventListener('ended', () => { tocouNoCiclo = true; playNext(); });
 
         // Animação de ponto / falta
         socket.on('animacao_ponto', ({ texto, jogador, timeNome }) => {
@@ -232,6 +234,36 @@
             const tempoEl = document.getElementById('tempo');
             if (tempoEl && display) tempoEl.innerText = display;
         }, 50);
+
+        // Carrossel de patrocinadores: o estado traz os nomes dos arquivos de
+        // imagem em public/patrocinadores/ (gerenciados pela aba Anúncios).
+        // A assinatura evita reconstruir o DOM (e reiniciar a animação CSS) a cada broadcast.
+        let patrocinadoresAssinatura = null;
+        function renderPatrocinadores(lista) {
+            const nomes = Array.isArray(lista) ? lista : [];
+            const assinatura = nomes.join('|');
+            if (assinatura === patrocinadoresAssinatura) return;
+            patrocinadoresAssinatura = assinatura;
+
+            const container = document.querySelector('.sponsor-carousel-container');
+            const track = document.getElementById('sponsorTrack');
+            track.innerHTML = '';
+            container.style.display = nomes.length ? '' : 'none';
+            if (nomes.length === 0) return;
+
+            const grupo = document.createElement('div');
+            grupo.className = 'sponsor-group';
+            nomes.forEach(nome => {
+                const item = document.createElement('div');
+                item.className = 'sponsor-item';
+                const img = document.createElement('img');
+                img.src = `patrocinadores/${encodeURIComponent(nome)}`;
+                img.alt = nome.replace(/\.[^.]+$/, '');
+                item.appendChild(img);
+                grupo.appendChild(item);
+            });
+            track.appendChild(grupo);
+        }
 
         // Atualização principal da tela
         socket.on('atualizar_tela', (dados) => {
@@ -306,6 +338,9 @@
             const ehVolei = dados.esporte === 'volei';
             document.getElementById('saque-A').classList.toggle('ativo', ehVolei && dados.sacando === 'timeA');
             document.getElementById('saque-B').classList.toggle('ativo', ehVolei && dados.sacando === 'timeB');
+
+            // Carrossel de patrocinadores
+            renderPatrocinadores(dados.patrocinadores);
 
             
         });

@@ -509,7 +509,7 @@ body {
 .sponsor-group{
 	display:flex;
 	gap:50px;
-	padding right:30px;
+	padding-right:30px;
 }
 .sponsor-item{
 	width:150px;

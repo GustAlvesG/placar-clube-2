@@ -17,43 +17,115 @@
         <span class="text-purple-400 font-black tracking-wider">📺 ANÚNCIOS</span>
     </nav>
 
-    <!-- Área principal -->
-    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+    <!-- Sub-abas: Vídeos / Slides -->
+    <div class="bg-gray-900/60 shrink-0 flex gap-2 px-4 py-2 border-b border-gray-800">
+        <button id="tab-videos-btn" onclick="mostrarPainel('videos')" class="text-xs font-black px-4 py-2 rounded-lg transition">🎬 Vídeos</button>
+        <button id="tab-slides-btn" onclick="mostrarPainel('slides')" class="text-xs font-black px-4 py-2 rounded-lg transition">🖼️ Slides</button>
+    </div>
 
-        <!-- Coluna esquerda: vídeos disponíveis -->
-        <div class="flex-1 flex flex-col border-r border-gray-700 overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 gap-2">
-                <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Vídeos disponíveis</h2>
-                <div class="flex items-center gap-2">
-                    <span id="status-upload-video" class="text-xs text-purple-300"></span>
-                    <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
-                        ⬆ Enviar vídeo
-                        <input type="file" accept=".mp4,.webm,.mov,.avi,.mkv" multiple class="hidden" onchange="enviarArquivos('video', this)">
-                    </label>
-                    <button onclick="carregarVideos()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
+    <!-- ================= PAINEL: VÍDEOS ================= -->
+    <div id="painel-videos" class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+            <!-- Coluna esquerda: vídeos disponíveis -->
+            <div class="flex-1 flex flex-col border-r border-gray-700 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 gap-2">
+                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Vídeos disponíveis</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="status-upload-video" class="text-xs text-purple-300"></span>
+                        <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
+                            ⬆ Enviar vídeo
+                            <input type="file" accept=".mp4,.webm,.mov,.avi,.mkv" multiple class="hidden" onchange="enviarArquivos('video', this)">
+                        </label>
+                        <button onclick="carregarVideos()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
+                    </div>
+                </div>
+
+                <div id="lista-videos" class="flex-1 overflow-y-auto p-3 space-y-2">
+                    <p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>
                 </div>
             </div>
 
-            <div id="lista-videos" class="flex-1 overflow-y-auto p-3 space-y-2">
-                <p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>
+            <!-- Coluna direita: fila de reprodução -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Fila de reprodução</h2>
+                    <button onclick="limparFila()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-400 px-3 py-1.5 rounded-lg transition-transform font-bold">🗑 Limpar</button>
+                </div>
+
+                <div id="fila-reprodução" class="flex-1 overflow-y-auto p-3 space-y-2">
+                    <p id="fila-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum vídeo na fila.<br>Adicione vídeos da lista ao lado.</p>
+                </div>
             </div>
         </div>
 
-        <!-- Coluna direita: fila de reprodução -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-                <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Fila de reprodução</h2>
-                <button onclick="limparFila()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-400 px-3 py-1.5 rounded-lg transition-transform font-bold">🗑 Limpar</button>
+        <div class="shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex gap-3">
+            <label class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 active:scale-95 px-5 rounded-xl cursor-pointer transition-transform select-none border border-gray-700">
+                <input type="checkbox" id="loop-fila" class="w-5 h-5 accent-purple-600">
+                <span class="text-gray-300 font-black text-sm">🔁 LOOP</span>
+            </label>
+            <button onclick="reproduzirFila()" class="flex-1 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">▶ REPRODUZIR FILA</button>
+            <button onclick="pararVideo()" class="bg-red-800 hover:bg-red-700 active:scale-95 text-white font-black py-4 px-6 rounded-xl text-lg shadow-lg transition-transform">⏹ PARAR</button>
+        </div>
+    </div>
+
+    <!-- ================= PAINEL: SLIDES ================= -->
+    <div id="painel-slides" class="hidden flex-1 flex-col overflow-hidden">
+        <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+            <!-- Coluna esquerda: slides disponíveis -->
+            <div class="flex-1 flex flex-col border-r border-gray-700 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 gap-2 flex-wrap">
+                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Slides disponíveis</h2>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span id="status-upload-slide" class="text-xs text-purple-300"></span>
+                        <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
+                            ⬆ Enviar imagens
+                            <input type="file" accept="image/*" multiple class="hidden" onchange="enviarArquivos('slide', this)">
+                        </label>
+                        <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
+                            📄 Enviar PDF
+                            <input type="file" accept="application/pdf" class="hidden" onchange="enviarPdfComoSlides(this)">
+                        </label>
+                        <button onclick="carregarSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
+                    </div>
+                </div>
+                <p class="text-[11px] text-gray-500 px-4 pt-2">PPTX: exporte como PDF ou imagens no PowerPoint antes de enviar.</p>
+
+                <div id="lista-slides" class="flex-1 overflow-y-auto p-3 space-y-2">
+                    <p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>
+                </div>
             </div>
 
-            <div id="fila-reprodução" class="flex-1 overflow-y-auto p-3 space-y-2">
-                <p id="fila-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum vídeo na fila.<br>Adicione vídeos da lista ao lado.</p>
+            <!-- Coluna direita: fila da apresentação -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Fila da apresentação</h2>
+                    <button onclick="limparFilaSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-400 px-3 py-1.5 rounded-lg transition-transform font-bold">🗑 Limpar</button>
+                </div>
+
+                <div id="fila-slides" class="flex-1 overflow-y-auto p-3 space-y-2">
+                    <p id="fila-slides-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum slide na fila.<br>Adicione imagens da lista ao lado, na ordem de exibição.</p>
+                </div>
             </div>
+        </div>
+
+        <!-- Controles: apresentação parada -->
+        <div id="controles-slides-parado" class="shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex gap-3">
+            <button onclick="iniciarApresentacao()" class="flex-1 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">▶ INICIAR APRESENTAÇÃO</button>
+        </div>
+
+        <!-- Controles: apresentação ativa -->
+        <div id="controles-slides-ativo" class="hidden shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex items-center gap-3">
+            <button onclick="slideAnterior()" class="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">◀ ANTERIOR</button>
+            <span id="slide-contador" class="shrink-0 text-purple-300 font-black font-mono text-lg px-2">— / —</span>
+            <button onclick="slideProximo()" class="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">AVANÇAR ▶</button>
+            <button onclick="pararApresentacao()" class="bg-red-800 hover:bg-red-700 active:scale-95 text-white font-black py-4 px-6 rounded-xl text-lg shadow-lg transition-transform">⏹ PARAR</button>
         </div>
     </div>
 
     <!-- Patrocinadores do carrossel do telão -->
-    <div class="shrink-0 bg-gray-900/60 border-t border-gray-700 px-4 py-3">
+    <div class="shrink-0 bg-gray-900/60 border-t border-gray-700 px-4 py-3" style="padding-bottom:100px;">
         <div class="flex items-center justify-between mb-2 gap-2">
             <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">📣 Patrocinadores (carrossel do telão)</h2>
             <div class="flex items-center gap-2">
@@ -69,29 +141,36 @@
         </div>
     </div>
 
-    <!-- Rodapé: ações -->
-    <div class="shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex gap-3" style="padding-bottom:100px;">
-        <label class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 active:scale-95 px-5 rounded-xl cursor-pointer transition-transform select-none border border-gray-700">
-            <input type="checkbox" id="loop-fila" class="w-5 h-5 accent-purple-600">
-            <span class="text-gray-300 font-black text-sm">🔁 LOOP</span>
-        </label>
-        <button onclick="reproduzirFila()" class="flex-1 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">▶ REPRODUZIR FILA</button>
-        <button onclick="pararVideo()" class="bg-red-800 hover:bg-red-700 active:scale-95 text-white font-black py-4 px-6 rounded-xl text-lg shadow-lg transition-transform">⏹ PARAR</button>
-    </div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         let fila = [];
+        let filaSlides = [];
 
         const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
         socket.on('atualizar_tela', (dados) => {
             const link = document.getElementById('link-jogo');
             if (link && mapaControle[dados.esporte]) link.href = mapaControle[dados.esporte];
             renderPatrocinadores(dados.patrocinadores || []);
+            renderEstadoSlides(dados.slides);
         });
 
-        // ---- Upload de arquivos (vídeos e logos de patrocinadores) ----
+        // ---- Sub-abas ----
+        function mostrarPainel(nome) {
+            const paineis = { videos: 'painel-videos', slides: 'painel-slides' };
+            for (const [chave, id] of Object.entries(paineis)) {
+                const painel = document.getElementById(id);
+                const ativo = chave === nome;
+                painel.classList.toggle('hidden', !ativo);
+                painel.classList.toggle('flex', ativo);
+                document.getElementById(`tab-${chave}-btn`).className = ativo
+                    ? 'text-xs font-black px-4 py-2 rounded-lg transition bg-purple-700 text-white'
+                    : 'text-xs font-black px-4 py-2 rounded-lg transition bg-gray-800 text-gray-400 hover:text-gray-200';
+            }
+            if (nome === 'slides' && !slidesCarregados) carregarSlides();
+        }
+
+        // ---- Upload de arquivos (vídeos, slides e logos de patrocinadores) ----
         async function enviarArquivos(tipo, input) {
             const files = Array.from(input.files || []);
             input.value = '';
@@ -111,6 +190,7 @@
                 }
             }
             status.textContent = '';
+            if (tipo === 'slide') carregarSlides();
         }
 
         async function excluirArquivo(tipo, nome, rotulo) {
@@ -124,6 +204,10 @@
             if (tipo === 'video') {
                 fila = fila.filter(n => n !== nome); // tira da fila local também
                 renderizarFila();
+            }
+            if (tipo === 'slide') {
+                filaSlides = filaSlides.filter(n => n !== nome);
+                renderizarFilaSlides();
             }
         }
 
@@ -152,6 +236,7 @@
             });
         }
 
+        // ---- Vídeos ----
         function carregarVideos() {
             document.getElementById('lista-videos').innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>';
             socket.emit('solicitar_videos');
@@ -230,6 +315,164 @@
         }
 
         carregarVideos();
+
+        // ---- Slides ----
+        let slidesCarregados = false;
+
+        function carregarSlides() {
+            document.getElementById('lista-slides').innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>';
+            socket.emit('solicitar_slides');
+        }
+
+        socket.on('lista_slides', (slides) => {
+            slidesCarregados = true;
+            const lista = document.getElementById('lista-slides');
+            if (slides.length === 0) {
+                lista.innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Nenhum slide encontrado em <code class="text-gray-400">public/slides/</code></p>';
+                return;
+            }
+            lista.innerHTML = '';
+            slides.forEach(nome => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-xl px-3 py-2 gap-3 border border-gray-700';
+                div.innerHTML = `
+                    <img src="/slides/${encodeURIComponent(nome)}" alt="" class="h-10 w-14 object-cover rounded bg-black/40 shrink-0">
+                    <span class="text-sm text-gray-200 truncate flex-1">${nome}</span>
+                    <button onclick="adicionarNaFilaSlide('${nome.replace(/'/g, "\\'")}')"
+                        class="shrink-0 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-bold px-3 py-1.5 rounded-lg text-sm transition-transform">
+                        + Adicionar
+                    </button>
+                    <button onclick="excluirArquivo('slide', '${nome.replace(/'/g, "\\'")}', 'a imagem')"
+                        class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1.5 rounded-lg text-sm transition-transform" title="Excluir do servidor">🗑</button>`;
+                lista.appendChild(div);
+            });
+        });
+
+        function adicionarNaFilaSlide(nome) {
+            filaSlides.push(nome);
+            renderizarFilaSlides();
+        }
+
+        function removerDaFilaSlide(index) {
+            filaSlides.splice(index, 1);
+            renderizarFilaSlides();
+        }
+
+        function limparFilaSlides() {
+            filaSlides = [];
+            renderizarFilaSlides();
+        }
+
+        function renderizarFilaSlides() {
+            const container = document.getElementById('fila-slides');
+            if (filaSlides.length === 0) {
+                container.innerHTML = '<p id="fila-slides-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum slide na fila.<br>Adicione imagens da lista ao lado, na ordem de exibição.</p>';
+                return;
+            }
+            container.innerHTML = '';
+            filaSlides.forEach((nome, i) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-3 bg-gray-800 rounded-xl px-3 py-2 border border-gray-700';
+                div.innerHTML = `
+                    <span class="text-purple-400 font-black font-mono w-6 text-center shrink-0">${i + 1}</span>
+                    <img src="/slides/${encodeURIComponent(nome)}" alt="" class="h-10 w-14 object-cover rounded bg-black/40 shrink-0">
+                    <span class="text-sm text-gray-200 truncate flex-1">${nome}</span>
+                    <button onclick="removerDaFilaSlide(${i})"
+                        class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1 rounded-lg text-lg transition-transform leading-none">×</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        function iniciarApresentacao() {
+            if (filaSlides.length === 0) {
+                alert('A fila está vazia. Adicione slides antes de iniciar.');
+                return;
+            }
+            socket.emit('comando_slides', { acao: 'iniciar', arquivos: [...filaSlides] });
+        }
+
+        function slideProximo() {
+            socket.emit('comando_slides', { acao: 'proximo' });
+        }
+
+        function slideAnterior() {
+            socket.emit('comando_slides', { acao: 'anterior' });
+        }
+
+        function pararApresentacao() {
+            socket.emit('comando_slides', { acao: 'parar' });
+        }
+
+        // Sincroniza os controles (parado/ativo + contador) com o estado do servidor,
+        // assim múltiplos painéis de controle abertos ao mesmo tempo não perdem sincronia.
+        function renderEstadoSlides(slides) {
+            const ativo = !!(slides && slides.ativo && slides.arquivos && slides.arquivos.length > 0);
+            document.getElementById('controles-slides-parado').classList.toggle('hidden', ativo);
+            document.getElementById('controles-slides-ativo').classList.toggle('hidden', !ativo);
+            if (ativo) {
+                document.getElementById('slide-contador').innerText = `${slides.indice + 1} / ${slides.arquivos.length}`;
+            }
+        }
+
+        // ---- Conversão de PDF em slides (client-side, via pdf.js de CDN) ----
+        let pdfJsCarregado = null;
+        function carregarPdfJs() {
+            if (pdfJsCarregado) return pdfJsCarregado;
+            pdfJsCarregado = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                script.onload = () => {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    resolve();
+                };
+                script.onerror = () => reject(new Error('Não foi possível carregar o conversor de PDF (verifique a conexão com a internet).'));
+                document.head.appendChild(script);
+            });
+            return pdfJsCarregado;
+        }
+
+        async function enviarPdfComoSlides(input) {
+            const file = input.files && input.files[0];
+            input.value = '';
+            if (!file) return;
+            const status = document.getElementById('status-upload-slide');
+            try {
+                status.textContent = 'Carregando conversor de PDF...';
+                await carregarPdfJs();
+
+                status.textContent = 'Lendo PDF...';
+                const buffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+                const baseNome = file.name.replace(/\.pdf$/i, '').replace(/[^a-zA-Z0-9À-ÿ ._-]/g, '_') || 'slide';
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    status.textContent = `Convertendo página ${i}/${pdf.numPages}...`;
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 2 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+                    const nomeArquivo = `${baseNome}_${String(i).padStart(3, '0')}.png`;
+                    status.textContent = `Enviando página ${i}/${pdf.numPages}...`;
+                    const resp = await fetch(`/api/upload/slide?nome=${encodeURIComponent(nomeArquivo)}`, { method: 'POST', body: blob });
+                    if (!resp.ok) {
+                        const erro = await resp.json().catch(() => ({}));
+                        alert(`Falha ao enviar a página ${i}: ${erro.erro || 'erro ' + resp.status}`);
+                    }
+                }
+                status.textContent = '';
+                carregarSlides();
+            } catch (e) {
+                console.error(e);
+                alert('Falha ao converter o PDF: ' + e.message);
+                status.textContent = '';
+            }
+        }
+
+        mostrarPainel('videos');
     </script>
 </body>
 </html>

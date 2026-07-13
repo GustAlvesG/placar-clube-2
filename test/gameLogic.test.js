@@ -21,6 +21,7 @@ test('criarEstadoInicial retorna o estado padrão esperado', () => {
     assert.deepEqual(s.timeA.elenco, []);
     assert.deepEqual(s.patrocinadores, []);
     assert.equal(s.cronometro.duracaoConfigurada, 600000);
+    assert.deepEqual(s.slides, { arquivos: [], indice: 0, ativo: false });
 });
 
 test('criarEstadoInicial gera objetos independentes (sem estado compartilhado)', () => {
@@ -295,6 +296,55 @@ test('comandoTransmissao faz coerção booleana', () => {
     assert.equal(s.transmissaoAtiva, false);
     logic.comandoTransmissao(s, {});
     assert.equal(s.transmissaoAtiva, false);
+});
+
+// ---------------------------------------------------------------------------
+// comandoSlides
+// ---------------------------------------------------------------------------
+test('comandoSlides iniciar carrega a fila e ativa a apresentação no índice 0', () => {
+    const s = novoEstado();
+    logic.comandoSlides(s, { acao: 'iniciar', arquivos: ['a.png', 'b.png', 'c.png'] });
+    assert.deepEqual(s.slides, { arquivos: ['a.png', 'b.png', 'c.png'], indice: 0, ativo: true });
+});
+
+test('comandoSlides iniciar com fila vazia não ativa a apresentação', () => {
+    const s = novoEstado();
+    logic.comandoSlides(s, { acao: 'iniciar', arquivos: [] });
+    assert.equal(s.slides.ativo, false);
+});
+
+test('comandoSlides proximo avança o índice sem passar do último slide', () => {
+    const s = novoEstado();
+    logic.comandoSlides(s, { acao: 'iniciar', arquivos: ['a.png', 'b.png'] });
+    logic.comandoSlides(s, { acao: 'proximo' });
+    assert.equal(s.slides.indice, 1);
+    logic.comandoSlides(s, { acao: 'proximo' }); // já no último: não deve passar
+    assert.equal(s.slides.indice, 1);
+});
+
+test('comandoSlides anterior recua o índice sem passar do primeiro slide', () => {
+    const s = novoEstado();
+    logic.comandoSlides(s, { acao: 'iniciar', arquivos: ['a.png', 'b.png'] });
+    logic.comandoSlides(s, { acao: 'anterior' }); // já no primeiro: não deve recuar
+    assert.equal(s.slides.indice, 0);
+    logic.comandoSlides(s, { acao: 'proximo' });
+    logic.comandoSlides(s, { acao: 'anterior' });
+    assert.equal(s.slides.indice, 0);
+});
+
+test('comandoSlides proximo/anterior não fazem nada quando a apresentação está parada', () => {
+    const s = novoEstado();
+    logic.comandoSlides(s, { acao: 'proximo' });
+    assert.equal(s.slides.indice, 0);
+    assert.equal(s.slides.ativo, false);
+});
+
+test('comandoSlides parar limpa a fila e desativa a apresentação', () => {
+    const s = novoEstado();
+    logic.comandoSlides(s, { acao: 'iniciar', arquivos: ['a.png', 'b.png'] });
+    logic.comandoSlides(s, { acao: 'proximo' });
+    logic.comandoSlides(s, { acao: 'parar' });
+    assert.deepEqual(s.slides, { arquivos: [], indice: 0, ativo: false });
 });
 
 // ---------------------------------------------------------------------------

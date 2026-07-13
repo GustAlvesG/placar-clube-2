@@ -15,7 +15,8 @@ function criarEstadoInicial() {
         patrocinadores: [],
         timeA: { nome: 'Time Local', logo: '', placar: 0, sets: 0, faltas: 0, elenco: [] },
         timeB: { nome: 'Visitante', logo: '', placar: 0, sets: 0, faltas: 0, elenco: [] },
-        cronometro: { rodando: false, tempoAcumulado: 0, inicioTimestamp: 0, duracaoConfigurada: 600000 }
+        cronometro: { rodando: false, tempoAcumulado: 0, inicioTimestamp: 0, duracaoConfigurada: 600000 },
+        slides: { arquivos: [], indice: 0, ativo: false }
     };
 }
 
@@ -101,6 +102,30 @@ function comandoTransmissao(state, dados = {}) {
     return state;
 }
 
+// Apresentação de slides (imagens em sequência) exibida em tela cheia no
+// telão. O estado guarda a fila e o índice atual para que telões que
+// conectem no meio da apresentação sincronizem corretamente.
+function comandoSlides(state, { acao, arquivos } = {}) {
+    if (acao === 'iniciar') {
+        state.slides.arquivos = Array.isArray(arquivos) ? arquivos : [];
+        state.slides.indice = 0;
+        state.slides.ativo = state.slides.arquivos.length > 0;
+    } else if (acao === 'proximo') {
+        if (state.slides.ativo && state.slides.indice < state.slides.arquivos.length - 1) {
+            state.slides.indice += 1;
+        }
+    } else if (acao === 'anterior') {
+        if (state.slides.ativo && state.slides.indice > 0) {
+            state.slides.indice -= 1;
+        }
+    } else if (acao === 'parar') {
+        state.slides.ativo = false;
+        state.slides.arquivos = [];
+        state.slides.indice = 0;
+    }
+    return state;
+}
+
 function filtrarVideos(files = []) {
     return files.filter(f => EXTENSOES_VIDEO.includes(extname(f)));
 }
@@ -132,6 +157,7 @@ module.exports = {
     comandoPlacar,
     comandoCronometro,
     comandoTransmissao,
+    comandoSlides,
     filtrarVideos,
     filtrarImagens,
     sanitizarNomeArquivo

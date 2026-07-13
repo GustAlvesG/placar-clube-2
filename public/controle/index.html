@@ -178,6 +178,12 @@ Ana Lima</pre>
             }
 
             transmissaoAtiva = !!dados.transmissaoAtiva;
+            if (redirectAposTransmissao && transmissaoAtiva) {
+                const destino = redirectAposTransmissao;
+                redirectAposTransmissao = null;
+                window.location.href = destino;
+                return;
+            }
             const btn = document.getElementById('btn-transmissao');
             const textoStatus = document.getElementById('texto-status');
             if (transmissaoAtiva) {
@@ -193,8 +199,20 @@ Ana Lima</pre>
             }
         });
 
+        // Ao INICIAR a transmissão, leva o operador direto para a tela de
+        // controle de pontos do esporte selecionado (encerrar não redireciona).
+        let redirectAposTransmissao = null;
         function toggleTransmissao() {
-            socket.emit('comando_transmissao', { ativa: !transmissaoAtiva });
+            const ligando = !transmissaoAtiva;
+            if (ligando) {
+                const esporte = document.querySelector('input[name="esporte"]:checked');
+                redirectAposTransmissao = (esporte && mapaControle[esporte.value])
+                    ? mapaControle[esporte.value]
+                    : document.getElementById('link-jogo').getAttribute('href');
+                // fallback caso o broadcast de confirmação não chegue
+                setTimeout(() => { if (redirectAposTransmissao) window.location.href = redirectAposTransmissao; }, 1000);
+            }
+            socket.emit('comando_transmissao', { ativa: ligando });
         }
 
         function atualizarConfig() {

@@ -202,9 +202,9 @@
             overlay.style.display = 'flex';
             card.style.animation = 'none';
             card.offsetHeight;
-            card.style.animation = 'animPop 3s forwards';
+            card.style.animation = 'animPop 5s forwards';
             clearTimeout(window._animTimer);
-            window._animTimer = setTimeout(() => { overlay.style.display = 'none'; }, 3000);
+            window._animTimer = setTimeout(() => { overlay.style.display = 'none'; }, 5000);
         });
 
         // Cronômetro em tempo real (50ms para suavidade nos centissegundos do basquete)
@@ -216,11 +216,17 @@
             if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
 
             let display = '';
-            if (esporte === 'futsal' || esporte === 'volei') {
+            if (esporte === 'volei') {
                 // Conta para cima: MM:SS
                 const totalSeg = Math.floor(elapsed / 1000);
                 const min = Math.floor(totalSeg / 60);
                 const seg = totalSeg % 60;
+                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+            } else if (esporte === 'futsal') {
+                // Conta para baixo: MM:SS (sem centissegundos)
+                const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
+                const min = Math.floor(restante / 60000);
+                const seg = Math.floor((restante % 60000) / 1000);
                 display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
             } else if (esporte === 'basquete') {
                 // Conta para baixo com centissegundos: MM:SS.cc

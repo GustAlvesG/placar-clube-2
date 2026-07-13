@@ -94,6 +94,8 @@
 
             <!-- Zerar tudo -->
             <button onclick="zerarTudo()" class="w-full bg-red-950 hover:bg-red-900 active:scale-95 text-red-400 font-bold py-3 rounded-xl text-xs border border-red-800 transition-transform mt-1">⚠ ZERAR TUDO</button>
+
+            <button onclick="pararTransmissao()" class="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-xs border border-gray-600 transition-transform mt-1">⏹ PARAR TRANSMISSÃO</button>
         </div>
 
         <!-- TIME B -->
@@ -192,10 +194,16 @@
             if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
 
             let display = '';
-            if (esporte === 'futsal' || esporte === 'volei') {
+            if (esporte === 'volei') {
                 const totalSeg = Math.floor(elapsed / 1000);
                 const min = Math.floor(totalSeg / 60);
                 const seg = totalSeg % 60;
+                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+            } else if (esporte === 'futsal') {
+                // Regressivo MM:SS (sem centissegundos)
+                const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
+                const min = Math.floor(restante / 60000);
+                const seg = Math.floor((restante % 60000) / 1000);
                 display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
             } else if (esporte === 'basquete') {
                 const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
@@ -231,6 +239,13 @@
         function zerarTudo() {
             if (confirm('Zerar placar, sets, faltas e cronômetro?')) {
                 socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            }
+        }
+
+        // Só desliga a transmissão do telão: não zera nada nem sai desta tela.
+        function pararTransmissao() {
+            if (confirm('Parar a transmissão do telão?')) {
+                socket.emit('comando_transmissao', { ativa: false });
             }
         }
     </script>

@@ -163,7 +163,7 @@ test('add_periodo incrementa; sub_periodo nunca abaixo de 1', () => {
 // ---------------------------------------------------------------------------
 // comandoPlacar — zerar_tudo
 // ---------------------------------------------------------------------------
-test('zerar_tudo reseta placar, sets, faltas, sacando, período, transmissão e cronômetro', () => {
+test('zerar_tudo reseta placar, sets, faltas, sacando, período e cronômetro, mas MANTÉM a transmissão', () => {
     const s = novoEstado({ esporte: 'volei' });
     s.timeA.placar = 10; s.timeA.sets = 2; s.timeA.faltas = 3;
     s.timeB.placar = 8; s.timeB.sets = 1; s.timeB.faltas = 4;
@@ -176,7 +176,7 @@ test('zerar_tudo reseta placar, sets, faltas, sacando, período, transmissão e 
     assert.equal(s.timeB.placar, 0); assert.equal(s.timeB.sets, 0); assert.equal(s.timeB.faltas, 0);
     assert.equal(s.sacando, null);
     assert.equal(s.periodo, 1);
-    assert.equal(s.transmissaoAtiva, false);
+    assert.equal(s.transmissaoAtiva, true); // transmissão segue no ar
     assert.equal(s.cronometro.rodando, false);
     assert.equal(s.cronometro.tempoAcumulado, 0);
     assert.equal(s.cronometro.inicioTimestamp, 0);

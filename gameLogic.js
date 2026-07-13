@@ -66,12 +66,13 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     if (acao === 'sub_falta' && state[time].faltas > 0) state[time].faltas -= 1;
     if (acao === 'add_periodo') state.periodo += 1;
     if (acao === 'sub_periodo' && state.periodo > 1) state.periodo -= 1;
+    // Zera valores de jogo (placar, sets, faltas, período, cronômetro) sem
+    // interromper a transmissão do telão.
     if (acao === 'zerar_tudo') {
         state.timeA.placar = 0; state.timeA.sets = 0; state.timeA.faltas = 0;
         state.timeB.placar = 0; state.timeB.sets = 0; state.timeB.faltas = 0;
         state.sacando = null;
         state.periodo = 1;
-        state.transmissaoAtiva = false;
         state.cronometro.rodando = false;
         state.cronometro.tempoAcumulado = 0;
         state.cronometro.inicioTimestamp = 0;

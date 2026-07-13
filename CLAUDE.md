@@ -56,7 +56,7 @@ Each `atualizar_tela` broadcast includes `serverTime: Date.now()`. Clients compu
 ### Per-sport rule differences (encoded in gameLogic.js, not config)
 
 - **Vôlei**: reaching ≥25 points with a ≥2-point lead auto-wins the set (`comandoPlacar`'s `add_ponto` branch) — resets both scores to 0 and clears `sacando`. Futsal/basquete never trigger this.
-- **Basquete**: countdown timer with centiseconds (`duracaoConfigurada`); other sports count up.
+- **Basquete**: countdown timer with centiseconds (`duracaoConfigurada`); **futsal** also counts down but displays MM:SS only; vôlei counts up.
 - Point-animation text varies by sport (`TEXTOS_PONTO`: futsal → "GOL!", basquete → "CESTA!", volei → "PONTO!").
 
 ### Video/ad playback

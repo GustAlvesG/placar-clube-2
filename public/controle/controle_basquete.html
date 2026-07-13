@@ -81,6 +81,8 @@
             </div>
 
             <button onclick="zerarTudo()" class="w-full bg-red-950 active:bg-red-900 active:scale-95 text-red-400 font-bold py-3 rounded-xl text-sm border border-red-800 transition-transform">⚠ ZERAR TUDO</button>
+
+            <button onclick="pararTransmissao()" class="w-full bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-sm border border-gray-600 transition-transform">⏹ PARAR TRANSMISSÃO</button>
         </div>
 
         <!-- TIME B (VISITANTE) -->
@@ -214,6 +216,13 @@
         function zerarTudo() {
             if (confirm('Zerar placar e cronômetro?')) {
                 socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            }
+        }
+
+        // Só desliga a transmissão do telão: não zera nada nem sai desta tela.
+        function pararTransmissao() {
+            if (confirm('Parar a transmissão do telão?')) {
+                socket.emit('comando_transmissao', { ativa: false });
             }
         }
     </script>

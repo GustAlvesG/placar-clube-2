@@ -196,7 +196,7 @@ Nomes são sanitizados no servidor (sem path traversal) e a extensão precisa se
     rodando: boolean,
     tempoAcumulado: number,           // ms
     inicioTimestamp: number,          // ms (quando foi ligado)
-    duracaoConfigurada: number        // ms (para basquete countdown)
+    duracaoConfigurada: number        // ms (countdown do basquete e do futsal)
   }
 }
 ```
@@ -239,7 +239,7 @@ Aplica ações de placar e retorna animações a emitir.
 - `add_set` / `sub_set`: adiciona/subtrai sets (sub piso 0)
 - `add_falta` / `sub_falta`: adiciona/subtrai faltas (sub piso 0)
 - `add_periodo` / `sub_periodo`: incrementa/decrementa período (sub piso 1)
-- `zerar_tudo`: reseta placar, sets, faltas, sacando, período, transmissão, cronômetro
+- `zerar_tudo`: reseta placar, sets, faltas, sacando, período e cronômetro (a transmissão segue no ar)
 
 ```javascript
 const { animacoes } = logic.comandoPlacar(state, {
@@ -325,7 +325,7 @@ Instancia Express + Socket.IO, expõe handlers de socket para receber eventos do
 - +1 GOL por time
 - Faltas com +/−
 - Período com +/−
-- Cronômetro ascendente MM:SS
+- Cronômetro descendente MM:SS (sem centissegundos), com definidor de tempo e botão REINICIAR CRONO
 - Modal de seleção de jogador ao marcar
 
 #### Controle do Basquete (`/controle/controle_basquete.html`)
@@ -370,7 +370,8 @@ Ao clicar +ponto/+falta, se o time tiver elenco cadastrado:
 - **Placar**: nomes, placar, sets, faltas, período (conforme o esporte)
 - **Logos**: repositionados por esporte (vôlei esquerda/direita, futsal/basquete mais abaixo)
 - **Timer**: 
-  - Futsal/Vôlei: ascendente MM:SS
+  - Vôlei: ascendente MM:SS
+  - Futsal: descendente MM:SS
   - Basquete: descendente MM:SS.cc
 - **Animação de ponto/falta**: overlay com nome do time, ação (GOL!/CESTA!/PONTO!/FALTA!), **foto redonda** do jogador + número + nome (3 segundos)
 - **Vídeos**: tocam fullscreen (z-index 100), ao terminar retorna ao placar
@@ -394,7 +395,7 @@ Isso garante que mesmo com latência, o timer mostra o mesmo tempo em todos os t
 ## Regras de Jogo
 
 ### Futsal
-- Timer: ascendente (00:00 → 99:59)
+- Timer: descendente MM:SS (a partir do tempo configurado, sem centissegundos)
 - Placar: sem limite
 - Período: controle manual
 - Sets: não

@@ -19,6 +19,7 @@ test('criarEstadoInicial retorna o estado padrão esperado', () => {
     assert.equal(s.timeA.placar, 0);
     assert.equal(s.timeB.faltas, 0);
     assert.deepEqual(s.timeA.elenco, []);
+    assert.deepEqual(s.patrocinadores, []);
     assert.equal(s.cronometro.duracaoConfigurada, 600000);
 });
 
@@ -162,7 +163,7 @@ test('add_periodo incrementa; sub_periodo nunca abaixo de 1', () => {
 // ---------------------------------------------------------------------------
 // comandoPlacar — zerar_tudo
 // ---------------------------------------------------------------------------
-test('zerar_tudo reseta placar, sets, faltas, sacando, período, transmissão e cronômetro', () => {
+test('zerar_tudo reseta placar, sets, faltas, sacando, período e cronômetro, mas MANTÉM a transmissão', () => {
     const s = novoEstado({ esporte: 'volei' });
     s.timeA.placar = 10; s.timeA.sets = 2; s.timeA.faltas = 3;
     s.timeB.placar = 8; s.timeB.sets = 1; s.timeB.faltas = 4;
@@ -175,7 +176,7 @@ test('zerar_tudo reseta placar, sets, faltas, sacando, período, transmissão e 
     assert.equal(s.timeB.placar, 0); assert.equal(s.timeB.sets, 0); assert.equal(s.timeB.faltas, 0);
     assert.equal(s.sacando, null);
     assert.equal(s.periodo, 1);
-    assert.equal(s.transmissaoAtiva, false);
+    assert.equal(s.transmissaoAtiva, true); // transmissão segue no ar
     assert.equal(s.cronometro.rodando, false);
     assert.equal(s.cronometro.tempoAcumulado, 0);
     assert.equal(s.cronometro.inicioTimestamp, 0);
@@ -307,4 +308,36 @@ test('filtrarVideos aceita extensões válidas e ignora o resto', () => {
 
 test('filtrarVideos com lista vazia retorna vazio', () => {
     assert.deepEqual(logic.filtrarVideos([]), []);
+});
+
+// ---------------------------------------------------------------------------
+// filtrarImagens (logos de patrocinadores)
+// ---------------------------------------------------------------------------
+test('filtrarImagens aceita extensões de imagem e ignora o resto', () => {
+    const entrada = ['logo.png', 'marca.JPG', 'anim.gif', 'foto.jpeg', 'icone.webp', 'vetor.svg', 'video.mp4', 'doc.txt', 'semext'];
+    const saida = logic.filtrarImagens(entrada);
+    assert.deepEqual(saida, ['logo.png', 'marca.JPG', 'anim.gif', 'foto.jpeg', 'icone.webp', 'vetor.svg']);
+});
+
+// ---------------------------------------------------------------------------
+// sanitizarNomeArquivo (uploads)
+// ---------------------------------------------------------------------------
+test('sanitizarNomeArquivo mantém nomes comuns (acentos, espaços, hífen)', () => {
+    assert.equal(logic.sanitizarNomeArquivo('Logo Patrocínio - 2026.png'), 'Logo Patrocínio - 2026.png');
+});
+
+test('sanitizarNomeArquivo descarta caminho (previne traversal)', () => {
+    assert.equal(logic.sanitizarNomeArquivo('../../etc/senha.png'), 'senha.png');
+    assert.equal(logic.sanitizarNomeArquivo('C:\\Windows\\logo.png'), 'logo.png');
+});
+
+test('sanitizarNomeArquivo troca caracteres perigosos por _', () => {
+    assert.equal(logic.sanitizarNomeArquivo('a<b>:c?.png'), 'a_b__c_.png');
+});
+
+test('sanitizarNomeArquivo retorna vazio para nomes inutilizáveis', () => {
+    assert.equal(logic.sanitizarNomeArquivo(''), '');
+    assert.equal(logic.sanitizarNomeArquivo('...'), '');
+    assert.equal(logic.sanitizarNomeArquivo('..'), '');
+    assert.equal(logic.sanitizarNomeArquivo(null), '');
 });

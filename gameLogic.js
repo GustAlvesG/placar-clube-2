@@ -3,6 +3,7 @@
 // colaterais para a camada de rede (animações), os retorna em `{ animacoes }`.
 
 const EXTENSOES_VIDEO = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+const EXTENSOES_IMAGEM = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
 const TEXTOS_PONTO = { futsal: 'GOL!', basquete: 'CESTA!', volei: 'PONTO!' };
 
 function criarEstadoInicial() {
@@ -11,6 +12,7 @@ function criarEstadoInicial() {
         sacando: null,
         periodo: 1,
         transmissaoAtiva: false,
+        patrocinadores: [],
         timeA: { nome: 'Time Local', logo: '', placar: 0, sets: 0, faltas: 0, elenco: [] },
         timeB: { nome: 'Visitante', logo: '', placar: 0, sets: 0, faltas: 0, elenco: [] },
         cronometro: { rodando: false, tempoAcumulado: 0, inicioTimestamp: 0, duracaoConfigurada: 600000 }
@@ -64,12 +66,13 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     if (acao === 'sub_falta' && state[time].faltas > 0) state[time].faltas -= 1;
     if (acao === 'add_periodo') state.periodo += 1;
     if (acao === 'sub_periodo' && state.periodo > 1) state.periodo -= 1;
+    // Zera valores de jogo (placar, sets, faltas, período, cronômetro) sem
+    // interromper a transmissão do telão.
     if (acao === 'zerar_tudo') {
         state.timeA.placar = 0; state.timeA.sets = 0; state.timeA.faltas = 0;
         state.timeB.placar = 0; state.timeB.sets = 0; state.timeB.faltas = 0;
         state.sacando = null;
         state.periodo = 1;
-        state.transmissaoAtiva = false;
         state.cronometro.rodando = false;
         state.cronometro.tempoAcumulado = 0;
         state.cronometro.inicioTimestamp = 0;
@@ -102,6 +105,19 @@ function filtrarVideos(files = []) {
     return files.filter(f => EXTENSOES_VIDEO.includes(extname(f)));
 }
 
+function filtrarImagens(files = []) {
+    return files.filter(f => EXTENSOES_IMAGEM.includes(extname(f)));
+}
+
+// Reduz um nome vindo do cliente a um nome de arquivo seguro para gravar em
+// disco: descarta qualquer caminho (previne traversal) e troca caracteres
+// problemáticos por "_". Retorna '' se não sobrar nada utilizável.
+function sanitizarNomeArquivo(nome) {
+    const base = String(nome || '').split(/[\\/]/).pop().trim();
+    const limpo = base.replace(/[^a-zA-Z0-9À-ÿ ._-]/g, '_');
+    return /^[. ]*$/.test(limpo) ? '' : limpo;
+}
+
 // extname minimalista (evita depender de `path` para manter o módulo puro)
 function extname(nome) {
     const i = String(nome).lastIndexOf('.');
@@ -110,10 +126,13 @@ function extname(nome) {
 
 module.exports = {
     EXTENSOES_VIDEO,
+    EXTENSOES_IMAGEM,
     criarEstadoInicial,
     configurarJogo,
     comandoPlacar,
     comandoCronometro,
     comandoTransmissao,
-    filtrarVideos
+    filtrarVideos,
+    filtrarImagens,
+    sanitizarNomeArquivo
 };

@@ -142,7 +142,7 @@ Telão (index.html) + Controles (recebem estado)
 | `comando_placar` | `{ time, acao, valor, jogador? }` | Marca pontos, faltas, sets, período |
 | `comando_cronometro` | `{ acao, valor?, segundos? }` | Controla timer (play/pause/set) |
 | `comando_transmissao` | `{ ativa: boolean }` | Liga/desliga transmissão |
-| `comando_video` | `{ acao, arquivo? }` | Play/stop de vídeos |
+| `comando_video` | `{ acao, arquivo?, arquivos?, loop? }` | Play/stop de vídeos; `loop: true` repete a playlist até o STOP |
 | `solicitar_videos` | `{}` | Lista vídeos em `public/videos/` |
 
 #### Do Servidor para Clientes
@@ -152,7 +152,18 @@ Telão (index.html) + Controles (recebem estado)
 | `atualizar_tela` | `{ ...gameState, serverTime }` | Broadcast do estado completo |
 | `animacao_ponto` | `{ texto, jogador, timeNome }` | Animação ao marcar ponto/falta |
 | `executar_video` | `{ acao, arquivo? }` | Instrui telão a tocar vídeo |
-| `lista_videos` | `[filenames]` | Lista de vídeos disponíveis |
+| `lista_videos` | `[filenames]` | Lista de vídeos disponíveis (também broadcast após upload/exclusão) |
+
+#### Endpoints HTTP (upload/exclusão de arquivos)
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/api/upload/video?nome=arquivo.mp4` | Grava o corpo da requisição em `public/videos/` (stream) |
+| `POST` | `/api/upload/patrocinador?nome=logo.png` | Grava em `public/patrocinadores/` e rebroadcast o estado |
+| `DELETE` | `/api/video/:nome` | Exclui o vídeo do servidor |
+| `DELETE` | `/api/patrocinador/:nome` | Exclui a logo e rebroadcast o estado |
+
+Nomes são sanitizados no servidor (sem path traversal) e a extensão precisa ser válida para o tipo (vídeos: `.mp4 .webm .mov .avi .mkv`; imagens: `.png .jpg .jpeg .gif .webp .svg`).
 
 ---
 
@@ -164,6 +175,9 @@ Telão (index.html) + Controles (recebem estado)
   sacando: 'timeA' | 'timeB' | null,
   periodo: number,                    // 1, 2, 3...
   transmissaoAtiva: boolean,
+  patrocinadores: [string],             // nomes dos arquivos de imagem em
+                                        // public/patrocinadores/ (carrossel do telão),
+                                        // sincronizado pelo servidor a cada upload/exclusão
   
   timeA: {
     nome: string,
@@ -182,7 +196,7 @@ Telão (index.html) + Controles (recebem estado)
     rodando: boolean,
     tempoAcumulado: number,           // ms
     inicioTimestamp: number,          // ms (quando foi ligado)
-    duracaoConfigurada: number        // ms (para basquete countdown)
+    duracaoConfigurada: number        // ms (countdown do basquete e do futsal)
   }
 }
 ```
@@ -225,7 +239,7 @@ Aplica ações de placar e retorna animações a emitir.
 - `add_set` / `sub_set`: adiciona/subtrai sets (sub piso 0)
 - `add_falta` / `sub_falta`: adiciona/subtrai faltas (sub piso 0)
 - `add_periodo` / `sub_periodo`: incrementa/decrementa período (sub piso 1)
-- `zerar_tudo`: reseta placar, sets, faltas, sacando, período, transmissão, cronômetro
+- `zerar_tudo`: reseta placar, sets, faltas, sacando, período e cronômetro (a transmissão segue no ar)
 
 ```javascript
 const { animacoes } = logic.comandoPlacar(state, {
@@ -295,6 +309,7 @@ Instancia Express + Socket.IO, expõe handlers de socket para receber eventos do
 - Seleciona esporte (futsal/basquete/vôlei)
 - Cadastra nome e logo de cada time (upload de imagem)
 - **Cadastro de Elenco**: adiciona jogadores com número, nome e foto (opcional)
+- **Importar elenco** (.txt/.csv/.xlsx): uma linha por jogador, ex. `10;João Silva` (aceita `;`, `,`, TAB ou espaço como separador; em planilhas, colunas Número/Nome) — a página traz um guia com exemplos dos dois formatos
 - Clicar **SALVAR** emite `configurar_jogo` com `timeA_elenco` e `timeB_elenco`
 - Botão de **INICIAR/ENCERRAR TRANSMISSÃO** toggle `transmissaoAtiva`
 
@@ -310,7 +325,7 @@ Instancia Express + Socket.IO, expõe handlers de socket para receber eventos do
 - +1 GOL por time
 - Faltas com +/−
 - Período com +/−
-- Cronômetro ascendente MM:SS
+- Cronômetro descendente MM:SS (sem centissegundos), com definidor de tempo e botão REINICIAR CRONO
 - Modal de seleção de jogador ao marcar
 
 #### Controle do Basquete (`/controle/controle_basquete.html`)
@@ -339,10 +354,14 @@ Ao clicar +ponto/+falta, se o time tiver elenco cadastrado:
 ### 4. Anúncios (`/controle/controle_anuncios.html`)
 
 - **Coluna esquerda**: lista de vídeos em `public/videos/`
+  - **⬆ Enviar vídeo**: faz upload permanente para o servidor (`public/videos/`)
+  - **🗑** em cada vídeo: exclui o arquivo do servidor (com confirmação)
 - **Coluna direita**: fila de reprodução
 - Adicionar vídeo à fila com botão **+ Adicionar**
 - **REPRODUZIR FILA**: emite `comando_video` com array de arquivos
-- Telão toca sequencialmente, ao terminar o último retorna ao placar
+- Toggle **🔁 LOOP**: com ele marcado, a fila reinicia do começo ao terminar o último vídeo (até clicar em ⏹ PARAR)
+- **Patrocinadores**: seção com as logos do carrossel do telão — **⬆ Enviar logo** grava em `public/patrocinadores/` e o **×** exclui; o telão atualiza na hora em todas as telas
+- Telão toca sequencialmente, ao terminar o último retorna ao placar (ou reinicia a fila, se em loop)
 
 ### 5. Telão (Placar) (`/index.html`)
 
@@ -351,7 +370,8 @@ Ao clicar +ponto/+falta, se o time tiver elenco cadastrado:
 - **Placar**: nomes, placar, sets, faltas, período (conforme o esporte)
 - **Logos**: repositionados por esporte (vôlei esquerda/direita, futsal/basquete mais abaixo)
 - **Timer**: 
-  - Futsal/Vôlei: ascendente MM:SS
+  - Vôlei: ascendente MM:SS
+  - Futsal: descendente MM:SS
   - Basquete: descendente MM:SS.cc
 - **Animação de ponto/falta**: overlay com nome do time, ação (GOL!/CESTA!/PONTO!/FALTA!), **foto redonda** do jogador + número + nome (3 segundos)
 - **Vídeos**: tocam fullscreen (z-index 100), ao terminar retorna ao placar
@@ -375,7 +395,7 @@ Isso garante que mesmo com latência, o timer mostra o mesmo tempo em todos os t
 ## Regras de Jogo
 
 ### Futsal
-- Timer: ascendente (00:00 → 99:59)
+- Timer: descendente MM:SS (a partir do tempo configurado, sem centissegundos)
 - Placar: sem limite
 - Período: controle manual
 - Sets: não

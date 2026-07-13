@@ -28,14 +28,14 @@
                 <div class="bg-black w-full rounded-2xl py-2 flex justify-center items-center shadow-inner">
                     <span id="score-a" class="font-digital text-5xl md:text-6xl text-blue-500 leading-none">0</span>
                 </div>
-                <button data-lockable onclick="marcar('timeA')" class="w-full bg-blue-600 active:bg-blue-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 GOL</button>
+                <button onclick="marcar('timeA')" class="w-full bg-blue-600 active:bg-blue-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 GOL</button>
                 <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
             </div>
             <!-- Faltas -->
             <div class="w-full space-y-1 mt-auto pt-2">
                 <div class="text-center text-blue-400 text-xs font-bold uppercase">Faltas: <span id="faltas-a" class="text-white font-digital text-sm">0</span></div>
                 <div class="flex gap-2">
-                    <button data-lockable onclick="cmdPlacar('timeA', 'add_falta', 1)" class="flex-1 bg-blue-700 active:bg-blue-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform text-sm">+Falta</button>
+                    <button onclick="cmdPlacar('timeA', 'add_falta', 1)" class="flex-1 bg-blue-700 active:bg-blue-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform text-sm">+Falta</button>
                     <button onclick="cmdPlacar('timeA', 'sub_falta', 1)" class="flex-1 bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 font-bold py-1.5 rounded-xl transition-transform text-sm">−Falta</button>
                 </div>
             </div>
@@ -44,14 +44,27 @@
         <!-- CENTRO -->
         <div class="flex-1 min-h-0 flex flex-col items-center justify-start p-2 gap-2 overflow-hidden">
 
-            <!-- Display MM:SS (crescente) -->
+            <!-- Display MM:SS (regressivo) -->
             <div class="bg-black w-full px-4 py-5 rounded-3xl border-4 border-gray-700 shadow-2xl flex items-center justify-center">
-                <span id="timer-display" class="font-digital text-4xl md:text-6xl text-yellow-400 leading-none tracking-tight">00:00</span>
+                <span id="timer-display" class="font-digital text-4xl md:text-6xl text-yellow-400 leading-none tracking-tight">10:00</span>
             </div>
 
             <div class="flex gap-3 w-full">
                 <button onclick="cmdCronometro('play')" class="flex-1 bg-green-700 active:bg-green-600 active:scale-95 text-white font-black text-lg py-4 rounded-xl shadow-lg transition-transform">▶ PLAY</button>
                 <button onclick="cmdCronometro('pause')" class="flex-1 bg-yellow-700 active:bg-yellow-600 active:scale-95 text-white font-black text-lg py-4 rounded-xl shadow-lg transition-transform">⏸ PAUSA</button>
+            </div>
+
+            <!-- Definir tempo -->
+            <div class="bg-gray-800 p-4 rounded-2xl w-full flex flex-col items-center shadow-lg border border-gray-700 gap-2">
+                <label class="text-xs text-gray-400 font-bold uppercase">Definir Tempo (MM:SS)</label>
+                <div class="flex gap-1 items-center w-full">
+                    <input id="set-minutos" type="number" min="0" max="99" value="10"
+                        class="w-0 flex-1 bg-gray-900 text-white text-center text-2xl py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
+                    <span class="text-gray-400 font-bold text-2xl">:</span>
+                    <input id="set-segundos" type="number" min="0" max="59" value="00"
+                        class="w-0 flex-1 bg-gray-900 text-white text-center text-2xl py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
+                    <button onclick="setTempo()" class="bg-gray-600 active:bg-gray-500 active:scale-95 text-white font-bold py-2 px-3 rounded-lg transition-transform">SET</button>
+                </div>
             </div>
 
             <!-- Período -->
@@ -63,10 +76,12 @@
                 </div>
             </div>
 
-            <!-- Zerar cronômetro -->
-            <button onclick="zerarCronometro()" class="w-full bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-sm border border-gray-600 transition-transform">↺ ZERAR CRONO</button>
+            <!-- Reiniciar cronômetro (volta ao tempo configurado) -->
+            <button onclick="zerarCronometro()" class="w-full bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-sm border border-gray-600 transition-transform">↺ REINICIAR CRONO</button>
 
             <button onclick="zerarTudo()" class="w-full bg-red-950 active:bg-red-900 active:scale-95 text-red-400 font-bold py-3 rounded-xl text-sm border border-red-800 transition-transform">⚠ ZERAR TUDO</button>
+
+            <button onclick="pararTransmissao()" class="w-full bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-sm border border-gray-600 transition-transform">⏹ PARAR TRANSMISSÃO</button>
         </div>
 
         <!-- TIME B (VISITANTE) -->
@@ -76,14 +91,14 @@
                 <div class="bg-black w-full rounded-2xl py-2 flex justify-center items-center shadow-inner">
                     <span id="score-b" class="font-digital text-5xl md:text-6xl text-red-500 leading-none">0</span>
                 </div>
-                <button data-lockable onclick="marcar('timeB')" class="w-full bg-red-600 active:bg-red-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 GOL</button>
+                <button onclick="marcar('timeB')" class="w-full bg-red-600 active:bg-red-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 GOL</button>
                 <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 active:bg-red-800 active:scale-95 text-red-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
             </div>
             <!-- Faltas -->
             <div class="w-full space-y-1 mt-auto pt-2">
                 <div class="text-center text-red-400 text-xs font-bold uppercase">Faltas: <span id="faltas-b" class="text-white font-digital text-sm">0</span></div>
                 <div class="flex gap-2">
-                    <button data-lockable onclick="cmdPlacar('timeB', 'add_falta', 1)" class="flex-1 bg-red-700 active:bg-red-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform text-sm">+Falta</button>
+                    <button onclick="cmdPlacar('timeB', 'add_falta', 1)" class="flex-1 bg-red-700 active:bg-red-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform text-sm">+Falta</button>
                     <button onclick="cmdPlacar('timeB', 'sub_falta', 1)" class="flex-1 bg-red-900 active:bg-red-800 active:scale-95 text-red-300 font-bold py-1.5 rounded-xl transition-transform text-sm">−Falta</button>
                 </div>
             </div>
@@ -110,14 +125,6 @@
         let estadoAtual = null;
         let pendingAcao = null;
 
-        function atualizarBloqueio(rodando) {
-            document.querySelectorAll('[data-lockable]').forEach(btn => {
-                btn.disabled = !rodando;
-                btn.classList.toggle('opacity-40', !rodando);
-                btn.classList.toggle('cursor-not-allowed', !rodando);
-            });
-        }
-
         socket.on('atualizar_tela', (dados) => {
             if (dados.serverTime && dados.cronometro) {
                 const clockOffset = Date.now() - dados.serverTime;
@@ -131,18 +138,17 @@
             document.getElementById('faltas-a').innerText = dados.timeA.faltas ?? 0;
             document.getElementById('faltas-b').innerText = dados.timeB.faltas ?? 0;
             document.getElementById('periodo-display').innerText = dados.periodo || 1;
-            atualizarBloqueio(dados.cronometro.rodando);
         });
 
-        // Cronômetro crescente (MM:SS, 500ms)
+        // Cronômetro regressivo (MM:SS, 500ms)
         setInterval(() => {
             if (!estadoAtual) return;
             const crono = estadoAtual.cronometro;
             let elapsed = crono.tempoAcumulado;
             if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
-            const totalSeg = Math.floor(elapsed / 1000);
-            const min = Math.floor(totalSeg / 60);
-            const seg = totalSeg % 60;
+            const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
+            const min = Math.floor(restante / 60000);
+            const seg = Math.floor((restante % 60000) / 1000);
             document.getElementById('timer-display').innerText =
                 `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
         }, 500);
@@ -193,13 +199,34 @@
             socket.emit('comando_cronometro', { acao });
         }
 
+        function setTempo() {
+            const minutos = parseInt(document.getElementById('set-minutos').value) || 0;
+            const segundos = parseInt(document.getElementById('set-segundos').value) || 0;
+            if (minutos > 0 || segundos > 0) {
+                socket.emit('comando_cronometro', { acao: 'set', valor: minutos, segundos });
+            }
+        }
+
+        // Volta o cronômetro para o tempo configurado (re-aplica a duração atual)
         function zerarCronometro() {
-            socket.emit('comando_cronometro', { acao: 'set', valor: 0, segundos: 0 });
+            const dur = estadoAtual?.cronometro?.duracaoConfigurada ?? 600000;
+            socket.emit('comando_cronometro', {
+                acao: 'set',
+                valor: Math.floor(dur / 60000),
+                segundos: Math.floor((dur % 60000) / 1000)
+            });
         }
 
         function zerarTudo() {
             if (confirm('Zerar placar, faltas e cronômetro?')) {
                 socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            }
+        }
+
+        // Só desliga a transmissão do telão: não zera nada nem sai desta tela.
+        function pararTransmissao() {
+            if (confirm('Parar a transmissão do telão?')) {
+                socket.emit('comando_transmissao', { ativa: false });
             }
         }
     </script>

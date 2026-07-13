@@ -12,8 +12,9 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const videoDir = path.join(__dirname, 'public', 'videos');
-if (!fs.existsSync(videoDir)) {
-    fs.mkdirSync(videoDir, { recursive: true });
+const patrocinadorDir = path.join(__dirname, 'public', 'patrocinadores');
+for (const dir of [videoDir, patrocinadorDir]) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 let gameState = logic.criarEstadoInicial();
@@ -22,19 +23,80 @@ function broadcast() {
     io.emit('atualizar_tela', { ...gameState, serverTime: Date.now() });
 }
 
+// ---- Upload/exclusão de arquivos (vídeos e logos de patrocinadores) ----
+// Os patrocinadores do carrossel são os arquivos de imagem em
+// public/patrocinadores/; o estado guarda a lista de nomes e é rebroadcast
+// a cada mudança para que todos os telões atualizem sozinhos.
+const TIPOS_ARQUIVO = {
+    video: { dir: videoDir, extensoes: logic.EXTENSOES_VIDEO },
+    patrocinador: { dir: patrocinadorDir, extensoes: logic.EXTENSOES_IMAGEM }
+};
+
+function listarVideos(cb) {
+    fs.readdir(videoDir, (err, files) => cb(err ? [] : logic.filtrarVideos(files)));
+}
+
+function sincronizarPatrocinadores(broadcastDepois) {
+    fs.readdir(patrocinadorDir, (err, files) => {
+        gameState.patrocinadores = err ? [] : logic.filtrarImagens(files);
+        if (broadcastDepois) broadcast();
+    });
+}
+
+function aposMudancaArquivo(tipo) {
+    if (tipo === 'patrocinador') sincronizarPatrocinadores(true);
+    else listarVideos(videos => io.emit('lista_videos', videos));
+}
+
+sincronizarPatrocinadores(false); // carrega as logos já presentes na pasta
+
+app.post('/api/upload/:tipo', (req, res) => {
+    const cfg = TIPOS_ARQUIVO[req.params.tipo];
+    if (!cfg) return res.status(404).json({ erro: 'Tipo de upload desconhecido' });
+
+    const nome = logic.sanitizarNomeArquivo(req.query.nome);
+    if (!nome || !cfg.extensoes.includes(path.extname(nome).toLowerCase())) {
+        return res.status(400).json({ erro: `Nome inválido ou extensão não permitida (aceitas: ${cfg.extensoes.join(', ')})` });
+    }
+
+    const destinoPath = path.join(cfg.dir, nome);
+    const destino = fs.createWriteStream(destinoPath);
+    req.pipe(destino);
+    req.on('aborted', () => {
+        destino.destroy();
+        fs.unlink(destinoPath, () => {}); // remove upload parcial
+    });
+    destino.on('finish', () => {
+        aposMudancaArquivo(req.params.tipo);
+        res.json({ ok: true, nome });
+    });
+    destino.on('error', (err) => {
+        console.error('Erro ao gravar upload:', err.message);
+        if (!res.headersSent) res.status(500).json({ erro: err.message });
+    });
+});
+
+app.delete('/api/:tipo/:nome', (req, res) => {
+    const cfg = TIPOS_ARQUIVO[req.params.tipo];
+    if (!cfg) return res.status(404).json({ erro: 'Tipo desconhecido' });
+
+    const nome = logic.sanitizarNomeArquivo(req.params.nome);
+    if (!nome) return res.status(400).json({ erro: 'Nome inválido' });
+
+    fs.unlink(path.join(cfg.dir, nome), (err) => {
+        if (err) return res.status(err.code === 'ENOENT' ? 404 : 500).json({ erro: err.message });
+        aposMudancaArquivo(req.params.tipo);
+        res.json({ ok: true });
+    });
+});
+
 io.on('connection', (socket) => {
     // Sincroniza novo cliente com o estado atual do jogo
     socket.emit('atualizar_tela', { ...gameState, serverTime: Date.now() });
 
     // Gestão de Vídeos (Comerciais)
     socket.on('solicitar_videos', () => {
-        fs.readdir(videoDir, (err, files) => {
-            if (err) {
-                console.error('Erro ao ler diretório de vídeos:', err.message);
-                socket.emit('lista_videos', []);
-                return;
-            }
-            const videos = logic.filtrarVideos(files);
+        listarVideos(videos => {
             console.log(`Vídeos encontrados em ${videoDir}:`, videos);
             socket.emit('lista_videos', videos);
         });

@@ -4,6 +4,8 @@
 
 const EXTENSOES_VIDEO = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
 const EXTENSOES_IMAGEM = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+// Um slide pode ser uma imagem estática ou um vídeo (fica em loop até o operador avançar).
+const EXTENSOES_SLIDE = [...EXTENSOES_IMAGEM, ...EXTENSOES_VIDEO];
 const TEXTOS_PONTO = { futsal: 'GOL!', basquete: 'CESTA!', volei: 'PONTO!' };
 
 function criarEstadoInicial() {
@@ -134,6 +136,10 @@ function filtrarImagens(files = []) {
     return files.filter(f => EXTENSOES_IMAGEM.includes(extname(f)));
 }
 
+function filtrarSlides(files = []) {
+    return files.filter(f => EXTENSOES_SLIDE.includes(extname(f)));
+}
+
 // Reduz um nome vindo do cliente a um nome de arquivo seguro para gravar em
 // disco: descarta qualquer caminho (previne traversal) e troca caracteres
 // problemáticos por "_". Retorna '' se não sobrar nada utilizável.
@@ -152,6 +158,7 @@ function extname(nome) {
 module.exports = {
     EXTENSOES_VIDEO,
     EXTENSOES_IMAGEM,
+    EXTENSOES_SLIDE,
     criarEstadoInicial,
     configurarJogo,
     comandoPlacar,
@@ -160,5 +167,6 @@ module.exports = {
     comandoSlides,
     filtrarVideos,
     filtrarImagens,
+    filtrarSlides,
     sanitizarNomeArquivo
 };

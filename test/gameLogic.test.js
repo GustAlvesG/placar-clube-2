@@ -370,6 +370,19 @@ test('filtrarImagens aceita extensões de imagem e ignora o resto', () => {
 });
 
 // ---------------------------------------------------------------------------
+// filtrarSlides (um slide pode ser imagem OU vídeo)
+// ---------------------------------------------------------------------------
+test('filtrarSlides aceita extensões de imagem e de vídeo, ignora o resto', () => {
+    const entrada = ['foto.png', 'clipe.mp4', 'anim.webm', 'doc.pdf', 'planilha.xlsx', 'semext'];
+    const saida = logic.filtrarSlides(entrada);
+    assert.deepEqual(saida, ['foto.png', 'clipe.mp4', 'anim.webm']);
+});
+
+test('filtrarSlides com lista vazia retorna vazio', () => {
+    assert.deepEqual(logic.filtrarSlides([]), []);
+});
+
+// ---------------------------------------------------------------------------
 // sanitizarNomeArquivo (uploads)
 // ---------------------------------------------------------------------------
 test('sanitizarNomeArquivo mantém nomes comuns (acentos, espaços, hífen)', () => {

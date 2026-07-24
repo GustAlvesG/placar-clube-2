@@ -37,6 +37,7 @@
                             ⬆ Enviar vídeo
                             <input type="file" accept=".mp4,.webm,.mov,.avi,.mkv" multiple class="hidden" onchange="enviarArquivos('video', this)">
                         </label>
+                        <button onclick="selecionarTudoVideos()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">☑ Selecionar tudo</button>
                         <button onclick="carregarVideos()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
                     </div>
                 </div>
@@ -80,17 +81,18 @@
                     <div class="flex items-center gap-2 flex-wrap">
                         <span id="status-upload-slide" class="text-xs text-purple-300"></span>
                         <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
-                            ⬆ Enviar imagens
-                            <input type="file" accept="image/*" multiple class="hidden" onchange="enviarArquivos('slide', this)">
+                            ⬆ Enviar imagens/vídeos
+                            <input type="file" accept="image/*,.mp4,.webm,.mov,.avi,.mkv" multiple class="hidden" onchange="enviarArquivos('slide', this)">
                         </label>
                         <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
                             📄 Enviar PDF
                             <input type="file" accept="application/pdf" class="hidden" onchange="enviarPdfComoSlides(this)">
                         </label>
+                        <button onclick="selecionarTudoSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">☑ Selecionar tudo</button>
                         <button onclick="carregarSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
                     </div>
                 </div>
-                <p class="text-[11px] text-gray-500 px-4 pt-2">PPTX: exporte como PDF ou imagens no PowerPoint antes de enviar.</p>
+                <p class="text-[11px] text-gray-500 px-4 pt-2">Um slide pode ser imagem ou vídeo (toca em loop até avançar). PPTX: exporte como PDF ou imagens no PowerPoint antes de enviar.</p>
 
                 <div id="lista-slides" class="flex-1 overflow-y-auto p-3 space-y-2">
                     <p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>
@@ -146,6 +148,8 @@
         const socket = io();
         let fila = [];
         let filaSlides = [];
+        let ultimosVideos = [];
+        let ultimosSlides = [];
 
         const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
         socket.on('atualizar_tela', (dados) => {
@@ -243,6 +247,7 @@
         }
 
         socket.on('lista_videos', (videos) => {
+            ultimosVideos = videos;
             const lista = document.getElementById('lista-videos');
             if (videos.length === 0) {
                 lista.innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Nenhum vídeo encontrado em <code class="text-gray-400">public/videos/</code></p>';
@@ -276,6 +281,12 @@
 
         function limparFila() {
             fila = [];
+            renderizarFila();
+        }
+
+        function selecionarTudoVideos() {
+            if (ultimosVideos.length === 0) return;
+            ultimosVideos.forEach(nome => { if (!fila.includes(nome)) fila.push(nome); });
             renderizarFila();
         }
 
@@ -316,8 +327,19 @@
 
         carregarVideos();
 
-        // ---- Slides ----
+        // ---- Slides (imagem ou vídeo) ----
         let slidesCarregados = false;
+        const EXTENSOES_VIDEO_SLIDE = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+        function ehVideoSlide(nome) {
+            const i = nome.lastIndexOf('.');
+            return i >= 0 && EXTENSOES_VIDEO_SLIDE.includes(nome.slice(i).toLowerCase());
+        }
+        function thumbSlide(nome) {
+            if (ehVideoSlide(nome)) {
+                return '<div class="h-10 w-14 rounded bg-black/40 shrink-0 flex items-center justify-center text-lg">🎥</div>';
+            }
+            return `<img src="/slides/${encodeURIComponent(nome)}" alt="" class="h-10 w-14 object-cover rounded bg-black/40 shrink-0">`;
+        }
 
         function carregarSlides() {
             document.getElementById('lista-slides').innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>';
@@ -326,6 +348,7 @@
 
         socket.on('lista_slides', (slides) => {
             slidesCarregados = true;
+            ultimosSlides = slides;
             const lista = document.getElementById('lista-slides');
             if (slides.length === 0) {
                 lista.innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Nenhum slide encontrado em <code class="text-gray-400">public/slides/</code></p>';
@@ -336,13 +359,13 @@
                 const div = document.createElement('div');
                 div.className = 'flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-xl px-3 py-2 gap-3 border border-gray-700';
                 div.innerHTML = `
-                    <img src="/slides/${encodeURIComponent(nome)}" alt="" class="h-10 w-14 object-cover rounded bg-black/40 shrink-0">
+                    ${thumbSlide(nome)}
                     <span class="text-sm text-gray-200 truncate flex-1">${nome}</span>
                     <button onclick="adicionarNaFilaSlide('${nome.replace(/'/g, "\\'")}')"
                         class="shrink-0 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-bold px-3 py-1.5 rounded-lg text-sm transition-transform">
                         + Adicionar
                     </button>
-                    <button onclick="excluirArquivo('slide', '${nome.replace(/'/g, "\\'")}', 'a imagem')"
+                    <button onclick="excluirArquivo('slide', '${nome.replace(/'/g, "\\'")}', ${ehVideoSlide(nome) ? "'o vídeo'" : "'a imagem'"})"
                         class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1.5 rounded-lg text-sm transition-transform" title="Excluir do servidor">🗑</button>`;
                 lista.appendChild(div);
             });
@@ -363,6 +386,12 @@
             renderizarFilaSlides();
         }
 
+        function selecionarTudoSlides() {
+            if (ultimosSlides.length === 0) return;
+            ultimosSlides.forEach(nome => { if (!filaSlides.includes(nome)) filaSlides.push(nome); });
+            renderizarFilaSlides();
+        }
+
         function renderizarFilaSlides() {
             const container = document.getElementById('fila-slides');
             if (filaSlides.length === 0) {
@@ -375,7 +404,7 @@
                 div.className = 'flex items-center gap-3 bg-gray-800 rounded-xl px-3 py-2 border border-gray-700';
                 div.innerHTML = `
                     <span class="text-purple-400 font-black font-mono w-6 text-center shrink-0">${i + 1}</span>
-                    <img src="/slides/${encodeURIComponent(nome)}" alt="" class="h-10 w-14 object-cover rounded bg-black/40 shrink-0">
+                    ${thumbSlide(nome)}
                     <span class="text-sm text-gray-200 truncate flex-1">${nome}</span>
                     <button onclick="removerDaFilaSlide(${i})"
                         class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1 rounded-lg text-lg transition-transform leading-none">×</button>`;

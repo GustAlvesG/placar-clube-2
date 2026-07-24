@@ -31,7 +31,7 @@ function broadcast() {
 const TIPOS_ARQUIVO = {
     video: { dir: videoDir, extensoes: logic.EXTENSOES_VIDEO },
     patrocinador: { dir: patrocinadorDir, extensoes: logic.EXTENSOES_IMAGEM },
-    slide: { dir: slideDir, extensoes: logic.EXTENSOES_IMAGEM }
+    slide: { dir: slideDir, extensoes: logic.EXTENSOES_SLIDE } // slide = imagem OU vídeo
 };
 
 function listarVideos(cb) {
@@ -40,9 +40,9 @@ function listarVideos(cb) {
 
 function listarSlides(cb) {
     fs.readdir(slideDir, (err, files) => {
-        const imagens = err ? [] : logic.filtrarImagens(files);
-        imagens.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-        cb(imagens);
+        const slides = err ? [] : logic.filtrarSlides(files);
+        slides.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        cb(slides);
     });
 }
 

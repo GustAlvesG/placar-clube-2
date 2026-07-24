@@ -46,6 +46,12 @@
     <!-- Player de vídeo para comerciais (sobrepõe tudo) -->
     <video id="videoPlayer" class="hidden" style="position:fixed;inset:0;width:100%;height:100%;z-index:100;background:#000;object-fit:contain;" playsinline></video>
 
+    <!-- Apresentação de slides em tela cheia (fica abaixo do vídeo: um vídeo de comercial disparado durante os slides tem prioridade).
+         Um slide pode ser uma imagem estática ou um vídeo (toca em loop até o operador avançar). -->
+    <img id="slidePlayer" class="hidden" style="position:fixed;inset:0;width:100%;height:100%;z-index:95;background:#000;object-fit:contain;" alt="">
+    <video id="slideVideoPlayer" class="hidden" style="position:fixed;inset:0;width:100%;height:100%;z-index:95;background:#000;object-fit:contain;" playsinline loop></video>
+    <div id="slideIndicador" class="hidden" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:96;background:rgba(0,0,0,0.65);color:#fff;font-family:sans-serif;font-weight:700;font-size:1rem;padding:0.4rem 0.9rem;border-radius:0.75rem;"></div>
+
     <div class="placar-container">
 
         <div id="box" class="box"></div>
@@ -174,6 +180,54 @@
         });
 
         videoPlayer.addEventListener('ended', () => { tocouNoCiclo = true; playNext(); });
+
+        // Apresentação de slides: estado vem no broadcast (não é evento avulso),
+        // para que um telão que reconecte no meio da apresentação sincronize sozinho.
+        // Cada slide pode ser uma imagem (fica parada) ou um vídeo (toca em loop) até o operador avançar/recuar.
+        const slidePlayer = document.getElementById('slidePlayer');
+        const slideVideoPlayer = document.getElementById('slideVideoPlayer');
+        const slideIndicador = document.getElementById('slideIndicador');
+        const EXTENSOES_VIDEO_SLIDE = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+        function ehVideoSlide(nome) {
+            const i = nome.lastIndexOf('.');
+            return i >= 0 && EXTENSOES_VIDEO_SLIDE.includes(nome.slice(i).toLowerCase());
+        }
+        let slideArquivoAtual = '';
+        function renderSlides(slides) {
+            const ativo = !!(slides && slides.ativo && slides.arquivos && slides.arquivos.length > 0);
+            if (!ativo) {
+                slidePlayer.classList.add('hidden');
+                slideVideoPlayer.classList.add('hidden');
+                slideVideoPlayer.pause();
+                slideIndicador.classList.add('hidden');
+                slideArquivoAtual = '';
+                return;
+            }
+            const arquivo = slides.arquivos[slides.indice] || slides.arquivos[0];
+            if (arquivo !== slideArquivoAtual) {
+                slideArquivoAtual = arquivo;
+                const src = `slides/${encodeURIComponent(arquivo)}`;
+                if (ehVideoSlide(arquivo)) {
+                    slidePlayer.classList.add('hidden');
+                    slideVideoPlayer.src = src;
+                    slideVideoPlayer.classList.remove('hidden');
+                    slideVideoPlayer.load();
+                    slideVideoPlayer.muted = false;
+                    slideVideoPlayer.play().catch(() => {
+                        // Navegador bloqueou autoplay com áudio: toca o MESMO vídeo sem som.
+                        slideVideoPlayer.muted = true;
+                        slideVideoPlayer.play().catch((err) => console.error('Falha ao reproduzir slide em vídeo:', arquivo, err));
+                    });
+                } else {
+                    slideVideoPlayer.pause();
+                    slideVideoPlayer.classList.add('hidden');
+                    slidePlayer.src = src;
+                    slidePlayer.classList.remove('hidden');
+                }
+            }
+            slideIndicador.innerText = `${slides.indice + 1} / ${slides.arquivos.length}`;
+            slideIndicador.classList.remove('hidden');
+        }
 
         // Animação de ponto / falta
         socket.on('animacao_ponto', ({ texto, jogador, timeNome }) => {
@@ -349,7 +403,8 @@
             // Carrossel de patrocinadores
             renderPatrocinadores(dados.patrocinadores);
 
-            
+            // Apresentação de slides
+            renderSlides(dados.slides);
         });
 
         function changeCssSport(sport) {

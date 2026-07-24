@@ -2,5 +2,6 @@ node_modules
 .claude
 public/patrocinadores/*
 public/videos/*
+public/slides/*
 .env
 CLAUDE.md

@@ -13,7 +13,8 @@ app.use(express.static('public'));
 
 const videoDir = path.join(__dirname, 'public', 'videos');
 const patrocinadorDir = path.join(__dirname, 'public', 'patrocinadores');
-for (const dir of [videoDir, patrocinadorDir]) {
+const slideDir = path.join(__dirname, 'public', 'slides');
+for (const dir of [videoDir, patrocinadorDir, slideDir]) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -29,11 +30,20 @@ function broadcast() {
 // a cada mudança para que todos os telões atualizem sozinhos.
 const TIPOS_ARQUIVO = {
     video: { dir: videoDir, extensoes: logic.EXTENSOES_VIDEO },
-    patrocinador: { dir: patrocinadorDir, extensoes: logic.EXTENSOES_IMAGEM }
+    patrocinador: { dir: patrocinadorDir, extensoes: logic.EXTENSOES_IMAGEM },
+    slide: { dir: slideDir, extensoes: logic.EXTENSOES_SLIDE } // slide = imagem OU vídeo
 };
 
 function listarVideos(cb) {
     fs.readdir(videoDir, (err, files) => cb(err ? [] : logic.filtrarVideos(files)));
+}
+
+function listarSlides(cb) {
+    fs.readdir(slideDir, (err, files) => {
+        const slides = err ? [] : logic.filtrarSlides(files);
+        slides.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        cb(slides);
+    });
 }
 
 function sincronizarPatrocinadores(broadcastDepois) {
@@ -45,6 +55,7 @@ function sincronizarPatrocinadores(broadcastDepois) {
 
 function aposMudancaArquivo(tipo) {
     if (tipo === 'patrocinador') sincronizarPatrocinadores(true);
+    else if (tipo === 'slide') listarSlides(slides => io.emit('lista_slides', slides));
     else listarVideos(videos => io.emit('lista_videos', videos));
 }
 
@@ -104,6 +115,16 @@ io.on('connection', (socket) => {
 
     socket.on('comando_video', (dados) => {
         io.emit('executar_video', dados);
+    });
+
+    // Apresentação de Slides (imagens em tela cheia)
+    socket.on('solicitar_slides', () => {
+        listarSlides(slides => socket.emit('lista_slides', slides));
+    });
+
+    socket.on('comando_slides', (dados) => {
+        logic.comandoSlides(gameState, dados);
+        broadcast();
     });
 
     socket.on('comando_transmissao', (dados) => {

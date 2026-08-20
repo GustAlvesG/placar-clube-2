@@ -42,7 +42,9 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
         state.sacando = time;
         if (jogador) {
             const texto = TEXTOS_PONTO[state.esporte] || 'PONTO!';
-            animacoes.push({ name: 'animacao_ponto', payload: { texto, jogador, timeNome: state[time].nome } });
+            // `tipo: 'ponto'` é o que permite o telão preferir o vídeo do
+            // jogador (se tiver) nessa animação — falta nunca usa vídeo.
+            animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'ponto', texto, jogador, timeNome: state[time].nome } });
         }
 
         // Vôlei: ponto que leva a >=25 com diferença >=2 vence o set.
@@ -64,7 +66,9 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     if (acao === 'sub_set' && state[time].sets > 0) state[time].sets -= 1;
     if (acao === 'add_falta') {
         state[time].faltas += 1;
-        if (jogador) animacoes.push({ name: 'animacao_ponto', payload: { texto: 'FALTA!', jogador, timeNome: state[time].nome } });
+        // `tipo: 'falta'` faz o telão usar sempre a foto (nunca o vídeo),
+        // mesmo que o jogador tenha um vídeo cadastrado.
+        if (jogador) animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'falta', texto: 'FALTA!', jogador, timeNome: state[time].nome } });
     }
     if (acao === 'sub_falta' && state[time].faltas > 0) state[time].faltas -= 1;
     if (acao === 'add_periodo') state.periodo += 1;
@@ -97,6 +101,17 @@ function comandoCronometro(state, { acao, valor, segundos } = {}, now = Date.now
         state.cronometro.duracaoConfigurada = ((valor || 0) * 60 + (segundos || 0)) * 1000;
     }
     return state;
+}
+
+// Tempo decorrido do cronômetro do JOGO (não o relógio de parede), em ms, no
+// instante `agora` — soma o que já foi acumulado (pausas anteriores) com o
+// trecho em andamento, se estiver rodando. `now` injetável pelo mesmo motivo
+// de comandoCronometro: testável sem depender do relógio real. Usado pela
+// integração com a API do Placar Clube para preencher `cronometro_ms` em
+// eventos de ponto/falta — nunca usar `tempoAcumulado` sozinho, que fica
+// parado enquanto o cronômetro está rodando.
+function tempoDecorrido(cronometro, agora = Date.now()) {
+    return cronometro.tempoAcumulado + (cronometro.rodando ? (agora - cronometro.inicioTimestamp) : 0);
 }
 
 function comandoTransmissao(state, dados = {}) {
@@ -163,6 +178,7 @@ module.exports = {
     configurarJogo,
     comandoPlacar,
     comandoCronometro,
+    tempoDecorrido,
     comandoTransmissao,
     comandoSlides,
     filtrarVideos,

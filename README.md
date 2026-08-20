@@ -56,6 +56,13 @@ Ou veja a seção **Instalação Manual** abaixo.
    npm install
    ```
 
+2.1. **(Opcional) Configurar a integração com a API do Placar Clube**
+   ```bash
+   cp .env.example .env   # preencha LARAVEL_BASE_URL e LARAVEL_API_TOKEN
+   ```
+   Sem isso o app funciona normalmente em modo manual — ver seção
+   [Integração com a API do Placar Clube (Laravel)](#integração-com-a-api-do-placar-clube-laravel).
+
 3. **Iniciar o servidor**
    - **Modo produção**:
      ```bash
@@ -299,6 +306,87 @@ Instancia Express + Socket.IO, expõe handlers de socket para receber eventos do
 - `socket.on('comando_transmissao', dados)` → `logic.comandoTransmissao(gameState, dados)` → broadcast
 - `socket.on('comando_video', dados)` → broadcast direto para `executar_video`
 - `socket.on('solicitar_videos', )` → list `public/videos/` → `lista_videos`
+
+---
+
+## Integração com a API do Placar Clube (Laravel)
+
+Este app não tem cadastro de equipes/times/jogadores/jogos próprio — quando configurado,
+ele consome uma API Laravel externa (módulo "Placar Clube", rota base `/api/placar`) que é
+a fonte de verdade desses dados e do histórico de eventos da partida. Sem essa
+configuração, o app continua funcionando 100% como antes (modo manual, sem integração).
+
+### Configuração
+
+Copie `.env.example` para `.env` e preencha:
+
+```env
+LARAVEL_BASE_URL=http://localhost:8000   # sem o sufixo /api/placar
+LARAVEL_API_TOKEN=1|AbCdEf...            # gerado via `php artisan placar:token node-dev`
+```
+
+Sem essas duas variáveis preenchidas, o servidor loga um aviso na inicialização e a
+integração fica desativada (nenhuma tela de operador quebra — as opções "Selecionar jogo
+existente"/"Criar jogo agora" ficam desabilitadas na tela de configuração).
+
+### Módulos
+
+- **`placarApi.js`** — cliente HTTP puro para todos os endpoints documentados (autenticação
+  Bearer, um `ErroPlacarApi` tipado por status HTTP). Não guarda estado nenhum; toda função
+  recebe `config = { baseUrl, token, fetchImpl? }`.
+- **`placarEventos.js`** — fila de eventos do jogo: gera `uuid`/`sequencia` no momento em
+  que a ação acontece, traduz ações de placar/cronômetro em eventos (ou em `estorno`,
+  quando o operador desfaz um ponto/falta/set), e envia em lote via `placarApi.enviarEventos`.
+  `cronometro_ms` é **obrigatório** em `ponto`/`falta` na API — vem de
+  `gameLogic.tempoDecorrido(cronometro)`, nunca de `tempoAcumulado` sozinho (que fica
+  congelado enquanto o cronômetro está rodando).
+- **`server.js`** — dono do bookkeeping de transporte (id do jogo/times na Laravel, fila
+  pendente, status de conexão) e dos handlers de socket `placar_*` (ver abaixo). `gameLogic.js`
+  continua sem nenhuma dependência de rede.
+
+### Handlers de socket adicionais
+
+- `placar_chamar` (`{ acao, payload }`, ack) → dispatcher genérico para leitura/criação
+  (equipes, times, jogadores, jogos, scout) — usado pelas telas de seleção/criação avulsa.
+- `placar_carregar_jogo` (`{ jogoId }`, ack) → `GET /jogos/{jogo}`, aplica ao `gameState`.
+- `placar_criar_jogo` (`{ dados }`, ack) → modo avulso: cria o jogo (times já criados via
+  `placar_chamar`) e aplica ao `gameState` do mesmo jeito.
+- `placar_iniciar_jogo`, `placar_salvar_escalacao`, `placar_encerrar_jogo` (ack) → ciclo de
+  vida do jogo.
+- `integracao_status` (server → client, broadcast) → `{ configurada, jogoId, statusConexao,
+  pendentes, ultimoErro }`, consumido pelo badge de sincronização em `controle*.html`.
+- `integracao_eventos_rejeitados` (server → client, broadcast) → lista de eventos que a API
+  rejeitou dentro de um lote (ver `rejeitados` do endpoint de eventos) — mostrado como
+  alerta em `controle*.html`.
+
+### Notas da versão atual da API
+
+- `GET /scout/artilharia` **não existe mais** (removido do lado Laravel) — `placarApi.js`
+  não expõe mais essa função; os substitutos são `atuacaoDoJogador` (ficha minutada do
+  jogador numa partida) e `perfilJogador` (lista de partidas em que atuou).
+- Elenco de cada time agora traz `video` (de `video_url`) ao lado de `foto` — vídeo curto
+  de apresentação do jogador, sempre opcional (`''`/`null` quando não existe). Consumido
+  hoje só como indicador (🎬) na tela de configuração; `placarApi.enviarVideoJogador`/
+  `removerVideoJogador` existem no cliente (multipart, campo `video`, mp4/webm, ≤28MB —
+  **não aceita base64**, ao contrário de logo/foto), mas a UI de gravar/enviar vídeo ainda
+  não foi construída.
+- `categoria` é normalizada no servidor: `POST /times` pode responder `200` (reaproveitou
+  um time existente) em vez de `201` (criou) — tratado como sucesso normalmente, já que
+  `fetch`'s `resp.ok` cobre toda a faixa 200–299.
+
+### Fluxo na tela de configuração (`/controle/index.html`)
+
+Um painel "Integração com o Placar Clube" oferece três modos: **Manual** (o de sempre, sem
+API), **Selecionar jogo existente** (busca por `status`/`data`, carrega elenco e nomes da
+API) e **Criar jogo agora** (avulso — cria times pelo nome e o jogo). Depois de carregar/criar
+um jogo, "Iniciar jogo (API)" marca a partida `ao_vivo`; o elenco ganha checkboxes de
+titular/capitão e um botão para salvar a escalação. Em `controle.html`, um botão "Encerrar
+jogo (API)" fecha o placar quando a partida termina.
+
+Todo evento de placar/cronômetro gerado a partir daí (`comando_placar`/`comando_cronometro`)
+é aplicado **otimisticamente** no `gameState` e propagado ao telão antes de qualquer chamada
+à API — a sincronização com a Laravel acontece em segundo plano, com retry automático em
+caso de falha de rede.
 
 ---
 

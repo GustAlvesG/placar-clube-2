@@ -6,12 +6,17 @@
     <title>Configuração - Placar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        .modo-tab { padding: 0.75rem 1rem; border-radius: 0.75rem; font-weight: 700; background: #f3f4f6; color: #6b7280; border: 2px solid transparent; transition: all .15s; }
+        .modo-tab.tab-ativa { background: #eef2ff; color: #4338ca; border-color: #6366f1; }
+        .modo-tab:disabled { opacity: 0.4; cursor: not-allowed; }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans pb-10">
 
     <!-- Navegação otimizada para toque -->
     <nav class="bg-gray-900 text-white p-4 shadow-lg mb-8 flex flex-wrap justify-center gap-2 md:gap-6 font-bold text-sm md:text-base">
-        <a href="config.html" class="bg-gray-800 text-yellow-400 px-4 py-3 rounded-lg border-b-4 border-yellow-400">⚙️ CONFIGURAÇÃO</a>
+        <a href="index.html" class="bg-gray-800 text-yellow-400 px-4 py-3 rounded-lg border-b-4 border-yellow-400">⚙️ CONFIGURAÇÃO</a>
         <a id="link-jogo" href="controle.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">▶️ JOGO</a>
         <!-- <a href="controle_futsal.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">⚽ Futsal</a> -->
         <!-- <a href="controle_volei.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">🏐 VÔLEI</a> -->
@@ -19,7 +24,56 @@
     </nav>
 
     <div class="w-full md:max-w-5xl mx-auto px-4 space-y-8">
-        
+
+        <!-- Integração com a API do Placar Clube (Laravel) -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-md border-t-4 border-indigo-600">
+            <h2 class="text-2xl font-black text-gray-800 mb-2">Integração com o Placar Clube</h2>
+            <p id="integracao-aviso" class="text-sm text-gray-500 mb-4">Verificando...</p>
+
+            <div class="flex flex-wrap gap-2 mb-6">
+                <button type="button" class="modo-tab tab-ativa" data-modo="manual" onclick="mudarModoIntegracao('manual')">✋ Manual (sem API)</button>
+                <button type="button" class="modo-tab" data-modo="planejado" onclick="mudarModoIntegracao('planejado')">📋 Selecionar jogo existente</button>
+                <button type="button" class="modo-tab" data-modo="avulso" onclick="mudarModoIntegracao('avulso')">➕ Criar jogo agora</button>
+            </div>
+
+            <!-- Manual: nada a mostrar, é o fluxo de sempre (abaixo, sem depender da API) -->
+            <p id="painel-manual" class="text-sm text-gray-400">Modo atual: preencha os times abaixo e clique em SALVAR CONFIGURAÇÃO — nada é enviado à API do Placar Clube.</p>
+
+            <!-- Planejado: busca jogos já cadastrados na API -->
+            <div id="painel-planejado" class="hidden space-y-4">
+                <div class="flex flex-wrap gap-2">
+                    <select id="filtro-status-jogos" class="border rounded-lg p-2 text-sm">
+                        <option value="">Todos os status</option>
+                        <option value="agendado">Agendado</option>
+                        <option value="ao_vivo">Ao vivo</option>
+                        <option value="encerrado">Encerrado</option>
+                    </select>
+                    <input type="date" id="filtro-data-jogos" class="border rounded-lg p-2 text-sm">
+                    <button type="button" onclick="buscarJogos()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform">🔎 Buscar jogos</button>
+                </div>
+                <div id="lista-jogos" class="space-y-2 text-sm text-gray-500">Nenhuma busca feita ainda.</div>
+            </div>
+
+            <!-- Avulso: cria equipe/time (pelo nome, firstOrCreate no backend) + jogo na hora -->
+            <div id="painel-avulso" class="hidden space-y-4">
+                <p class="text-xs text-gray-500">Usa o esporte e os nomes de TIME A / TIME B preenchidos abaixo para criar (ou reaproveitar, se já existirem) a equipe, o time e o jogo em modo avulso.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="avulso-categoria" placeholder="Categoria (padrão: Adulto)" class="border rounded-lg p-2 text-sm">
+                    <input type="text" id="avulso-local" placeholder="Local (opcional)" class="border rounded-lg p-2 text-sm">
+                </div>
+                <button type="button" onclick="criarJogoAvulso()" class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold py-3 rounded-xl transition-transform">
+                    ➕ Criar times e jogo agora
+                </button>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-100">
+                <button type="button" id="btn-iniciar-jogo-api" onclick="iniciarJogoApi()" disabled
+                    class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold px-6 py-3 rounded-xl transition-transform text-sm">
+                    🚦 Iniciar jogo (marcar ao vivo na API)
+                </button>
+            </div>
+        </div>
+
         <!-- Regras do Jogo -->
         <div class="bg-white p-6 md:p-8 rounded-2xl shadow-md border-t-4 border-gray-800">
             <h2 class="text-2xl font-black text-gray-800 mb-6">Regras do Jogo</h2>
@@ -78,6 +132,7 @@
                         <input type="file" accept=".txt,.csv,.xlsx,.xls" class="hidden" onchange="importarElenco('timeA', this)">
                     </label>
                 </div>
+                <button type="button" onclick="salvarEscalacao('timeA')" class="mt-2 w-full bg-indigo-100 hover:bg-indigo-200 active:scale-95 text-indigo-900 font-bold py-2 rounded-xl transition-transform text-xs">💾 Salvar escalação (API)</button>
             </div>
             
             <!-- TIME B -->
@@ -98,6 +153,7 @@
                         <input type="file" accept=".txt,.csv,.xlsx,.xls" class="hidden" onchange="importarElenco('timeB', this)">
                     </label>
                 </div>
+                <button type="button" onclick="salvarEscalacao('timeB')" class="mt-2 w-full bg-indigo-100 hover:bg-indigo-200 active:scale-95 text-indigo-900 font-bold py-2 rounded-xl transition-transform text-xs">💾 Salvar escalação (API)</button>
             </div>
 
         </div>
@@ -155,6 +211,210 @@ Ana Lima</pre>
         let transmissaoAtiva = false;
         let elenco = { timeA: [], timeB: [] };
         let elencoCarregado = false;
+
+        // ---- Integração com a API do Placar Clube ----
+        // `integracao` reflete o broadcast 'integracao_status' do servidor —
+        // nunca decide sozinho se está configurada/ativa. `timeAIdApi`/`timeBIdApi`
+        // guardam os ids da Laravel (necessários para salvar escalação e para os
+        // eventos de ponto/falta referenciarem o time certo).
+        let integracao = { configurada: false, jogoId: null, statusConexao: 'nao_configurado', pendentes: 0 };
+        let modoAtual = 'manual';
+        let timeAIdApi = null, timeBIdApi = null;
+
+        socket.on('integracao_status', (status) => {
+            integracao = status;
+            atualizarPainelIntegracao();
+        });
+
+        function atualizarPainelIntegracao() {
+            const aviso = document.getElementById('integracao-aviso');
+            const tabsApi = document.querySelectorAll('.modo-tab[data-modo="planejado"], .modo-tab[data-modo="avulso"]');
+            if (!integracao.configurada) {
+                aviso.textContent = 'Integração não configurada neste servidor (LARAVEL_BASE_URL/LARAVEL_API_TOKEN ausentes no .env) — operando em modo manual.';
+                tabsApi.forEach(b => b.disabled = true);
+                if (modoAtual !== 'manual') mudarModoIntegracao('manual');
+            } else {
+                tabsApi.forEach(b => b.disabled = false);
+                aviso.textContent = integracao.jogoId
+                    ? `Jogo #${integracao.jogoId} carregado — status: ${integracao.statusConexao}` + (integracao.pendentes ? ` (${integracao.pendentes} evento(s) pendente(s) de envio)` : '')
+                    : 'Integração ativa. Selecione um jogo existente ou crie um novo abaixo.';
+            }
+            const btnIniciar = document.getElementById('btn-iniciar-jogo-api');
+            if (btnIniciar) btnIniciar.disabled = !integracao.jogoId;
+        }
+
+        function mudarModoIntegracao(modo) {
+            modoAtual = modo;
+            document.querySelectorAll('.modo-tab').forEach(b => b.classList.toggle('tab-ativa', b.dataset.modo === modo));
+            document.getElementById('painel-manual').classList.toggle('hidden', modo !== 'manual');
+            document.getElementById('painel-planejado').classList.toggle('hidden', modo !== 'planejado');
+            document.getElementById('painel-avulso').classList.toggle('hidden', modo !== 'avulso');
+        }
+
+        // Algumas listagens da API vêm paginadas ({data, links, meta} —
+        // /jogos, /equipes) e outras como array simples (/times,
+        // /modalidades), apesar da doc dizer que não há envelope. Aceita os
+        // dois formatos em vez de assumir um só.
+        function extrairLista(dado) {
+            if (Array.isArray(dado)) return dado;
+            if (dado && Array.isArray(dado.data)) return dado.data;
+            return [];
+        }
+
+        function escHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Identidade do time na lista de jogos. Prefere `equipe.nome` (o nome
+        // canônico do clube) a `nome_exibicao`, que é editável no cadastro e
+        // por isso não é confiável para identificar o confronto. Cai pro
+        // nome_exibicao quando `equipe` não vier (jogo criado em campo, API antiga).
+        function nomeTimeDoJogo(t) {
+            if (!t) return '?';
+            return (t.equipe && (t.equipe.nome || t.equipe.nome_curto)) || t.nome_exibicao || ('Time ' + (t.id != null ? t.id : '?'));
+        }
+
+        // A categoria é o que separa dois jogos do mesmo clube no mesmo dia —
+        // por isso vai como selo, não escondida na segunda linha. A API só
+        // permite jogo entre times da MESMA categoria; se vierem diferentes
+        // (dado legado), mostra as duas em vez de esconder a divergência.
+        function categoriaDoJogo(j) {
+            const casa = j.time_casa && j.time_casa.categoria;
+            const fora = j.time_fora && j.time_fora.categoria;
+            if (casa && fora && casa !== fora) return casa + ' × ' + fora;
+            return casa || fora || '';
+        }
+
+        function dataHoraJogo(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return String(iso);
+            return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function buscarJogos() {
+            const status = document.getElementById('filtro-status-jogos').value;
+            const data = document.getElementById('filtro-data-jogos').value;
+            const lista = document.getElementById('lista-jogos');
+            lista.textContent = 'Buscando...';
+            socket.emit('placar_chamar', { acao: 'listarJogos', payload: { status, data } }, (resp) => {
+                if (!resp.ok) { lista.textContent = 'Erro ao buscar jogos: ' + resp.erro; return; }
+                const jogos = extrairLista(resp.dado);
+                if (jogos.length === 0) { lista.textContent = 'Nenhum jogo encontrado para esse filtro.'; return; }
+                lista.innerHTML = '';
+                jogos.forEach(j => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl p-3';
+
+                    const categoria = categoriaDoJogo(j);
+                    const detalhes = [
+                        '#' + j.id,
+                        j.esporte || '',
+                        j.status || '',
+                        dataHoraJogo(j.data_hora),
+                        j.local || ''
+                    ].filter(Boolean).map(escHtml).join(' · ');
+
+                    row.innerHTML = `
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-bold text-gray-800 truncate">${escHtml(nomeTimeDoJogo(j.time_casa))} <span class="text-gray-400 font-normal">×</span> ${escHtml(nomeTimeDoJogo(j.time_fora))}</span>
+                                ${categoria ? `<span class="shrink-0 bg-indigo-100 text-indigo-800 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">${escHtml(categoria)}</span>` : ''}
+                            </div>
+                            <div class="text-xs text-gray-500 truncate mt-0.5">${detalhes}</div>
+                        </div>
+                        <button type="button" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-4 py-2 rounded-lg font-bold text-xs transition-transform" onclick="carregarJogo(${j.id})">Carregar</button>
+                    `;
+                    lista.appendChild(row);
+                });
+            });
+        }
+
+        function carregarJogo(jogoId) {
+            socket.emit('placar_carregar_jogo', { jogoId }, (resp) => {
+                if (!resp.ok) { alert('Erro ao carregar jogo: ' + resp.erro); return; }
+                aplicarRespostaJogoNaTela(resp.dado);
+            });
+        }
+
+        function criarJogoAvulso() {
+            const esporteSelecionado = document.querySelector('input[name="esporte"]:checked');
+            const nomeA = document.getElementById('nome_a').value.trim();
+            const nomeB = document.getElementById('nome_b').value.trim();
+            if (!esporteSelecionado || !nomeA || !nomeB) {
+                alert('Selecione o esporte e preencha os nomes de TIME A e TIME B antes de criar em modo avulso.');
+                return;
+            }
+            const categoria = document.getElementById('avulso-categoria').value.trim() || undefined;
+            const local = document.getElementById('avulso-local').value.trim() || undefined;
+            const modalidade = esporteSelecionado.value;
+
+            // 4 chamadas do modo avulso (docs/placar-clube-api.md) reduzidas a 3:
+            // POST /times já cria a equipe junto via equipe_nome (firstOrCreate).
+            socket.emit('placar_chamar', { acao: 'criarTime', payload: { equipe_nome: nomeA, modalidade, categoria } }, (respA) => {
+                if (!respA.ok) return alert('Erro ao criar/reaproveitar o time A: ' + respA.erro);
+                socket.emit('placar_chamar', { acao: 'criarTime', payload: { equipe_nome: nomeB, modalidade, categoria } }, (respB) => {
+                    if (!respB.ok) return alert('Erro ao criar/reaproveitar o time B: ' + respB.erro);
+                    socket.emit('placar_criar_jogo', { dados: { modalidade, time_casa_id: respA.dado.id, time_fora_id: respB.dado.id, local } }, (respJogo) => {
+                        if (!respJogo.ok) return alert('Erro ao criar o jogo: ' + respJogo.erro);
+                        aplicarRespostaJogoNaTela(respJogo.dado);
+                    });
+                });
+            });
+        }
+
+        function iniciarJogoApi() {
+            if (!integracao.jogoId) return;
+            socket.emit('placar_iniciar_jogo', { jogoId: integracao.jogoId }, (resp) => {
+                alert(resp.ok ? `Jogo #${integracao.jogoId} marcado como ao vivo.` : 'Erro ao iniciar o jogo: ' + resp.erro);
+            });
+        }
+
+        // Aplica a resposta de GET/POST /jogos(/{jogo}) (mesmo formato nos dois
+        // casos) na tela: nomes, esporte, elenco com jogador_id/titular/capitão.
+        // Popula os campos diretamente (em vez de esperar o broadcast padrão)
+        // porque `elencoCarregado` só deixa o elenco carregar uma vez a partir de
+        // 'atualizar_tela' — aqui é uma troca de jogo explícita do operador.
+        function aplicarRespostaJogoNaTela(dado) {
+            const { jogo, time_casa, time_fora } = dado;
+            timeAIdApi = time_casa.id;
+            timeBIdApi = time_fora.id;
+
+            const radio = document.querySelector(`input[name="esporte"][value="${jogo.esporte}"]`);
+            if (radio) { radio.checked = true; atualizarConfig(); }
+
+            document.getElementById('nome_a').value = time_casa.nome_exibicao || '';
+            document.getElementById('nome_b').value = time_fora.nome_exibicao || '';
+
+            elenco.timeA = (time_casa.elenco || []).map(mapearJogadorApi);
+            elenco.timeB = (time_fora.elenco || []).map(mapearJogadorApi);
+            elencoCarregado = true;
+            renderElenco('timeA');
+            renderElenco('timeB');
+
+            alert(`Jogo #${jogo.id} carregado. Ajuste o elenco/escalação se precisar e clique em "Iniciar jogo (API)" para começar a marcar ao vivo.`);
+        }
+
+        function mapearJogadorApi(j) {
+            // video_url é novo e opcional — a maioria dos jogadores não tem;
+            // sempre trata como '' quando vier null.
+            return { numero: String(j.numero || ''), nome: j.nome_exibicao || '', foto: j.foto_url || '', video: j.video_url || '', jogador_id: j.jogador_id, titular: !!j.titular, capitao: !!j.capitao };
+        }
+
+        function salvarEscalacao(time) {
+            const timeIdApi = time === 'timeA' ? timeAIdApi : timeBIdApi;
+            if (!integracao.jogoId || !timeIdApi) { alert('Carregue ou crie um jogo pela integração antes de salvar a escalação.'); return; }
+            const jogadores = elenco[time]
+                .filter(j => j.jogador_id)
+                .map(j => ({ jogador_id: j.jogador_id, numero: String(j.numero || ''), titular: !!j.titular, capitao: !!j.capitao }));
+            if (jogadores.length === 0) { alert('Nenhum jogador com cadastro na API neste time — nada para salvar (jogadores adicionados manualmente aqui não têm jogador_id).'); return; }
+            // Substitui por completo a escalação anterior deste time (não é merge).
+            socket.emit('placar_salvar_escalacao', { jogoId: integracao.jogoId, time_id: timeIdApi, jogadores }, (resp) => {
+                alert(resp.ok ? 'Escalação salva na API.' : 'Erro ao salvar escalação: ' + resp.erro);
+            });
+        }
 
         socket.on('atualizar_tela', (dados) => {
             const link = document.getElementById('link-jogo');
@@ -244,7 +504,15 @@ Ana Lima</pre>
             });
 
             const limparElenco = (arr) => arr
-                .map(j => ({ numero: String(j.numero || '').trim(), nome: (j.nome || '').trim(), foto: j.foto || '' }))
+                .map(j => ({
+                    numero: String(j.numero || '').trim(), nome: (j.nome || '').trim(), foto: j.foto || '',
+                    // Preserva o vínculo com a API (se veio de lá) — sem isso os
+                    // eventos de ponto/falta perderiam o jogador_id ao salvar.
+                    ...(j.video ? { video: j.video } : {}),
+                    ...(j.jogador_id ? { jogador_id: j.jogador_id } : {}),
+                    ...(j.titular !== undefined ? { titular: !!j.titular } : {}),
+                    ...(j.capitao !== undefined ? { capitao: !!j.capitao } : {})
+                }))
                 .filter(j => j.nome || j.numero);
 
             socket.emit('configurar_jogo', {
@@ -262,7 +530,7 @@ Ana Lima</pre>
         // ---- Gestão de elenco (numero, nome, foto) ----
         function normalizarJogador(j) {
             if (typeof j === 'string') return { numero: '', nome: j, foto: '' };
-            return { numero: j.numero || '', nome: j.nome || '', foto: j.foto || '' };
+            return { numero: j.numero || '', nome: j.nome || '', foto: j.foto || '', video: j.video || '', jogador_id: j.jogador_id, titular: !!j.titular, capitao: !!j.capitao };
         }
 
         function escAttr(s) { return String(s).replace(/"/g, '&quot;'); }
@@ -293,17 +561,33 @@ Ana Lima</pre>
             const container = document.getElementById('elenco-' + time);
             if (!container) return;
             container.innerHTML = '';
+            // Titular/capitão só fazem sentido (e só são enviáveis via
+            // placar_salvar_escalacao) quando há um jogo da API carregado.
+            const mostrarEscalacao = !!integracao.jogoId;
             elenco[time].forEach((j, i) => {
                 const row = document.createElement('div');
                 row.className = 'flex items-center gap-2 bg-white p-2 rounded-xl border border-gray-200';
                 const thumb = j.foto
                     ? `<img src="${j.foto}" class="w-11 h-11 rounded-full object-cover">`
                     : `<span class="text-xl">📷</span>`;
+                // video_url é opcional (a maioria não tem) — só um indicador
+                // visual de que existe um vídeo de apresentação cadastrado.
+                const indicadorVideo = j.video ? `<span class="shrink-0 text-lg" title="Tem vídeo de apresentação">🎬</span>` : '';
+                const escalacaoHtml = mostrarEscalacao ? `
+                    <label class="shrink-0 flex flex-col items-center text-[10px] text-gray-500 leading-none gap-0.5" title="Titular">
+                        <input type="checkbox" ${j.titular ? 'checked' : ''} onchange="updateJogador('${time}', ${i}, 'titular', this.checked)">T
+                    </label>
+                    <label class="shrink-0 flex flex-col items-center text-[10px] text-gray-500 leading-none gap-0.5" title="Capitão">
+                        <input type="checkbox" ${j.capitao ? 'checked' : ''} onchange="updateJogador('${time}', ${i}, 'capitao', this.checked)">C
+                    </label>
+                ` : '';
                 row.innerHTML = `
                     <input type="number" value="${escAttr(j.numero)}" oninput="updateJogador('${time}', ${i}, 'numero', this.value)"
                         placeholder="#" class="w-14 border border-gray-300 p-2 rounded-lg text-center font-black text-gray-800 outline-none focus:border-gray-500">
                     <input type="text" value="${escAttr(j.nome)}" oninput="updateJogador('${time}', ${i}, 'nome', this.value)"
                         placeholder="Nome do jogador" class="flex-1 min-w-0 border border-gray-300 p-2 rounded-lg text-gray-800 outline-none focus:border-gray-500">
+                    ${escalacaoHtml}
+                    ${indicadorVideo}
                     <label class="shrink-0 w-11 h-11 flex items-center justify-center bg-gray-100 rounded-lg cursor-pointer overflow-hidden border border-gray-300">
                         ${thumb}
                         <input type="file" accept="image/*" class="hidden" onchange="fotoJogador('${time}', ${i}, this)">

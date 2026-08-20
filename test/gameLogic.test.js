@@ -52,7 +52,7 @@ test('add_ponto com jogador emite animação com texto por esporte', () => {
         const { animacoes } = logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1, jogador });
         assert.equal(animacoes.length, 1);
         assert.equal(animacoes[0].name, 'animacao_ponto');
-        assert.deepEqual(animacoes[0].payload, { texto, jogador, timeNome: 'Águia' });
+        assert.deepEqual(animacoes[0].payload, { tipo: 'ponto', texto, jogador, timeNome: 'Águia' });
     }
 });
 
@@ -135,7 +135,7 @@ test('add_falta com jogador emite animação FALTA!', () => {
     const { animacoes } = logic.comandoPlacar(s, { time: 'timeB', acao: 'add_falta', jogador });
     assert.equal(s.timeB.faltas, 1);
     assert.equal(animacoes.length, 1);
-    assert.deepEqual(animacoes[0].payload, { texto: 'FALTA!', jogador, timeNome: 'Leões' });
+    assert.deepEqual(animacoes[0].payload, { tipo: 'falta', texto: 'FALTA!', jogador, timeNome: 'Leões' });
 });
 
 test('add_falta sem jogador não emite animação', () => {
@@ -241,6 +241,28 @@ test('set com tudo zerado zera a duração', () => {
     const s = novoEstado();
     logic.comandoCronometro(s, { acao: 'set', valor: 0, segundos: 0 });
     assert.equal(s.cronometro.duracaoConfigurada, 0);
+});
+
+// ---------------------------------------------------------------------------
+// tempoDecorrido — usado para preencher cronometro_ms nos eventos da API
+// ---------------------------------------------------------------------------
+test('tempoDecorrido soma o acumulado ao trecho em andamento quando está rodando', () => {
+    const s = novoEstado();
+    logic.comandoCronometro(s, { acao: 'play' }, 1000);
+    assert.equal(logic.tempoDecorrido(s.cronometro, 13600), 12600);
+});
+
+test('tempoDecorrido não soma nada extra quando está pausado (usa o valor congelado)', () => {
+    const s = novoEstado();
+    logic.comandoCronometro(s, { acao: 'play' }, 1000);
+    logic.comandoCronometro(s, { acao: 'pause' }, 4000);
+    // "agora" bem depois da pausa não deve inflar o tempo — ficou congelado em 3000.
+    assert.equal(logic.tempoDecorrido(s.cronometro, 999999), 3000);
+});
+
+test('tempoDecorrido com cronômetro nunca iniciado é zero', () => {
+    const s = novoEstado();
+    assert.equal(logic.tempoDecorrido(s.cronometro, 50000), 0);
 });
 
 // ---------------------------------------------------------------------------

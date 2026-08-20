@@ -19,6 +19,7 @@
         <a id="link-jogo" href="controle.html" class="bg-gray-700 text-yellow-400 px-4 py-2 rounded-lg border-b-2 border-yellow-400">▶️ JOGO</a>
         <a href="controle_anuncios.html" class="px-4 py-2 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">📺 ANÚNCIOS</a>
         <span id="badge-esporte" class="px-3 py-2 rounded-lg bg-yellow-900 text-yellow-300 font-black tracking-wider text-xs">—</span>
+        <span id="badge-integracao" class="hidden px-3 py-2 rounded-lg font-black tracking-wider text-xs" title="Status da integração com a API do Placar Clube"></span>
     </nav>
 
     <!-- Área principal: TIME A | CENTRO | TIME B -->
@@ -95,6 +96,9 @@
             <!-- Zerar tudo -->
             <button onclick="zerarTudo()" class="w-full bg-red-950 hover:bg-red-900 active:scale-95 text-red-400 font-bold py-3 rounded-xl text-xs border border-red-800 transition-transform mt-1">⚠ ZERAR TUDO</button>
 
+            <!-- Encerrar jogo na API (só aparece com integração ativa e jogo carregado) -->
+            <button id="btn-encerrar-jogo-api" onclick="encerrarJogoApi()" class="hidden w-full bg-emerald-950 hover:bg-emerald-900 active:scale-95 text-emerald-400 font-bold py-3 rounded-xl text-xs border border-emerald-800 transition-transform mt-1">🏁 ENCERRAR JOGO (API)</button>
+
             <button onclick="pararTransmissao()" class="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-xs border border-gray-600 transition-transform mt-1">⏹ PARAR TRANSMISSÃO</button>
         </div>
 
@@ -138,6 +142,7 @@
     <script>
         const socket = io();
         let estadoAtual = null;
+        let integracao = { configurada: false, jogoId: null, statusConexao: 'nao_configurado', pendentes: 0 };
 
         socket.on('atualizar_tela', (dados) => {
             if (dados.serverTime && dados.cronometro) {
@@ -147,6 +152,58 @@
             estadoAtual = dados;
             atualizarUI(dados);
         });
+
+        // Status da fila de eventos (placarEventos.js, via server.js) — não
+        // decide nada localmente, só reflete o que o servidor manda.
+        socket.on('integracao_status', (status) => {
+            integracao = status;
+            atualizarBadgeIntegracao();
+        });
+
+        socket.on('integracao_eventos_rejeitados', (rejeitados) => {
+            const motivos = rejeitados.map(r => `• ${r.motivo}`).join('\n');
+            alert(`A API do Placar Clube rejeitou ${rejeitados.length} evento(s):\n${motivos}`);
+        });
+
+        function atualizarBadgeIntegracao() {
+            const badge = document.getElementById('badge-integracao');
+            const btnEncerrar = document.getElementById('btn-encerrar-jogo-api');
+            if (!integracao.configurada || !integracao.jogoId) {
+                badge.classList.add('hidden');
+                btnEncerrar.classList.add('hidden');
+                return;
+            }
+            badge.classList.remove('hidden');
+            btnEncerrar.classList.remove('hidden');
+            const cores = {
+                sincronizado: 'bg-emerald-900 text-emerald-300',
+                carregado: 'bg-emerald-900 text-emerald-300',
+                sincronizando: 'bg-yellow-900 text-yellow-300',
+                erro: 'bg-red-900 text-red-300',
+                erro_configuracao: 'bg-red-900 text-red-300'
+            };
+            badge.className = `px-3 py-2 rounded-lg font-black tracking-wider text-xs ${cores[integracao.statusConexao] || 'bg-gray-800 text-gray-300'}`;
+            badge.innerText = `🔗 #${integracao.jogoId}` + (integracao.pendentes ? ` · ${integracao.pendentes} pend.` : ' · ok');
+        }
+
+        function encerrarJogoApi() {
+            if (!integracao.jogoId || !estadoAtual) return;
+            if (!confirm(`Encerrar o jogo #${integracao.jogoId} na API? Isso marca a partida como encerrada e fecha o placar.`)) return;
+            socket.emit('placar_encerrar_jogo', {
+                jogoId: integracao.jogoId,
+                placar_casa: estadoAtual.timeA.placar,
+                placar_fora: estadoAtual.timeB.placar,
+                sets_casa: estadoAtual.timeA.sets,
+                sets_fora: estadoAtual.timeB.sets,
+                periodos_jogados: estadoAtual.periodo
+            }, (resp) => {
+                if (!resp.ok) { alert('Erro ao encerrar o jogo: ' + resp.erro); return; }
+                const obs = resp.dado && resp.dado.observacoes;
+                alert(obs
+                    ? `Jogo encerrado. A API registrou uma divergência para conferência:\n${obs}`
+                    : 'Jogo encerrado na API.');
+            });
+        }
 
         const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
 

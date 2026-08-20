@@ -16,6 +16,7 @@
     <nav class="bg-gray-900 shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-700 text-sm">
         <a href="index.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">⚙️ CONFIG</a>
         <span class="text-blue-300 font-black tracking-wider">🏐 VÔLEI</span>
+        <span id="badge-integracao" class="hidden px-2 py-1 rounded-lg font-black tracking-wider text-[10px]"></span>
         <a href="controle_anuncios.html" class="ml-auto text-gray-400 hover:text-yellow-400 font-bold transition">📺 ANÚNCIOS</a>
     </nav>
 
@@ -111,6 +112,21 @@
         const socket = io();
         let estadoAtual = null;
         let pendingAcao = null;
+
+        // Status da fila de eventos da integração com a API do Placar Clube
+        // (placarEventos.js, via server.js) — só reflete o broadcast do servidor.
+        socket.on('integracao_status', (integracao) => {
+            const badge = document.getElementById('badge-integracao');
+            if (!integracao.configurada || !integracao.jogoId) { badge.classList.add('hidden'); return; }
+            badge.classList.remove('hidden');
+            const cores = { sincronizado: 'bg-emerald-900 text-emerald-300', carregado: 'bg-emerald-900 text-emerald-300', sincronizando: 'bg-yellow-900 text-yellow-300' };
+            badge.className = `px-2 py-1 rounded-lg font-black tracking-wider text-[10px] ${cores[integracao.statusConexao] || 'bg-red-900 text-red-300'}`;
+            badge.innerText = `🔗 #${integracao.jogoId}` + (integracao.pendentes ? ` · ${integracao.pendentes} pend.` : ' · ok');
+        });
+
+        socket.on('integracao_eventos_rejeitados', (rejeitados) => {
+            alert(`A API do Placar Clube rejeitou ${rejeitados.length} evento(s):\n` + rejeitados.map(r => `• ${r.motivo}`).join('\n'));
+        });
 
         socket.on('atualizar_tela', (dados) => {
             if (dados.serverTime && dados.cronometro) {

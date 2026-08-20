@@ -26,6 +26,13 @@
         </div>
     </div>
 
+    <!-- Vídeo de apresentação do jogador em tela cheia (só na marcação de ponto).
+         Fica acima do card de animação (85) e abaixo de standby/slides/comerciais,
+         mantendo a mesma ordem de prioridade que a animação já tinha. -->
+    <div id="anim-video-overlay" style="display:none;opacity:0;position:fixed;inset:0;z-index:88;background:#000;transition:opacity 600ms ease;">
+        <video id="anim-video" style="width:100%;height:100%;object-fit:contain;background:#000;" playsinline></video>
+    </div>
+
     <!-- Tela inicial / standby (visível até a transmissão ser iniciada) -->
     <div id="tela-inicial" style="position:fixed;inset:0;z-index:90;background:linear-gradient(to bottom,#490025 , #1D0518) ;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
         <div id="icone-esporte" style="font-size:9rem;line-height:1;">⚽</div>
@@ -229,14 +236,72 @@
             slideIndicador.classList.remove('hidden');
         }
 
-        // Animação de ponto / falta
-        socket.on('animacao_ponto', ({ texto, jogador, timeNome }) => {
+        // Animação de ponto / falta.
+        //
+        // Ponto COM vídeo do jogador  -> vídeo em tela cheia (fade in, toca até
+        //                                o fim, fade out e volta pro placar).
+        // Ponto sem vídeo / falta     -> card de sempre, com foto quando houver.
+        // Falta nunca usa vídeo, mesmo que o jogador tenha um cadastrado.
+        const FADE_VIDEO_JOGADOR_MS = 600;     // precisa casar com o transition do #anim-video-overlay
+        const LIMITE_VIDEO_JOGADOR_MS = 30000; // trava de segurança: se o 'ended' não vier (stall de
+                                               // rede, arquivo corrompido), o placar volta sozinho.
+
+        function ocultarVideoJogador({ imediato = false } = {}) {
+            const box = document.getElementById('anim-video-overlay');
+            const videoEl = document.getElementById('anim-video');
+            clearTimeout(window._animVideoTimer);
+            clearTimeout(window._animVideoFadeTimer);
+
+            const finalizar = () => {
+                box.style.display = 'none';
+                videoEl.pause();
+                videoEl.removeAttribute('src');
+                videoEl.load(); // encerra o download pendente
+            };
+
+            box.style.opacity = '0';
+            if (imediato) return finalizar();
+            window._animVideoFadeTimer = setTimeout(finalizar, FADE_VIDEO_JOGADOR_MS); // fade out
+        }
+
+        function mostrarVideoJogador(url, aoFalhar) {
+            const box = document.getElementById('anim-video-overlay');
+            const videoEl = document.getElementById('anim-video');
+
+            clearTimeout(window._animVideoTimer);
+            clearTimeout(window._animVideoFadeTimer);
+
+            const falhar = () => {
+                ocultarVideoJogador({ imediato: true });
+                if (aoFalhar) aoFalhar(); // vídeo quebrado não anula o lance: cai pro card com foto
+            };
+
+            videoEl.onended = () => ocultarVideoJogador();
+            videoEl.onerror = falhar;
+
+            videoEl.src = url;
+            videoEl.muted = false;
+
+            box.style.display = 'block';
+            box.offsetHeight;          // força reflow para o fade-in acontecer
+            box.style.opacity = '1';
+
+            videoEl.play().catch(() => {
+                // Navegador bloqueou autoplay com áudio: toca o MESMO vídeo sem som.
+                videoEl.muted = true;
+                videoEl.play().catch((err) => {
+                    console.error('Falha ao reproduzir vídeo do jogador:', err);
+                    falhar();
+                });
+            });
+
+            window._animVideoTimer = setTimeout(() => ocultarVideoJogador(), LIMITE_VIDEO_JOGADOR_MS);
+        }
+
+        function mostrarCardAnimacao(texto, timeNome, j) {
             document.getElementById('anim-time').innerText = timeNome || '';
             document.getElementById('anim-acao').innerText = texto || '';
-
-            // jogador pode ser objeto {numero, nome, foto} ou string (legado)
-            const j = (jogador && typeof jogador === 'object') ? jogador : { numero: '', nome: jogador || '', foto: '' };
-            document.getElementById('anim-numero').innerText = j.numero ? `#${j.numero}` : '';
+            document.getElementById('anim-numero').innerText = j.numero ? '#' + j.numero : '';
             document.getElementById('anim-nome').innerText = j.nome || '';
 
             const fotoEl = document.getElementById('anim-foto');
@@ -259,6 +324,22 @@
             card.style.animation = 'animPop 5s forwards';
             clearTimeout(window._animTimer);
             window._animTimer = setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+        }
+
+        socket.on('animacao_ponto', ({ tipo, texto, jogador, timeNome }) => {
+            // jogador pode ser objeto {numero, nome, foto, video} ou string (legado)
+            const j = (jogador && typeof jogador === 'object') ? jogador : { numero: '', nome: jogador || '', foto: '', video: '' };
+
+            if (tipo === 'ponto' && j.video) {
+                // Lance novo durante um vídeo corta o card anterior na hora.
+                document.getElementById('anim-overlay').style.display = 'none';
+                clearTimeout(window._animTimer);
+                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j));
+                return;
+            }
+
+            ocultarVideoJogador({ imediato: true });
+            mostrarCardAnimacao(texto, timeNome, j);
         });
 
         // Cronômetro em tempo real (50ms para suavidade nos centissegundos do basquete)

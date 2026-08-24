@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Placar - Estático</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        .placar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2vh;
+        }
+
+        .linha-time {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3vw;
+        }
+
+        .pontos {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 12vh;
+            min-width: 2ch;
+            text-align: center;
+        }
+
+        .sets {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 6vh;
+            min-width: 1ch;
+            text-align: center;
+        }
+
+        #area_sets {
+            display: flex;
+            flex-direction: column;
+            gap: 2vh;
+        }
+
+        #area_sets[hidden] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="placar-container">
+        <div class="linha-time">
+            <div id="placarA" class="pontos"></div>
+            <div id="area_sets">
+                <div id="setsA" class="sets"></div>
+            </div>
+        </div>
+        <div class="linha-time">
+            <div id="placarB" class="pontos"></div>
+            <div id="area_sets2">
+                <div id="setsB" class="sets"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        function mostrarSets(mostrar) {
+            document.getElementById('area_sets').hidden = !mostrar;
+            document.getElementById('area_sets2').hidden = !mostrar;
+        }
+
+        socket.on('atualizar_tela', (dados) => {
+            mostrarSets(dados.esporte === 'volei');
+
+            // Placar (basquete sempre com 2 dígitos: 01, 02... 09, 10)
+            const formatarPlacar = (p) => dados.esporte === 'basquete' ? String(p).padStart(2, '0') : p;
+            document.getElementById('placarA').innerText = formatarPlacar(dados.timeA.placar);
+            document.getElementById('placarB').innerText = formatarPlacar(dados.timeB.placar);
+
+            // Sets (vôlei)
+            document.getElementById('setsA').innerText = dados.timeA.sets;
+            document.getElementById('setsB').innerText = dados.timeB.sets;
+        });
+    </script>
+</body>
+</html>

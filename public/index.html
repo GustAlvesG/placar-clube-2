@@ -11,16 +11,21 @@
 </head>
 <body>
 
-    <!-- Animação de ponto / falta -->
-    <div id="anim-overlay" style="display:none;position:fixed;inset:0;z-index:85;align-items:center;justify-content:center;pointer-events:none;">
-        <div id="anim-card" style="background:rgba(0,0,0,0.88);padding:2.5rem 3.5rem;border-radius:1.5rem;text-align:center;min-width:18rem;">
-            <div id="anim-time" style="color:#9ca3af;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.15em;font-family:sans-serif;font-weight:700;margin-bottom:0.5rem;"></div>
-            <div id="anim-acao" style="color:#facc15;font-size:5rem;font-weight:900;font-family:sans-serif;line-height:1;"></div>
-            <div id="anim-jogador-box" style="display:flex;align-items:center;justify-content:center;gap:1.25rem;margin-top:1rem;">
-                <img id="anim-foto" style="width:7rem;height:7rem;border-radius:9999px;object-fit:cover;border:4px solid #facc15;display:none;">
+    <!-- Animação de ponto / falta: faixa grená atravessando a tela, na paleta
+         do placar. Toda a sequência é disparada pela classe .ativo no overlay —
+         ver o bloco "ANIMAÇÃO DE PONTO / FALTA" em style.css. -->
+    <div id="anim-overlay">
+        <div id="anim-faixa">
+            <div id="anim-brilho"></div>
+            <div id="anim-conteudo">
+                <img id="anim-foto" alt="">
                 <div id="anim-jogador-texto">
-                    <div id="anim-numero" style="color:#facc15;font-size:3rem;font-weight:900;font-family:sans-serif;line-height:1;"></div>
-                    <div id="anim-nome" style="color:#fff;font-size:2rem;font-weight:700;font-family:sans-serif;"></div>
+                    <div id="anim-time"></div>
+                    <div id="anim-acao"></div>
+                    <div id="anim-jogador-linha">
+                        <span id="anim-numero"></span>
+                        <span id="anim-nome"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -41,13 +46,6 @@
     </div>
     <style>
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes animPop {
-            0%   { opacity:0; transform:scale(0.75) }
-            12%  { opacity:1; transform:scale(1.05) }
-            20%  { transform:scale(1) }
-            80%  { opacity:1; transform:scale(1) }
-            100% { opacity:0; transform:scale(0.9) }
-        }
     </style>
 
     <!-- Aviso discreto de áudio bloqueado: o vídeo TOCA de qualquer forma
@@ -393,32 +391,37 @@
             window._animVideoTimer = setTimeout(() => ocultarVideoJogador(), LIMITE_VIDEO_JOGADOR_MS);
         }
 
-        function mostrarCardAnimacao(texto, timeNome, j) {
+        // Faixa de ponto/falta. O CSS cuida da coreografia inteira; aqui só
+        // entram o conteúdo, as duas variações de layout (com/sem foto, ponto/
+        // falta) e o reinício — pontos chegam em rajada e o lance novo tem que
+        // cortar o anterior.
+        const ANIM_DURACAO = 5000; // igual ao total do keyframe anim-faixa
+        function mostrarCardAnimacao(texto, timeNome, j, tipo) {
             document.getElementById('anim-time').innerText = timeNome || '';
             document.getElementById('anim-acao').innerText = texto || '';
             document.getElementById('anim-numero').innerText = j.numero ? '#' + j.numero : '';
             document.getElementById('anim-nome').innerText = j.nome || '';
 
             const fotoEl = document.getElementById('anim-foto');
-            const textoEl = document.getElementById('anim-jogador-texto');
             if (j.foto) {
                 fotoEl.src = j.foto;
-                fotoEl.style.display = 'block';
-                textoEl.style.textAlign = 'left';
             } else {
-                fotoEl.style.display = 'none';
-                fotoEl.src = '';
-                textoEl.style.textAlign = 'center';
+                // removeAttribute (e não src=''): src vazio faria o navegador
+                // pedir a própria página como imagem.
+                fotoEl.removeAttribute('src');
             }
 
             const overlay = document.getElementById('anim-overlay');
-            const card = document.getElementById('anim-card');
-            overlay.style.display = 'flex';
-            card.style.animation = 'none';
-            card.offsetHeight;
-            card.style.animation = 'animPop 5s forwards';
+            overlay.classList.toggle('sem-foto', !j.foto);
+            // Falta não é comemoração: mesma faixa, tons apagados e sem brilho.
+            overlay.classList.toggle('anim-falta', tipo === 'falta');
+
+            overlay.classList.remove('ativo');
+            overlay.offsetHeight; // reflow: reinicia a sequência inteira
+            overlay.classList.add('ativo');
+
             clearTimeout(window._animTimer);
-            window._animTimer = setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+            window._animTimer = setTimeout(() => overlay.classList.remove('ativo'), ANIM_DURACAO);
         }
 
         socket.on('animacao_ponto', ({ tipo, texto, jogador, timeNome }) => {
@@ -427,14 +430,14 @@
 
             if (tipo === 'ponto' && j.video) {
                 // Lance novo durante um vídeo corta o card anterior na hora.
-                document.getElementById('anim-overlay').style.display = 'none';
+                document.getElementById('anim-overlay').classList.remove('ativo');
                 clearTimeout(window._animTimer);
-                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j));
+                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j, tipo));
                 return;
             }
 
             ocultarVideoJogador({ imediato: true });
-            mostrarCardAnimacao(texto, timeNome, j);
+            mostrarCardAnimacao(texto, timeNome, j, tipo);
         });
 
         // Cronômetro em tempo real (50ms para suavidade nos centissegundos do basquete)

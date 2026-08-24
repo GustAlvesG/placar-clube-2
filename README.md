@@ -474,7 +474,7 @@ Ao clicar +ponto/+falta, se o time tiver elenco cadastrado:
   - Vôlei: ascendente MM:SS
   - Futsal: descendente MM:SS
   - Basquete: descendente MM:SS.cc
-- **Animação de ponto/falta**: overlay com nome do time, ação (GOL!/CESTA!/PONTO!/FALTA!), **foto redonda** do jogador + número + nome (3 segundos)
+- **Animação de ponto/falta**: faixa grená atravessando a tela com o time, a ação (GOL!/CESTA!/PONTO!/FALTA!) e a **foto redonda** do jogador + número + nome (5 segundos) — ver "Animação de ponto/falta" adiante
 - **Vídeos**: tocam fullscreen (z-index 100), ao terminar retorna ao placar
 
 ---
@@ -537,6 +537,38 @@ largura do telão e o placar ocupa o centro.
 
 A conta é feita em `cqw`, que escala junto com o container: coube uma vez, cabe
 em qualquer resolução de telão, sem recalcular no resize.
+
+### Animação de ponto/falta
+
+Ao marcar com um jogador escolhido, o telão abre uma **faixa grená** de ponta a
+ponta da tela, nas cores do próprio placar: degradê `#2a0008 → #6a0414 →
+#8e1030`, fios dourados em cima e embaixo, meio-tom de bolinhas adensando à
+direita (o mesmo motivo da arte de fundo). Dentro dela, a foto redonda com anel
+dourado, o nome do time em dourado, a palavra do lance em branco e o número +
+nome do jogador.
+
+A coreografia mora inteira em `#anim-overlay` no [style.css](public/style.css) —
+o telão só põe e tira a classe `.ativo` (tirar e repor reinicia tudo, porque
+ponto vem em rajada e o lance novo tem que cortar o anterior):
+
+| Tempo | O que acontece |
+|---|---|
+| 0,00–0,55s | a faixa se abre da esquerda para a direita (`clip-path`) |
+| 0,25–1,00s | foto, time, ação e jogador entram escalonados |
+| 0,55–1,65s | um brilho dourado varre a faixa |
+| 4,55–5,00s | a faixa se fecha para a direita e some |
+
+Abrir, segurar e fechar estão num **único** keyframe de 5s: duas animações com
+delay brigariam pelo `clip-path` e a de saída venceria já na entrada (a última
+da lista ganha, e `fill: both` aplica o quadro inicial durante o atraso).
+
+Duas variações de layout: **sem foto** cadastrada o bloco de texto se centra
+sozinho (`.sem-foto`), e **falta** não é comemoração — mesma faixa em grená
+fechado, fio rosado no lugar do dourado e sem o brilho (`.anim-falta`).
+
+A faixa ocupa cerca de 27% da altura, então o placar continua à vista acima e
+abaixo dela. Quando o jogador tem vídeo cadastrado, o vídeo em tela cheia vem
+antes e a faixa entra ao terminar.
 
 ### Set point
 

@@ -41,12 +41,10 @@
             <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 text-xl font-bold py-3 rounded-xl transition-transform">−1 ponto</button>
 
             <!-- Sets (vôlei) -->
-            <div id="sets-area-a" class="hidden w-full space-y-2">
-                <div class="text-center text-blue-400 text-sm font-bold">Sets: <span id="sets-a" class="text-white text-lg">0</span></div>
-                <div class="flex gap-2">
-                    <button onclick="cmdPlacar('timeA', 'add_set', 1)" class="flex-1 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold py-3 rounded-xl transition-transform">+Set</button>
-                    <button onclick="cmdPlacar('timeA', 'sub_set', 1)" class="flex-1 bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 font-bold py-3 rounded-xl transition-transform">−Set</button>
-                </div>
+            <!-- Sets vencidos — só leitura: o fechamento do set é o botão da
+                 coluna central, que só aparece quando a pontuação fecha. -->
+            <div id="sets-area-a" class="hidden w-full">
+                <div class="text-center text-blue-400 text-sm font-bold">Sets: <span id="sets-a" class="text-white text-xl font-digital">0</span></div>
             </div>
 
             <!-- Faltas (futsal / basquete) -->
@@ -84,6 +82,15 @@
                 </div>
             </div>
 
+            <!-- Set / parcial (vôlei): o placar não fecha o set sozinho — o
+                 botão aparece quando a pontuação fecha a parcial. -->
+            <div id="set-area" class="hidden w-full space-y-1">
+                <div id="parciais-mesa" class="flex flex-wrap justify-center gap-1 text-[10px] font-digital text-gray-400"></div>
+                <div id="aviso-set" class="text-xs text-gray-500 text-center font-bold uppercase"></div>
+                <button id="btn-fechar-set" onclick="fecharSet()" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black py-3 rounded-xl text-sm transition-transform">✔ FECHAR SET</button>
+                <button id="btn-reabrir-set" onclick="reabrirSet()" class="hidden w-full bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-2 rounded-lg text-xs border border-gray-600 transition-transform">↩ REABRIR SET</button>
+            </div>
+
             <!-- Período (futsal / basquete) -->
             <div id="periodo-area" class="hidden w-full space-y-1">
                 <div class="text-xs text-gray-400 text-center font-bold uppercase">Período: <span id="periodo-display" class="text-white font-digital">1</span></div>
@@ -118,12 +125,9 @@
             <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 text-xl font-bold py-3 rounded-xl transition-transform">−1 ponto</button>
 
             <!-- Sets (vôlei) -->
-            <div id="sets-area-b" class="hidden w-full space-y-2">
-                <div class="text-center text-red-400 text-sm font-bold">Sets: <span id="sets-b" class="text-white text-lg">0</span></div>
-                <div class="flex gap-2">
-                    <button onclick="cmdPlacar('timeB', 'add_set', 1)" class="flex-1 bg-red-700 hover:bg-red-600 active:scale-95 text-white font-bold py-3 rounded-xl transition-transform">+Set</button>
-                    <button onclick="cmdPlacar('timeB', 'sub_set', 1)" class="flex-1 bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 font-bold py-3 rounded-xl transition-transform">−Set</button>
-                </div>
+            <!-- Sets vencidos — só leitura (ver comentário no time A) -->
+            <div id="sets-area-b" class="hidden w-full">
+                <div class="text-center text-red-400 text-sm font-bold">Sets: <span id="sets-b" class="text-white text-xl font-digital">0</span></div>
             </div>
 
             <!-- Faltas (futsal / basquete) -->
@@ -233,13 +237,46 @@
             ['btn-a-2', 'btn-a-3', 'btn-b-2', 'btn-b-3'].forEach(id =>
                 document.getElementById(id).classList.toggle('hidden', !ehBasquete)
             );
-            ['sets-area-a', 'sets-area-b'].forEach(id =>
+            ['sets-area-a', 'sets-area-b', 'set-area'].forEach(id =>
                 document.getElementById(id).classList.toggle('hidden', !ehVolei)
             );
+            atualizarBarraSet(dados);
             ['faltas-area-a', 'faltas-area-b'].forEach(id =>
                 document.getElementById(id).classList.toggle('hidden', !temFaltas)
             );
             document.getElementById('periodo-area').classList.toggle('hidden', !temPeriodo);
+        }
+
+        // `parcialFechavel` e `parcialAtual` vêm calculados do servidor
+        // (gameLogic.parcialFechavel) — a regra do 25/15 com 2 de vantagem não é
+        // duplicada aqui.
+        function atualizarBarraSet(dados) {
+            const fechavel = !!dados.parcialFechavel;
+            const parciais = Array.isArray(dados.parciais) ? dados.parciais : [];
+
+            document.getElementById('btn-fechar-set').classList.toggle('hidden', !fechavel);
+            document.getElementById('btn-reabrir-set').classList.toggle('hidden', parciais.length === 0);
+            document.getElementById('aviso-set').innerText = fechavel
+                ? `${dados.timeA.placar}×${dados.timeB.placar} fecha o ${dados.parcialAtual || 1}º set`
+                : `${dados.parcialAtual || 1}º set em andamento`;
+
+            const faixa = document.getElementById('parciais-mesa');
+            faixa.innerHTML = '';
+            parciais.forEach((p, i) => {
+                const item = document.createElement('span');
+                item.className = 'px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 whitespace-nowrap';
+                item.textContent = `${i + 1}º ${p.a}×${p.b}`;
+                faixa.appendChild(item);
+            });
+        }
+
+        function fecharSet() {
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+        }
+
+        function reabrirSet() {
+            if (!confirm('Reabrir o último set? O placar dele volta para o painel e o set sai da contagem.')) return;
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
         }
 
         // Cronômetro em tempo real (50ms para centissegundos do basquete)

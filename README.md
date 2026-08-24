@@ -374,6 +374,19 @@ existente"/"Criar jogo agora" ficam desabilitadas na tela de configuração).
   um time existente) em vez de `201` (criou) — tratado como sucesso normalmente, já que
   `fetch`'s `resp.ok` cobre toda a faixa 200–299.
 
+### Rota/contrato pendente: parciais de set/quarto
+
+Fechar um set manda o evento `set` que já existe, agora com o placar da parcial em
+`payload` (`{ numero, placar_casa, placar_visitante }`) e `time_id` = quem levou
+(`null` num quarto empatado de basquete). Falta o outro lado: **a API ainda não devolve
+as parciais**, então a faixa "set a set" do telão vive só na memória do Node e se perde
+se o processo reiniciar no meio da partida (o mesmo já valia para placar e sets).
+
+O que precisa mudar no Laravel está em
+[docs/prompt-api-parciais.md](docs/prompt-api-parciais.md) — resumo: acrescentar um array
+`parciais` a `GET /jogos/{jogo}` (derivado dos eventos `set` já persistidos, sem tabela
+nem rota nova) e o mesmo na súmula. Nenhum endpoint novo.
+
 ### Fluxo na tela de configuração (`/controle/index.html`)
 
 Um painel "Integração com o Placar Clube" oferece três modos: **Manual** (o de sempre, sem
@@ -496,10 +509,97 @@ Isso garante que mesmo com latência, o timer mostra o mesmo tempo em todos os t
 
 ### Vôlei
 - Timer: ascendente (00:00 → 99:59)
-- Placar: até 25 pontos (com diferença ≥2 para vencer set)
-- Ao atingir 25×23 (ou melhor): **set é automático**, placar zera, sacando limpa
-- Sets: controle manual
+- Placar: 25 pontos com diferença ≥2 fecha o set (o **5º set**, tie-break, fecha em 15)
+- Ao atingir a pontuação de fechamento o set **não fecha sozinho**: aparece o botão
+  **FECHAR SET** na mesa. Quem fecha é sempre o operador — um ponto anotado por
+  engano no fim do set não pode zerar o placar sem confirmação.
+- Fechar o set grava a parcial em `state.parciais`, credita o set a quem venceu e
+  zera o placar. **↩ REABRIR** desfaz o último fechamento (devolve o placar e retira o set).
+- Sets: contadores só de leitura na mesa (quem mexe neles é o fechamento do set)
 - Saque: indicador visual (TIME A / nenhum / TIME B)
+
+### Nome do time em uma linha só
+
+O nome nunca quebra em duas linhas. `ajustarNome()` em
+[public/index.html](public/index.html) mede o texto e vai cedendo na ordem que
+menos custa legibilidade:
+
+1. **encolhe a fonte** de 2,5cqw até o piso de 1,4cqw;
+2. **condensa as letras** (`scaleX`) até 0,8 — apertar custa menos que diminuir
+   mais;
+3. **corta com reticências** se nem assim couber.
+
+Só o passo 3 perde informação, e só é alcançado por nome muito longo (~50
+caracteres ou mais): "ASSOCIAÇÃO DESPORTIVA CLASSISTA DOS FUNCIONÁRIOS PÚBLICOS"
+vira "ASSOCIAÇÃO DESPORTIVA CLASSISTA DO…". Se isso acontecer com um time real,
+a saída é cadastrar o nome curto na configuração do jogo — a caixa tem 25% da
+largura do telão e o placar ocupa o centro.
+
+A conta é feita em `cqw`, que escala junto com o container: coube uma vez, cabe
+em qualquer resolução de telão, sem recalcular no resize.
+
+### Set point
+
+Quando um time está a **um ponto** de fechar a parcial, o telão mostra um selo
+dourado **SET POINT** na faixa livre entre o TEMPO e os placares, alinhado sobre
+o número desse time.
+
+Set point é um **estado**, não um evento: dura enquanto durar (pode atravessar
+vários rallies em 24-24, 25-25, 30-30…) e pode trocar de lado. Por isso a
+animação de entrada (~0,9s: cai, dá um pop e um brilho varre o selo) roda só
+quando o estado **muda** — apareceu, sumiu ou trocou de time. Nos pontos
+seguintes o selo continua no pulso lento, sem reanunciar. Sai quando:
+
+- a diferença cai para menos de 2 (24-24 não é set point), ou
+- a pontuação já fecha o set (25-23): aí o set está ganho e o que vale é o botão
+  **FECHAR SET** na mesa.
+
+Quem calcula é `pontoDeParcial()` em [gameLogic.js](gameLogic.js): em vez de
+reescrever "24 com 2 de vantagem", ela simula o próximo ponto e pergunta ao
+`parcialFechavel()`. A regra fica num só lugar — o tie-break de 15, a vantagem de
+2 e o fim de jogo saem de graça, e no basquete o selo nunca aparece porque lá o
+quarto fecha pelo cronômetro, não pelo placar.
+
+### Parciais (set a set / quarto a quarto)
+
+Na faixa central inferior o telão desenha a **grade inteira** do jogo, não só o
+que já passou — no vôlei os 5 sets desde o primeiro saque, no basquete os 4
+quartos. Cada coluna tem o número (1º, 2º…) e os dois placares, em um de três
+estados:
+
+| Estado | O que mostra |
+|---|---|
+| Fechada | resultado final, com quem levou em dourado |
+| Em disputa | placar ao vivo, sem destaque (ninguém venceu ainda) e com um fundo discreto |
+| Ainda não começou | travessão apagado |
+
+Assim dá para ler o andamento de relance: no 3º set aparecem os finais do 1º e
+do 2º, a parcial ao vivo do 3º e o traço do 4º e do 5º.
+
+Fonte: `state.parciais` (`[{ a, b }, ...]`, só as fechadas) mais três campos
+derivados no `payloadEstado()` de [server.js](server.js) — `totalParciais`
+(quantas colunas), `parcialEmAndamento` (qual está em disputa, `null` com o jogo
+decidido) e o placar ao vivo do próprio estado. O HTML não conhece "melhor de 5":
+quem responde é `quantidadeParciais()`/`parcialEmAndamento()` em
+[gameLogic.js](gameLogic.js). A grade só cresce além do previsto na prorrogação
+do basquete, que não tem teto.
+
+As colunas têm largura igual (`flex: 1`) para os números não dançarem quando o
+placar passa de um para dois dígitos. Na mesa, a faixa `#parciais-mesa` continua
+listando só os sets fechados — lá o set em disputa já é o placar grande da tela.
+
+A lógica é a mesma para os dois esportes (`REGRAS_PARCIAL` em
+[gameLogic.js](gameLogic.js)): no vôlei a parcial é o **set** e a pontuação
+habilita o botão; no basquete é o **quarto**, que termina pelo cronômetro e por
+isso deixa o botão sempre disponível. Hoje só o vôlei está ligado na interface —
+para ligar no basquete faltam dois passos:
+
+1. em `public/index.html`, no `sportConfig.basquete`, trocar
+   `extraAreas: [areaFault]` por `extraAreas: [areaFault, areaParciais]`;
+2. em `public/controle/controle_basquete.html`, acrescentar o botão que emite
+   `comando_placar` com `acao: 'fechar_set'` (e o `reabrir_set` para desfazer).
+
+Nada em `gameLogic.js`/`server.js` precisa mudar.
 
 ---
 
@@ -576,6 +676,30 @@ http://192.168.1.50:3000/controle/
 2. Extensões aceitas: `.mp4`, `.webm`, `.mov`, `.avi`, `.mkv` (case-insensitive)
 3. Abra o DevTools (F12) → Console → procure por erros
 4. Se aparecer "sem test/", é normal — é só o aviso de que `npm test` procurou lá
+
+### Vídeo só começa depois de um clique na tela (autoplay)
+
+Não deveria mais acontecer: **a reprodução nunca depende de clique**. Pela
+política do Chrome/Edge, vídeo *com áudio* só toca depois de um gesto do usuário,
+mas vídeo *mudo* toca sempre — então o telão começa mudo (garantido) e liga o som
+sozinho assim que ele for permitido. Enquanto estiver mudo à força aparece um
+aviso discreto no canto: **"🔇 Som bloqueado pelo navegador — clique na tela para
+liberar"**. Qualquer clique/tecla libera o som na hora, sem reiniciar o vídeo.
+
+Para que o **som** também funcione sem nenhum clique, suba o navegador do telão
+com a política de autoplay liberada — é o modo recomendado para o telão fixo:
+
+```bash
+# Windows (Chrome)
+chrome.exe --autoplay-policy=no-user-gesture-required --kiosk http://<IP>:4000
+
+# Windows (Edge)
+msedge.exe --autoplay-policy=no-user-gesture-required --kiosk http://<IP>:4000
+```
+
+O telão detecta sozinho que o áudio está liberado (sondagem no carregamento da
+página) e já toca o primeiro vídeo com som. No Firefox o equivalente é
+`media.autoplay.default = 0` em `about:config`.
 
 ### Navegador não consegue tocar vídeos
 - Chrome/Edge: suportam `.mp4` (H.264), `.webm` nativamente

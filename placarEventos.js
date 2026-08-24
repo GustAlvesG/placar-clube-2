@@ -92,7 +92,7 @@ function normalizarCronometroMs(valor) {
     return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
 }
 
-function traduzirAcaoPlacar({ acao, time, valor, jogador, periodo, cronometroMs }) {
+function traduzirAcaoPlacar({ acao, time, valor, jogador, periodo, cronometroMs, parcial }) {
     const jogadorId = jogador && jogador.jogador_id;
     switch (acao) {
         case 'add_ponto':
@@ -117,6 +117,29 @@ function traduzirAcaoPlacar({ acao, time, valor, jogador, periodo, cronometroMs 
             return { modo: 'registrar', chaveEstorno: `${time}:set`, time, campos: { tipo: 'set', periodo } };
         case 'sub_set':
             return { modo: 'estornar', chaveEstorno: `${time}:set`, motivo: 'set desfeito pelo operador' };
+        // Fechamento de parcial (set no vôlei, quarto no basquete): é o mesmo
+        // evento `set` da API, com `time` = quem levou a parcial (null num
+        // quarto empatado de basquete, e aí o evento fica sem time_id).
+        // O placar da parcial vai em `payload` — campo livre, o mesmo em que o
+        // estorno guarda `evento_uuid`/`motivo` — para que a súmula monte o
+        // set a set sem ter que reprocessar todos os pontos. Ver a seção
+        // "Rota/contrato pendente" no README: hoje é informativo, a API ainda
+        // não expõe as parciais de volta.
+        case 'fechar_set':
+            return {
+                modo: 'registrar',
+                chaveEstorno: `${time}:set`,
+                time,
+                campos: {
+                    tipo: 'set',
+                    periodo,
+                    payload: parcial
+                        ? { numero: parcial.numero, placar_casa: parcial.a, placar_visitante: parcial.b }
+                        : null
+                }
+            };
+        case 'reabrir_set':
+            return { modo: 'estornar', chaveEstorno: `${time}:set`, motivo: 'set reaberto pelo operador' };
         case 'add_periodo':
         case 'sub_periodo':
             return { modo: 'registrar', time: null, campos: { tipo: 'periodo', periodo } };

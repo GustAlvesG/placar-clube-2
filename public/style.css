@@ -407,6 +407,25 @@ body {
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
     text-align: center;
     width: 25%;
+
+    /* Uma linha só: quem cabe o texto na largura é o ajustarNome() do telão,
+       encolhendo a fonte e, no limite, condensando as letras. */
+    white-space: nowrap;
+}
+
+.nome > span {
+    display: inline-block;
+    transform-origin: center;
+
+}
+
+/* Nome que não cabe nem no menor tamanho: o ajustarNome() do telão define o
+   max-width e marca a classe. Fica só nesse caso porque overflow:hidden
+   cortaria a sombra do texto em todos os outros. */
+.nome > span.nome-cortado {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
 }
 
 .nome-mandante {
@@ -474,19 +493,153 @@ body {
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
 }
 
+/* Posições casadas com o box.png novo: os contadores de set saíram das
+   laterais do centro para as pontas, abrindo espaço para a faixa de parciais
+   no meio. O campo "SET ATUAL" não existe mais no layout. */
 .sets-mandante {
-    top: 78.5%;
-    left: 36.4%;
-}
-
-.sets-atual{
-    top: 77.5%;
-    left: 50%;
+    top: 78%;
+    left: 22.5%;
 }
 
 .sets-visitante {
-    top: 78.5%;
-    left: 63.7%;
+    top: 78%;
+    left: 77.5%;
+}
+
+/* ================= SET POINT =================
+   Selo na faixa livre entre o TEMPO e os placares, alinhado sobre o número do
+   time que está a um ponto de fechar a parcial. As duas posições são as dos
+   placares de vôlei (40.5% / 59.2%) — é o único esporte em que set point
+   existe, porque no basquete o quarto fecha pelo cronômetro. */
+.set-point {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    top: 32%;
+
+    display: none;
+    padding: 0.5cqw 1.6cqw;
+    border-radius: 0.8cqw;
+
+    background: linear-gradient(180deg, #ffe9a8 0%, #f5c33c 55%, #d99a12 100%);
+    color: #4a2d00;
+    font-weight: 900;
+    font-size: 2cqw;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+
+    box-shadow: 0 0.3cqw 0.9cqw rgba(0, 0, 0, 0.55), 0 0 1.2cqw rgba(245, 195, 60, 0.55);
+    z-index: 5;
+    overflow: hidden; /* segura o brilho que varre no ::after */
+}
+
+.set-point-mandante  { left: 40.5%; }
+.set-point-visitante { left: 59.2%; }
+
+/* Entrada (0,9s) e, na sequência, o pulso contínuo enquanto o set point durar */
+.set-point.ativo {
+    display: block;
+    animation: set-point-entrada 0.9s ease-out,
+               set-point-pulso 1.6s ease-in-out 0.9s infinite;
+}
+
+/* Brilho diagonal varrendo o selo — uma vez, junto da entrada */
+.set-point.ativo::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 45%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+    animation: set-point-brilho 0.9s ease-out 0.25s;
+}
+
+@keyframes set-point-entrada {
+    0%   { opacity: 0; transform: translate(-50%, -50%) translateY(-1.2cqw) scale(0.75); }
+    55%  { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1.08); }
+    100% { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); }
+}
+
+/* Só opacidade e glow: nada de escala, para não "pular" ao lado do placar */
+@keyframes set-point-pulso {
+    0%, 100% { opacity: 1;    box-shadow: 0 0.3cqw 0.9cqw rgba(0, 0, 0, 0.55), 0 0 1.2cqw rgba(245, 195, 60, 0.55); }
+    50%      { opacity: 0.72; box-shadow: 0 0.3cqw 0.9cqw rgba(0, 0, 0, 0.55), 0 0 2.4cqw rgba(245, 195, 60, 0.9); }
+}
+
+@keyframes set-point-brilho {
+    from { left: -50%; }
+    to   { left: 120%; }
+}
+
+/* ================= PARCIAIS (set a set / quarto a quarto) =================
+   Caixa central de baixo do box.png: uma coluna por parcial, com o rótulo
+   (1º, 2º...) em cima e os placares do mandante e do visitante. A grade fica
+   inteira à vista desde o começo — fechadas, a em disputa e as que ainda não
+   começaram — para dar de relance o andamento do jogo. */
+.parciais {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    top: 75%;
+    left: 50%;
+    width: 31%;
+    height: 19%;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6cqw;
+
+    z-index: 4;
+}
+
+/* Colunas de largura igual (flex: 1): os números ficam parados no lugar
+   mesmo quando o placar passa de um para dois dígitos. */
+.parcial {
+    flex: 1 1 0;
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.05;
+
+    padding: 0.3cqw 0.2cqw;
+    border-radius: 0.6cqw;
+}
+
+/* A parcial em disputa: fundo discreto, sem cor de vencedor — ainda não há um */
+.parcial-atual {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.parcial-atual .parcial-rotulo {
+    color: #ffffff;
+}
+
+/* Ainda não começou: só o traço, apagado */
+.parcial-vazia .parcial-rotulo,
+.parcial-vazia .parcial-ponto {
+    color: rgba(255, 255, 255, 0.3);
+    text-shadow: none;
+}
+
+.parcial-rotulo {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: bold;
+    font-size: 1.7cqw;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3cqw;
+}
+
+.parcial-ponto {
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 3cqw;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
+}
+
+/* Quem levou a parcial */
+.parcial-venceu {
+    color: #ffd76a;
 }
 
 

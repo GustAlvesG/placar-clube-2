@@ -32,14 +32,11 @@
                 <button onclick="marcar('timeA')" class="w-full bg-blue-600 active:bg-blue-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
                 <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
             </div>
-            <!-- Sets -->
-            <div class="w-full space-y-1 mt-auto pt-2">
+            <!-- Sets vencidos — só leitura. Quem fecha o set é o botão da barra
+                 de baixo, que aparece quando a pontuação fecha a parcial. -->
+            <div class="w-full mt-auto pt-2">
                 <div class="text-center text-blue-400 text-sm font-bold">
-                    Sets: <span id="sets-a" class="text-white text-xl font-digital">0</span>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="cmdPlacar('timeA', 'add_set', 1)" class="flex-1 bg-blue-700 active:bg-blue-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform">+Set</button>
-                    <button onclick="cmdPlacar('timeA', 'sub_set', 1)" class="flex-1 bg-blue-900 active:bg-blue-800 active:scale-95 text-blue-300 font-bold py-1.5 rounded-xl transition-transform">−Set</button>
+                    Sets: <span id="sets-a" class="text-white text-2xl font-digital">0</span>
                 </div>
             </div>
         </div>
@@ -80,18 +77,28 @@
                 <button onclick="marcar('timeB')" class="w-full bg-red-600 active:bg-red-400 active:scale-95 text-white text-xl font-black py-3 rounded-2xl shadow-lg transition-transform">+1 PONTO</button>
                 <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 active:bg-red-800 active:scale-95 text-red-300 text-sm font-bold py-1.5 rounded-xl transition-transform">−1</button>
             </div>
-            <!-- Sets -->
-            <div class="w-full space-y-1 mt-auto pt-2">
+            <!-- Sets vencidos — só leitura (ver comentário no time A) -->
+            <div class="w-full mt-auto pt-2">
                 <div class="text-center text-red-400 text-sm font-bold">
-                    Sets: <span id="sets-b" class="text-white text-xl font-digital">0</span>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="cmdPlacar('timeB', 'add_set', 1)" class="flex-1 bg-red-700 active:bg-red-600 active:scale-95 text-white font-bold py-1.5 rounded-xl transition-transform">+Set</button>
-                    <button onclick="cmdPlacar('timeB', 'sub_set', 1)" class="flex-1 bg-red-900 active:bg-red-800 active:scale-95 text-red-300 font-bold py-1.5 rounded-xl transition-transform">−Set</button>
+                    Sets: <span id="sets-b" class="text-white text-2xl font-digital">0</span>
                 </div>
             </div>
         </div>
 
+    </div>
+
+    <!-- BARRA DE SET: histórico das parciais + fechamento manual.
+         O botão de fechar só aparece quando a pontuação fecha o set (25, ou 15
+         no tie-break, com 2 de vantagem) — quem decide é sempre o operador. -->
+    <div class="shrink-0 border-t border-gray-700 bg-gray-950 px-3 py-2 flex items-center gap-3">
+        <div id="parciais-mesa" class="flex items-center gap-1.5 overflow-x-auto text-xs font-digital text-gray-400 shrink-0"></div>
+
+        <button id="btn-fechar-set" onclick="fecharSet()" class="hidden flex-1 bg-emerald-600 active:bg-emerald-500 active:scale-95 text-white font-black py-3 rounded-2xl shadow-lg transition-transform text-base">
+            ✔ FECHAR SET <span id="btn-fechar-set-detalhe" class="font-normal text-emerald-100 text-sm"></span>
+        </button>
+        <div id="aviso-set" class="flex-1 text-center text-gray-600 text-xs font-bold uppercase tracking-widest"></div>
+
+        <button id="btn-reabrir-set" onclick="reabrirSet()" class="hidden shrink-0 bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold px-3 py-3 rounded-xl text-xs border border-gray-600 transition-transform">↩ REABRIR</button>
     </div>
 
     <!-- Modal de seleção de jogador -->
@@ -142,7 +149,47 @@
             document.getElementById('score-b').innerText = dados.timeB.placar;
             document.getElementById('sets-a').innerText = dados.timeA.sets;
             document.getElementById('sets-b').innerText = dados.timeB.sets;
+            atualizarBarraSet(dados);
         });
+
+        // `parcialFechavel` e `parcialAtual` vêm calculados do servidor
+        // (gameLogic.parcialFechavel) — a regra do 25/15 com 2 de vantagem não é
+        // duplicada aqui.
+        function atualizarBarraSet(dados) {
+            const fechavel = !!dados.parcialFechavel;
+            const parciais = Array.isArray(dados.parciais) ? dados.parciais : [];
+
+            document.getElementById('btn-fechar-set').classList.toggle('hidden', !fechavel);
+            const aviso = document.getElementById('aviso-set');
+            aviso.classList.toggle('hidden', fechavel);
+            aviso.innerText = `${dados.parcialAtual || 1}º set em andamento`;
+
+            if (fechavel) {
+                const vencedor = dados.timeA.placar > dados.timeB.placar ? dados.timeA.nome : dados.timeB.nome;
+                document.getElementById('btn-fechar-set-detalhe').innerText =
+                    `${dados.timeA.placar}×${dados.timeB.placar} · ${vencedor || ''}`;
+            }
+
+            document.getElementById('btn-reabrir-set').classList.toggle('hidden', parciais.length === 0);
+
+            const faixa = document.getElementById('parciais-mesa');
+            faixa.innerHTML = '';
+            parciais.forEach((p, i) => {
+                const item = document.createElement('span');
+                item.className = 'px-2 py-1 rounded-lg bg-gray-800 border border-gray-700 whitespace-nowrap';
+                item.textContent = `${i + 1}º ${p.a}×${p.b}`;
+                faixa.appendChild(item);
+            });
+        }
+
+        function fecharSet() {
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+        }
+
+        function reabrirSet() {
+            if (!confirm('Reabrir o último set? O placar dele volta para o painel e o set sai da contagem.')) return;
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
+        }
 
         // Cronômetro crescente (MM:SS)
         setInterval(() => {
@@ -172,6 +219,9 @@
             const titulos = { add_ponto: `+${valor} — Quem marcou?`, add_falta: 'Falta — Qual jogador?' };
             document.getElementById('modal-titulo').innerText = titulos[acao] || 'Selecione o jogador';
             const lista = document.getElementById('modal-lista');
+
+            //TODO Order elenco by number
+            //AQUI
             lista.innerHTML = '';
             elenco.forEach(j => {
                 const btn = document.createElement('button');

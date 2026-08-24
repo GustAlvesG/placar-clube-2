@@ -74,45 +74,235 @@ test('sub_ponto decrementa mas nunca abaixo de zero', () => {
 });
 
 // ---------------------------------------------------------------------------
-// comandoPlacar — vôlei (set automático)
+// Parciais (set no vôlei / quarto no basquete): habilitar != fechar
 // ---------------------------------------------------------------------------
-test('vôlei: 25x23 vence o set, zera placares e limpa o saque', () => {
+test('vôlei: 25x23 NÃO fecha o set sozinho — só habilita o fechamento', () => {
     const s = novoEstado({ esporte: 'volei' });
     s.timeA.placar = 24;
     s.timeB.placar = 23;
     logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1 });
-    assert.equal(s.timeA.sets, 1);
-    assert.equal(s.timeA.placar, 0);
-    assert.equal(s.timeB.placar, 0);
-    assert.equal(s.sacando, null);
+    assert.equal(s.timeA.placar, 25);
+    assert.equal(s.timeB.placar, 23);
+    assert.equal(s.timeA.sets, 0);
+    assert.deepEqual(s.parciais, []);
+    assert.equal(logic.parcialFechavel(s), true);
+    assert.equal(logic.vencedorParcial(s), 'timeA');
 });
 
-test('vôlei: 25x24 NÃO vence o set (diferença menor que 2)', () => {
+test('vôlei: 25x24 não habilita o fechamento (diferença menor que 2)', () => {
     const s = novoEstado({ esporte: 'volei' });
     s.timeA.placar = 24;
     s.timeB.placar = 24;
     logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1 });
-    assert.equal(s.timeA.sets, 0);
     assert.equal(s.timeA.placar, 25);
     assert.equal(s.timeB.placar, 24);
+    assert.equal(logic.parcialFechavel(s), false);
 });
 
-test('vôlei: 26x24 vence o set por vantagem', () => {
+test('vôlei: 26x24 habilita o fechamento por vantagem', () => {
     const s = novoEstado({ esporte: 'volei' });
     s.timeA.placar = 25;
     s.timeB.placar = 24;
     logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1 });
-    assert.equal(s.timeA.sets, 1);
-    assert.equal(s.timeA.placar, 0);
-    assert.equal(s.timeB.placar, 0);
+    assert.equal(logic.parcialFechavel(s), true);
 });
 
-test('futsal: chegar a 25 não dispara lógica de set', () => {
+test('vôlei: 5º set (tie-break) fecha em 15, não em 25', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 1, b: 1 }, { a: 1, b: 1 }, { a: 1, b: 1 }, { a: 1, b: 1 }];
+    s.timeA.sets = 2;
+    s.timeB.sets = 2;
+    assert.equal(logic.numeroParcialAtual(s), 5);
+    s.timeA.placar = 15;
+    s.timeB.placar = 13;
+    assert.equal(logic.parcialFechavel(s), true);
+});
+
+test('vôlei: com o jogo decidido (3 sets) não há mais set para fechar', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.sets = 3;
+    s.timeA.placar = 25;
+    s.timeB.placar = 10;
+    assert.equal(logic.parcialFechavel(s), false);
+});
+
+test('fechar_set guarda a parcial, credita o set e zera o placar', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 25;
+    s.timeB.placar = 23;
+    s.sacando = 'timeA';
+    logic.comandoPlacar(s, { acao: 'fechar_set' });
+    assert.deepEqual(s.parciais, [{ a: 25, b: 23 }]);
+    assert.equal(s.timeA.sets, 1);
+    assert.equal(s.timeB.sets, 0);
+    assert.equal(s.timeA.placar, 0);
+    assert.equal(s.timeB.placar, 0);
+    assert.equal(s.sacando, null);
+    assert.equal(logic.numeroParcialAtual(s), 2);
+});
+
+test('reabrir_set devolve o placar da última parcial e retira o set', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 25;
+    s.timeB.placar = 23;
+    logic.comandoPlacar(s, { acao: 'fechar_set' });
+    logic.comandoPlacar(s, { acao: 'reabrir_set' });
+    assert.deepEqual(s.parciais, []);
+    assert.equal(s.timeA.sets, 0);
+    assert.equal(s.timeA.placar, 25);
+    assert.equal(s.timeB.placar, 23);
+});
+
+test('reabrir_set sem parcial nenhuma não muda nada', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 7;
+    logic.comandoPlacar(s, { acao: 'reabrir_set' });
+    assert.deepEqual(s.parciais, []);
+    assert.equal(s.timeA.placar, 7);
+    assert.equal(s.timeA.sets, 0);
+});
+
+test('basquete: quarto fecha por decisão do operador (empate não credita set)', () => {
+    const s = novoEstado({ esporte: 'basquete' });
+    assert.equal(logic.parcialFechavel(s), true); // quem fecha é o cronômetro
+    s.timeA.placar = 18;
+    s.timeB.placar = 18;
+    logic.comandoPlacar(s, { acao: 'fechar_set' });
+    assert.deepEqual(s.parciais, [{ a: 18, b: 18 }]);
+    assert.equal(s.timeA.sets, 0);
+    assert.equal(s.timeB.sets, 0);
+});
+
+test('futsal: não tem parcial para fechar', () => {
     const s = novoEstado({ esporte: 'futsal' });
+
+// ---------------------------------------------------------------------------
+// Grade de parciais: o telão mostra todas, inclusive as que não começaram
+// ---------------------------------------------------------------------------
+test('vôlei desenha os 5 sets desde o primeiro saque', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    assert.equal(logic.quantidadeParciais(s), 5);
+    assert.equal(logic.parcialEmAndamento(s), 1);
+});
+
+test('no 3º set a grade continua com 5 colunas e a 3ª é a em disputa', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 25, b: 20 }, { a: 18, b: 25 }];
+    s.timeA.sets = 1;
+    s.timeB.sets = 1;
+    assert.equal(logic.quantidadeParciais(s), 5);
+    assert.equal(logic.parcialEmAndamento(s), 3);
+});
+
+test('com o jogo decidido não há parcial em disputa, mas a grade permanece', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 25, b: 20 }, { a: 25, b: 18 }, { a: 25, b: 22 }];
+    s.timeA.sets = 3;
+    assert.equal(logic.parcialEmAndamento(s), null);
+    assert.equal(logic.quantidadeParciais(s), 5);
+});
+
+test('basquete desenha os 4 quartos e a prorrogação vira uma coluna a mais', () => {
+    const s = novoEstado({ esporte: 'basquete' });
+    assert.equal(logic.quantidadeParciais(s), 4);
+
+    s.parciais = [{ a: 20, b: 18 }, { a: 15, b: 22 }, { a: 19, b: 19 }, { a: 21, b: 16 }];
+    assert.equal(logic.parcialEmAndamento(s), 5);
+    assert.equal(logic.quantidadeParciais(s), 5);
+});
+
+test('futsal não tem grade de parciais', () => {
+    const s = novoEstado({ esporte: 'futsal' });
+    assert.equal(logic.quantidadeParciais(s), 0);
+    assert.equal(logic.parcialEmAndamento(s), null);
+});
+
+// ---------------------------------------------------------------------------
+// Set point: o time está a UM ponto de fechar a parcial
+// ---------------------------------------------------------------------------
+test('set point em 24x23 é do time que lidera', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 24;
+    s.timeB.placar = 23;
+    assert.equal(logic.pontoDeParcial(s), 'timeA');
+});
+
+test('set point acompanha o visitante em 23x24', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 23;
+    s.timeB.placar = 24;
+    assert.equal(logic.pontoDeParcial(s), 'timeB');
+});
+
+test('24x24 NÃO é set point — o próximo ponto não fecha (precisa de 2 de vantagem)', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 24;
+    s.timeB.placar = 24;
+    assert.equal(logic.pontoDeParcial(s), null);
+});
+
+test('25x24 é set point: 26x24 fecharia por vantagem', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 25;
+    s.timeB.placar = 24;
+    assert.equal(logic.pontoDeParcial(s), 'timeA');
+});
+
+test('com a parcial já fechável (25x23) não há set point — o set está ganho, esperando o operador', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 25;
+    s.timeB.placar = 23;
+    assert.equal(logic.parcialFechavel(s), true);
+    assert.equal(logic.pontoDeParcial(s), null);
+});
+
+test('longe do fim não há set point', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 23;
+    s.timeB.placar = 20;
+    assert.equal(logic.pontoDeParcial(s), null);
+});
+
+test('set point do tie-break sai em 14, não em 24', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 1, b: 1 }, { a: 1, b: 1 }, { a: 1, b: 1 }, { a: 1, b: 1 }];
+    s.timeA.sets = 2;
+    s.timeB.sets = 2;
+    s.timeA.placar = 14;
+    s.timeB.placar = 10;
+    assert.equal(logic.pontoDeParcial(s), 'timeA');
+});
+
+test('com o jogo já decidido não há set point', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.sets = 3;
+    s.timeA.placar = 24;
+    s.timeB.placar = 20;
+    assert.equal(logic.pontoDeParcial(s), null);
+});
+
+test('basquete e futsal nunca têm set point (a parcial não fecha por placar)', () => {
+    for (const esporte of ['basquete', 'futsal']) {
+        const s = novoEstado({ esporte });
+        s.timeA.placar = 24;
+        s.timeB.placar = 20;
+        assert.equal(logic.pontoDeParcial(s), null, esporte);
+    }
+});
+
+test('pontoDeParcial não altera o estado (só simula o próximo ponto)', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 24;
+    s.timeB.placar = 23;
+    const antes = JSON.stringify(s);
+    logic.pontoDeParcial(s);
+    assert.equal(JSON.stringify(s), antes);
+});
     s.timeA.placar = 24;
     logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1 });
     assert.equal(s.timeA.placar, 25);
     assert.equal(s.timeA.sets, 0);
+    assert.equal(logic.parcialFechavel(s), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -166,6 +356,7 @@ test('add_periodo incrementa; sub_periodo nunca abaixo de 1', () => {
 // ---------------------------------------------------------------------------
 test('zerar_tudo reseta placar, sets, faltas, sacando, período e cronômetro, mas MANTÉM a transmissão', () => {
     const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 25, b: 20 }, { a: 18, b: 25 }];
     s.timeA.placar = 10; s.timeA.sets = 2; s.timeA.faltas = 3;
     s.timeB.placar = 8; s.timeB.sets = 1; s.timeB.faltas = 4;
     s.sacando = 'timeA'; s.periodo = 3; s.transmissaoAtiva = true;
@@ -173,6 +364,7 @@ test('zerar_tudo reseta placar, sets, faltas, sacando, período e cronômetro, m
 
     logic.comandoPlacar(s, { acao: 'zerar_tudo' });
 
+    assert.deepEqual(s.parciais, []);
     assert.equal(s.timeA.placar, 0); assert.equal(s.timeA.sets, 0); assert.equal(s.timeA.faltas, 0);
     assert.equal(s.timeB.placar, 0); assert.equal(s.timeB.sets, 0); assert.equal(s.timeB.faltas, 0);
     assert.equal(s.sacando, null);

@@ -129,6 +129,42 @@ test('add_falta / sub_falta seguem o mesmo padrão de par registrar/estornar', (
     assert.equal(sub.chaveEstorno, 'timeB:falta');
 });
 
+test('fechar_set vira um evento set do time que levou a parcial, com o placar dela no payload', () => {
+    const t = fila.traduzirAcaoPlacar({
+        acao: 'fechar_set',
+        time: 'timeA',
+        periodo: 1,
+        parcial: { numero: 2, a: 25, b: 23 }
+    });
+    assert.equal(t.modo, 'registrar');
+    assert.equal(t.time, 'timeA');
+    assert.equal(t.chaveEstorno, 'timeA:set');
+    assert.equal(t.campos.tipo, 'set');
+    assert.deepEqual(t.campos.payload, { numero: 2, placar_casa: 25, placar_visitante: 23 });
+});
+
+test('fechar_set sem vencedor (quarto empatado no basquete) vai sem time e com payload nulo', () => {
+    const t = fila.traduzirAcaoPlacar({ acao: 'fechar_set', time: null, periodo: 2, parcial: null });
+    assert.equal(t.modo, 'registrar');
+    assert.equal(t.time, null);
+    assert.equal(t.campos.payload, null);
+});
+
+test('reabrir_set estorna o último set daquele time (log é append-only)', () => {
+    const estado = fila.criarEstadoFila(0);
+
+    const fechar = fila.traduzirAcaoPlacar({ acao: 'fechar_set', time: 'timeB', periodo: 1, parcial: { numero: 1, a: 20, b: 25 } });
+    const evento = fila.registrarEvento(estado, { ...fechar.campos, chaveEstorno: fechar.chaveEstorno });
+
+    const reabrir = fila.traduzirAcaoPlacar({ acao: 'reabrir_set', time: 'timeB' });
+    assert.equal(reabrir.modo, 'estornar');
+    assert.equal(reabrir.chaveEstorno, 'timeB:set');
+
+    const estorno = fila.criarEstorno(estado, reabrir.chaveEstorno, reabrir.motivo);
+    assert.equal(estorno.tipo, 'estorno');
+    assert.equal(estorno.payload.evento_uuid, evento.uuid);
+});
+
 test('zerar_tudo não tem tradução — não sincroniza automaticamente com a API', () => {
     const t = fila.traduzirAcaoPlacar({ acao: 'zerar_tudo', time: 'timeA' });
     assert.equal(t.modo, 'ignorar');

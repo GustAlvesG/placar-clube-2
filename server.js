@@ -124,7 +124,9 @@ function registrarEventoDeAcaoPlacar(payload = {}) {
         // cronometro_ms agora é OBRIGATÓRIO em ponto/falta na API — precisa ser
         // o tempo decorrido no instante do lance, não `tempoAcumulado` sozinho
         // (que fica congelado enquanto o cronômetro está rodando).
-        cronometroMs: gameState ? logic.tempoDecorrido(gameState.cronometro) : undefined
+        cronometroMs: gameState ? logic.tempoDecorrido(gameState.cronometro) : undefined,
+        // Só `fechar_set` usa: placar da parcial que acabou de fechar.
+        parcial: payload.parcial
     }));
 }
 
@@ -212,8 +214,28 @@ for (const dir of [videoDir, patrocinadorDir, slideDir]) {
 
 let gameState = logic.criarEstadoInicial();
 
+// Payload de `atualizar_tela`: o estado + o relógio do servidor (para os
+// telões sincronizarem o cronômetro) + os derivados de gameLogic de que a mesa
+// precisa — assim a regra de fechamento de set/quarto fica só em gameLogic.js e
+// não é reimplementada em cada HTML de controle.
+function payloadEstado() {
+    return {
+        ...gameState,
+        serverTime: Date.now(),
+        parcialFechavel: logic.parcialFechavel(gameState),
+        parcialAtual: logic.numeroParcialAtual(gameState),
+        // Grade completa de sets/quartos que o telão desenha, e qual deles está
+        // em disputa (`null` com o jogo decidido) — derivado aqui para o HTML
+        // não reimplementar "melhor de 5".
+        totalParciais: logic.quantidadeParciais(gameState),
+        parcialEmAndamento: logic.parcialEmAndamento(gameState),
+        // 'timeA' | 'timeB' | null — quem está a um ponto de fechar a parcial.
+        setPoint: logic.pontoDeParcial(gameState)
+    };
+}
+
 function broadcast() {
-    io.emit('atualizar_tela', { ...gameState, serverTime: Date.now() });
+    io.emit('atualizar_tela', payloadEstado());
 }
 
 // ---- Upload/exclusão de arquivos (vídeos e logos de patrocinadores) ----
@@ -295,7 +317,7 @@ app.delete('/api/:tipo/:nome', (req, res) => {
 
 io.on('connection', (socket) => {
     // Sincroniza novo cliente com o estado atual do jogo
-    socket.emit('atualizar_tela', { ...gameState, serverTime: Date.now() });
+    socket.emit('atualizar_tela', payloadEstado());
     socket.emit('integracao_status', statusIntegracao());
 
     // ---- Integração com a API do Placar Clube ----
@@ -428,10 +450,35 @@ io.on('connection', (socket) => {
 
     // Ações de Placar e Anúncio de Jogador
     socket.on('comando_placar', (payload) => {
+        const acao = payload && payload.acao;
+
+        // `fechar_set` e `reabrir_set` chegam sem `time`: quem levou a parcial
+        // sai do placar. No fechamento isso precisa ser lido ANTES do comando,
+        // que zera o placar em seguida.
+        const antesDoFechamento = acao === 'fechar_set'
+            ? {
+                time: logic.vencedorParcial(gameState),
+                parcial: {
+                    numero: logic.numeroParcialAtual(gameState),
+                    a: gameState.timeA.placar,
+                    b: gameState.timeB.placar
+                }
+            }
+            : null;
+
         const { animacoes } = logic.comandoPlacar(gameState, payload);
         animacoes.forEach(a => io.emit(a.name, a.payload));
         broadcast(); // otimista: telão atualiza antes de qualquer chamada à API
-        registrarEventoDeAcaoPlacar(payload);
+
+        if (antesDoFechamento) {
+            registrarEventoDeAcaoPlacar({ ...payload, ...antesDoFechamento });
+        } else if (acao === 'reabrir_set') {
+            // Na reabertura o placar da parcial já voltou ao gameState, então o
+            // vencedor (e com ele a chave do estorno) é lido DEPOIS do comando.
+            registrarEventoDeAcaoPlacar({ ...payload, time: logic.vencedorParcial(gameState) });
+        } else {
+            registrarEventoDeAcaoPlacar(payload);
+        }
     });
 
     // Gestão do Cronômetro

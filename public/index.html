@@ -11,16 +11,21 @@
 </head>
 <body>
 
-    <!-- Animação de ponto / falta -->
-    <div id="anim-overlay" style="display:none;position:fixed;inset:0;z-index:85;align-items:center;justify-content:center;pointer-events:none;">
-        <div id="anim-card" style="background:rgba(0,0,0,0.88);padding:2.5rem 3.5rem;border-radius:1.5rem;text-align:center;min-width:18rem;">
-            <div id="anim-time" style="color:#9ca3af;font-size:1.1rem;text-transform:uppercase;letter-spacing:0.15em;font-family:sans-serif;font-weight:700;margin-bottom:0.5rem;"></div>
-            <div id="anim-acao" style="color:#facc15;font-size:5rem;font-weight:900;font-family:sans-serif;line-height:1;"></div>
-            <div id="anim-jogador-box" style="display:flex;align-items:center;justify-content:center;gap:1.25rem;margin-top:1rem;">
-                <img id="anim-foto" style="width:7rem;height:7rem;border-radius:9999px;object-fit:cover;border:4px solid #facc15;display:none;">
+    <!-- Animação de ponto / falta: faixa grená atravessando a tela, na paleta
+         do placar. Toda a sequência é disparada pela classe .ativo no overlay —
+         ver o bloco "ANIMAÇÃO DE PONTO / FALTA" em style.css. -->
+    <div id="anim-overlay">
+        <div id="anim-faixa">
+            <div id="anim-brilho"></div>
+            <div id="anim-conteudo">
+                <img id="anim-foto" alt="">
                 <div id="anim-jogador-texto">
-                    <div id="anim-numero" style="color:#facc15;font-size:3rem;font-weight:900;font-family:sans-serif;line-height:1;"></div>
-                    <div id="anim-nome" style="color:#fff;font-size:2rem;font-weight:700;font-family:sans-serif;"></div>
+                    <div id="anim-time"></div>
+                    <div id="anim-acao"></div>
+                    <div id="anim-jogador-linha">
+                        <span id="anim-numero"></span>
+                        <span id="anim-nome"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -41,14 +46,12 @@
     </div>
     <style>
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes animPop {
-            0%   { opacity:0; transform:scale(0.75) }
-            12%  { opacity:1; transform:scale(1.05) }
-            20%  { transform:scale(1) }
-            80%  { opacity:1; transform:scale(1) }
-            100% { opacity:0; transform:scale(0.9) }
-        }
     </style>
+
+    <!-- Aviso discreto de áudio bloqueado: o vídeo TOCA de qualquer forma
+         (mudo), isto só diz ao operador como recuperar o som. Ver o bloco
+         "Autoplay sem clique" no script. -->
+    <div id="aviso-som" style="display:none;position:fixed;bottom:1rem;left:1rem;z-index:110;background:rgba(0,0,0,0.75);color:#facc15;font-family:sans-serif;font-weight:700;font-size:0.9rem;padding:0.4rem 0.9rem;border-radius:0.75rem;">🔇 Som bloqueado pelo navegador — clique na tela para liberar</div>
 
     <!-- Player de vídeo para comerciais (sobrepõe tudo) -->
     <video id="videoPlayer" class="hidden" style="position:fixed;inset:0;width:100%;height:100%;z-index:100;background:#000;object-fit:contain;" playsinline></video>
@@ -89,6 +92,13 @@
 
         <div id="tempo" class="tempo"></div>
 
+        <!-- SET POINT: o time está a um ponto de fechar a parcial. É um estado,
+             não um evento — entra animado e fica pulsando enquanto durar, e só
+             reanuncia quando troca de lado. Fica na faixa livre entre o TEMPO e
+             os placares, alinhado sobre o número do time. Só vôlei (ver
+             gameLogic.pontoDeParcial). -->
+        <div id="set-point" class="set-point">SET POINT</div>
+
         <div id="nomes">
             <div id="nomeA" class="nome nome-mandante"></div>
             <div id="nomeB" class="nome nome-visitante"></div>
@@ -110,10 +120,18 @@
             <div class="faltas-visitante"></div>
         </div>
 
+        <!-- Sets vencidos por cada time (vôlei) -->
         <div id="area_sets">
             <div id="setsA" class="volei sets sets-mandante"></div>
-            <div id="setsT" class="volei sets sets-atual"></div>
             <div id="setsB" class="volei sets sets-visitante"></div>
+        </div>
+
+        <!-- Placar de cada parcial JÁ FECHADA: set no vôlei, quarto no
+             basquete. Uma coluna por parcial, montada a partir de
+             `state.parciais`; fica vazia enquanto nenhuma fechou. A parcial em
+             disputa continua sendo o placar grande do meio. -->
+        <div id="area_parciais">
+            <div id="parciais" class="parciais"></div>
         </div>
 	<!-- Preenchido dinamicamente com as imagens de public/patrocinadores/ (via estado) -->
 	<div class="sponsor-carousel-container" style="display:none;">
@@ -125,6 +143,90 @@
     <script>
         const socket = io();
         let estadoLocal = null;
+
+        // ---- Autoplay sem clique -------------------------------------------
+        // Política de autoplay do Chrome/Edge: vídeo COM áudio só toca depois de
+        // um gesto do usuário na página; vídeo MUDO toca sempre. O telão antes
+        // tentava com som, tomava NotAllowedError e só então caía pro mudo — e
+        // nesse meio tempo o `load()` disparado logo antes do `play()` derrubava
+        // a 2ª tentativa com AbortError ("interrupted by a new load request"),
+        // deixando o vídeo parado até alguém clicar na tela.
+        //
+        // Agora todo vídeo entra por `tocarSemGesto()`, que começa MUDO
+        // (permitido sempre, nunca precisa de clique) e só liga o som quando ele
+        // já está autorizado — ligar sem autorização faz o navegador PAUSAR o
+        // vídeo, que é justamente o sintoma a eliminar.
+        //
+        // `audioLiberado` vira true quando:
+        //   • a sondagem consegue tocar áudio audível sozinha — é o caso quando o
+        //     navegador do telão sobe com --autoplay-policy=no-user-gesture-required
+        //     (ver "Telão em quiosque" no README), ou
+        //   • houve qualquer gesto na página (clique/tecla/toque), que libera o
+        //     áudio pelo resto da sessão.
+        let audioLiberado = false;
+        const videosGerenciados = [];
+
+        // WAV mínimo em silêncio: conta como áudio audível para a política de
+        // autoplay (não é `muted`), mas não faz barulho na sala.
+        const WAV_SILENCIO = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+        function atualizarAvisoSom() {
+            const tocandoMudoAtoa = !audioLiberado && videosGerenciados.some(v => v.querSom && !v.el.paused);
+            document.getElementById('aviso-som').style.display = tocandoMudoAtoa ? 'block' : 'none';
+        }
+
+        function liberarAudio() {
+            if (audioLiberado) return;
+            audioLiberado = true;
+            // Vídeo que já está tocando mudo ganha som na hora.
+            videosGerenciados.forEach(v => { if (v.querSom && !v.el.paused) v.el.muted = false; });
+            atualizarAvisoSom();
+        }
+
+        ['pointerdown', 'keydown', 'touchstart'].forEach(evento =>
+            window.addEventListener(evento, liberarAudio, { passive: true }));
+
+        // Se o áudio já está autorizado (flag de quiosque, ou MEI alto por uso
+        // recorrente), nem espera gesto.
+        (function sondarAudio() {
+            const som = new Audio(WAV_SILENCIO);
+            som.play().then(() => { som.pause(); liberarAudio(); }).catch(() => { /* bloqueado: segue mudo */ });
+        })();
+
+        // Inicia a reprodução sem depender de gesto nenhum. `comSom: false` para
+        // vídeo que deve ficar mudo de qualquer jeito.
+        function tocarSemGesto(el, { comSom = true } = {}) {
+            let registro = videosGerenciados.find(v => v.el === el);
+            if (!registro) {
+                registro = { el, querSom: comSom };
+                videosGerenciados.push(registro);
+                ['pause', 'ended', 'emptied'].forEach(ev => el.addEventListener(ev, atualizarAvisoSom));
+            }
+            registro.querSom = comSom;
+
+            el.muted = comSom ? !audioLiberado : true;
+
+            const tentar = () => el.play().then(() => atualizarAvisoSom());
+            return tentar().catch(() => {
+                // Sobrou alguma restrição (ou o play() foi cortado por um load()
+                // concorrente): força mudo — que a política sempre permite — e
+                // espera o elemento ter dados antes de insistir.
+                el.muted = true;
+                if (el.readyState >= 2) return tentar();
+                return new Promise((resolve, reject) => {
+                    const limpar = () => {
+                        el.removeEventListener('loadeddata', ok);
+                        el.removeEventListener('error', falhou);
+                        clearTimeout(prazo);
+                    };
+                    const ok = () => { limpar(); tentar().then(resolve, reject); };
+                    const falhou = () => { limpar(); reject(new Error('sem dados para reproduzir')); };
+                    const prazo = setTimeout(falhou, 8000);
+                    el.addEventListener('loadeddata', ok, { once: true });
+                    el.addEventListener('error', falhou, { once: true });
+                });
+            });
+        }
 
         // Lógica de Vídeo com playlist sequencial (com loop opcional)
         const videoPlayer = document.getElementById('videoPlayer');
@@ -141,6 +243,7 @@
             videoPlayer.pause();
             videoPlayer.src = '';
             videoPlayer.classList.add('hidden');
+            atualizarAvisoSom();
         }
 
         function playNext() {
@@ -156,15 +259,11 @@
             const arquivo = videoQueue.shift();
             videoPlayer.src = `/videos/${arquivo}`;
             videoPlayer.classList.remove('hidden');
-            videoPlayer.load();
-            videoPlayer.muted = false;
-            videoPlayer.play().catch(() => {
-                // Navegador bloqueou o autoplay com áudio: tenta o MESMO vídeo sem som.
-                videoPlayer.muted = true;
-                videoPlayer.play().catch((err) => {
-                    console.error('Falha ao reproduzir o vídeo:', arquivo, err);
-                    playNext();
-                });
+            // Sem load() aqui de propósito: atribuir `src` já dispara o
+            // carregamento, e o load() extra cancelava o play() de baixo.
+            tocarSemGesto(videoPlayer).catch((err) => {
+                console.error('Falha ao reproduzir o vídeo:', arquivo, err);
+                playNext();
             });
         }
 
@@ -218,13 +317,7 @@
                     slidePlayer.classList.add('hidden');
                     slideVideoPlayer.src = src;
                     slideVideoPlayer.classList.remove('hidden');
-                    slideVideoPlayer.load();
-                    slideVideoPlayer.muted = false;
-                    slideVideoPlayer.play().catch(() => {
-                        // Navegador bloqueou autoplay com áudio: toca o MESMO vídeo sem som.
-                        slideVideoPlayer.muted = true;
-                        slideVideoPlayer.play().catch((err) => console.error('Falha ao reproduzir slide em vídeo:', arquivo, err));
-                    });
+                    tocarSemGesto(slideVideoPlayer).catch((err) => console.error('Falha ao reproduzir slide em vídeo:', arquivo, err));
                 } else {
                     slideVideoPlayer.pause();
                     slideVideoPlayer.classList.add('hidden');
@@ -271,7 +364,12 @@
             clearTimeout(window._animVideoTimer);
             clearTimeout(window._animVideoFadeTimer);
 
+            // `onerror` do elemento e a rejeição de `tocarSemGesto` podem
+            // chegar os dois pelo mesmo problema — o card só pode aparecer uma vez.
+            let jaFalhou = false;
             const falhar = () => {
+                if (jaFalhou) return;
+                jaFalhou = true;
                 ocultarVideoJogador({ imediato: true });
                 if (aoFalhar) aoFalhar(); // vídeo quebrado não anula o lance: cai pro card com foto
             };
@@ -280,50 +378,50 @@
             videoEl.onerror = falhar;
 
             videoEl.src = url;
-            videoEl.muted = false;
 
             box.style.display = 'block';
             box.offsetHeight;          // força reflow para o fade-in acontecer
             box.style.opacity = '1';
 
-            videoEl.play().catch(() => {
-                // Navegador bloqueou autoplay com áudio: toca o MESMO vídeo sem som.
-                videoEl.muted = true;
-                videoEl.play().catch((err) => {
-                    console.error('Falha ao reproduzir vídeo do jogador:', err);
-                    falhar();
-                });
+            tocarSemGesto(videoEl).catch((err) => {
+                console.error('Falha ao reproduzir vídeo do jogador:', err);
+                falhar();
             });
 
             window._animVideoTimer = setTimeout(() => ocultarVideoJogador(), LIMITE_VIDEO_JOGADOR_MS);
         }
 
-        function mostrarCardAnimacao(texto, timeNome, j) {
+        // Faixa de ponto/falta. O CSS cuida da coreografia inteira; aqui só
+        // entram o conteúdo, as duas variações de layout (com/sem foto, ponto/
+        // falta) e o reinício — pontos chegam em rajada e o lance novo tem que
+        // cortar o anterior.
+        const ANIM_DURACAO = 5000; // igual ao total do keyframe anim-faixa
+        function mostrarCardAnimacao(texto, timeNome, j, tipo) {
             document.getElementById('anim-time').innerText = timeNome || '';
             document.getElementById('anim-acao').innerText = texto || '';
             document.getElementById('anim-numero').innerText = j.numero ? '#' + j.numero : '';
             document.getElementById('anim-nome').innerText = j.nome || '';
 
             const fotoEl = document.getElementById('anim-foto');
-            const textoEl = document.getElementById('anim-jogador-texto');
             if (j.foto) {
                 fotoEl.src = j.foto;
-                fotoEl.style.display = 'block';
-                textoEl.style.textAlign = 'left';
             } else {
-                fotoEl.style.display = 'none';
-                fotoEl.src = '';
-                textoEl.style.textAlign = 'center';
+                // removeAttribute (e não src=''): src vazio faria o navegador
+                // pedir a própria página como imagem.
+                fotoEl.removeAttribute('src');
             }
 
             const overlay = document.getElementById('anim-overlay');
-            const card = document.getElementById('anim-card');
-            overlay.style.display = 'flex';
-            card.style.animation = 'none';
-            card.offsetHeight;
-            card.style.animation = 'animPop 5s forwards';
+            overlay.classList.toggle('sem-foto', !j.foto);
+            // Falta não é comemoração: mesma faixa, tons apagados e sem brilho.
+            overlay.classList.toggle('anim-falta', tipo === 'falta');
+
+            overlay.classList.remove('ativo');
+            overlay.offsetHeight; // reflow: reinicia a sequência inteira
+            overlay.classList.add('ativo');
+
             clearTimeout(window._animTimer);
-            window._animTimer = setTimeout(() => { overlay.style.display = 'none'; }, 5000);
+            window._animTimer = setTimeout(() => overlay.classList.remove('ativo'), ANIM_DURACAO);
         }
 
         socket.on('animacao_ponto', ({ tipo, texto, jogador, timeNome }) => {
@@ -332,14 +430,14 @@
 
             if (tipo === 'ponto' && j.video) {
                 // Lance novo durante um vídeo corta o card anterior na hora.
-                document.getElementById('anim-overlay').style.display = 'none';
+                document.getElementById('anim-overlay').classList.remove('ativo');
                 clearTimeout(window._animTimer);
-                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j));
+                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j, tipo));
                 return;
             }
 
             ocultarVideoJogador({ imediato: true });
-            mostrarCardAnimacao(texto, timeNome, j);
+            mostrarCardAnimacao(texto, timeNome, j, tipo);
         });
 
         // Cronômetro em tempo real (50ms para suavidade nos centissegundos do basquete)
@@ -406,6 +504,127 @@
             track.appendChild(grupo);
         }
 
+        // Faixa set a set (quarto a quarto no basquete). A grade inteira fica
+        // sempre à vista: as parciais fechadas com o resultado final, a que está
+        // em disputa com o placar ao vivo e as que ainda não começaram com um
+        // traço. A assinatura evita reconstruir o DOM a cada broadcast (chega um
+        // por ponto marcado) — e por isso inclui o placar ao vivo.
+        let parciaisAssinatura = null;
+        function renderParciais(dados) {
+            const fechadas = Array.isArray(dados.parciais) ? dados.parciais : [];
+            const total = dados.totalParciais || fechadas.length;
+            const emAndamento = dados.parcialEmAndamento || null;
+
+            const assinatura = [
+                total, emAndamento,
+                fechadas.map(p => `${p.a}x${p.b}`).join('|'),
+                dados.timeA.placar, dados.timeB.placar
+            ].join('/');
+            if (assinatura === parciaisAssinatura) return;
+            parciaisAssinatura = assinatura;
+
+            const alvo = document.getElementById('parciais');
+            alvo.innerHTML = '';
+
+            for (let numero = 1; numero <= total; numero++) {
+                const fechada = fechadas[numero - 1] || null;
+                const atual = !fechada && numero === emAndamento;
+
+                const coluna = document.createElement('div');
+                coluna.className = 'parcial'
+                    + (atual ? ' parcial-atual' : '')
+                    + (!fechada && !atual ? ' parcial-vazia' : '');
+
+                const rotulo = document.createElement('div');
+                rotulo.className = 'parcial-rotulo';
+                rotulo.textContent = `${numero}º`;
+                coluna.appendChild(rotulo);
+
+                // Fechada: resultado final, com quem levou em destaque.
+                // Em disputa: placar ao vivo, sem destaque (ninguém venceu ainda).
+                // Ainda não começou: travessão.
+                const linhas = fechada
+                    ? [[fechada.a, fechada.a > fechada.b], [fechada.b, fechada.b > fechada.a]]
+                    : atual
+                        ? [[dados.timeA.placar, false], [dados.timeB.placar, false]]
+                        : [['–', false], ['–', false]];
+
+                // textContent (e não innerHTML): o placar vem do estado, não é
+                // lugar de interpretar marcação.
+                linhas.forEach(([valor, venceu]) => {
+                    const ponto = document.createElement('div');
+                    ponto.className = venceu ? 'parcial-ponto parcial-venceu' : 'parcial-ponto';
+                    ponto.textContent = valor;
+                    coluna.appendChild(ponto);
+                });
+
+                alvo.appendChild(coluna);
+            }
+        }
+
+        // Nome do time em UMA linha só, sem virar letra de bula. A ordem é:
+        // encolher a fonte até um piso legível, depois condensar as letras (que
+        // custa menos legibilidade que diminuir mais) e, só num nome absurdo que
+        // nem assim caiba, cortar com reticências — melhor um nome cortado e
+        // legível do que a linha inteira ilegível.
+        // A conta sai em cqw, que escala junto com o container: coube uma vez,
+        // cabe em qualquer resolução de telão.
+        const NOME_FONTE_MAX = 2.5;   // cqw — tamanho de projeto
+        const NOME_FONTE_MIN = 1.4;   // cqw — piso de legibilidade
+        const NOME_APERTO_MAX = 0.8;  // até 20% de condensação horizontal
+        function ajustarNome(el, texto) {
+            const valor = texto || '';
+            if (el.dataset.nome === valor) return;
+            el.dataset.nome = valor;
+
+            let span = el.firstElementChild;
+            if (!span) {
+                span = document.createElement('span');
+                el.appendChild(span);
+            }
+            span.textContent = valor;
+            span.style.transform = 'none';
+            span.style.maxWidth = '';
+            span.classList.remove('nome-cortado');
+            el.style.fontSize = NOME_FONTE_MAX + 'cqw';
+
+            const disponivel = el.getBoundingClientRect().width;
+            const largura = () => span.getBoundingClientRect().width;
+            if (!disponivel || largura() <= disponivel) return;
+
+            // 1) encolhe a fonte, proporcionalmente ao excesso, até o piso
+            el.style.fontSize = Math.max(NOME_FONTE_MIN, NOME_FONTE_MAX * disponivel / largura()) + 'cqw';
+
+            // 2) o que faltar vira condensação, limitada
+            const escala = Math.max(NOME_APERTO_MAX, disponivel / largura());
+            if (escala >= 1) return;
+            span.style.transform = `scaleX(${escala})`;
+
+            // 3) nem no piso coube: corta com reticências (a largura é medida
+            //    antes da condensação, por isso dividida pela escala)
+            if (largura() * escala > disponivel) {
+                span.style.maxWidth = (disponivel / escala) + 'px';
+                span.classList.add('nome-cortado');
+            }
+        }
+
+        // SET POINT — a animação de entrada só roda quando o estado MUDA
+        // (apareceu, sumiu ou trocou de time). Sem essa guarda ela recomeçaria a
+        // cada broadcast, e chega um por ponto marcado.
+        let setPointAtual = null;
+        function renderSetPoint(time) {
+            const alvo = time || null;
+            if (alvo === setPointAtual) return;
+            setPointAtual = alvo;
+
+            const el = document.getElementById('set-point');
+            el.classList.remove('ativo', 'set-point-mandante', 'set-point-visitante');
+            if (!alvo) return;
+
+            el.offsetHeight; // reflow: força a animação de entrada a rodar de novo
+            el.classList.add('ativo', alvo === 'timeA' ? 'set-point-mandante' : 'set-point-visitante');
+        }
+
         // Atualização principal da tela
         socket.on('atualizar_tela', (dados) => {
             // Sincroniza relógio do cliente com servidor
@@ -423,9 +642,9 @@
             changeCssSport(dados.esporte);
             estadoLocal = dados;
 
-            // Nomes
-            document.getElementById('nomeA').innerText = dados.timeA.nome;
-            document.getElementById('nomeB').innerText = dados.timeB.nome;
+            // Nomes (sempre em uma linha só — ver ajustarNome)
+            ajustarNome(document.getElementById('nomeA'), dados.timeA.nome);
+            ajustarNome(document.getElementById('nomeB'), dados.timeB.nome);
 
             // Placar (basquete sempre com 2 dígitos: 01, 02... 09, 10)
             const formatarPlacar = (p) => dados.esporte === 'basquete' ? String(p).padStart(2, '0') : p;
@@ -469,12 +688,13 @@
                 document.getElementById('sigla-visitante').classList.remove('hidden');
             }
 
-            // Indicador de saque (vôlei)
-            if (dados.esporte === 'volei') {
-                document.getElementById('setsT').innerText = dados.timeA.sets + dados.timeB.sets + 1; // Exibe o número do set atual (soma dos sets + 1)
-            } else {
-                document.getElementById('setsT').innerText = '';
-            }
+            // Set point (null fora do vôlei, e também quando a pontuação já
+            // fecha a parcial — aí o que vale é o botão de fechar na mesa)
+            renderSetPoint(dados.setPoint);
+
+            // Parciais já fechadas (o campo "set atual" do layout antigo saiu:
+            // o set em disputa é o próprio placar grande).
+            renderParciais(dados);
 
             // Bola de saque piscando ao lado do time que está sacando (somente vôlei)
             const ehVolei = dados.esporte === 'volei';
@@ -502,6 +722,7 @@
             const tempo = document.querySelector(".tempo");
 
             const areaSets = document.getElementById("area_sets");
+            const areaParciais = document.getElementById("area_parciais");
             const areaQuarter = document.getElementById("area_quarter");
             const areaFault = document.getElementById("area_fault");
 
@@ -510,6 +731,7 @@
             box.style.backgroundImage = `url('./base/${sport}/box.png')`;
 
             areaSets.hidden = true;
+            areaParciais.hidden = true;
             areaQuarter.hidden = true;
             areaFault.hidden = true;
 
@@ -525,7 +747,7 @@
                         mandante: { top: "45.5%", left: "18.4%" },
                         visitante: { top: "45.5%", left: "81.7%" }
                     },
-                    extraArea: areaSets
+                    extraAreas: [areaSets, areaParciais]
                 },
                 basquete: {
                     pontos: {
@@ -538,7 +760,12 @@
                         mandante: { top: "58.8%", left: "18.4%" },
                         visitante: { top: "58.8%", left: "81.7%" }
                     },
-                    extraArea: areaFault
+                    // Para ligar as parciais por quarto no basquete, basta
+                    // `[areaFault, areaParciais]` aqui — a lógica
+                    // (fechar_set/reabrir_set, REGRAS_PARCIAL.basquete) e o
+                    // render já atendem os dois esportes; falta a mesa de
+                    // basquete ter o botão de fechar o quarto.
+                    extraAreas: [areaFault]
                 },
                 futsal: {
                     pontos: {
@@ -551,7 +778,7 @@
                         mandante: { top: "58.8%", left: "18.4%" },
                         visitante: { top: "58.8%", left: "81.7%" }
                     },
-                    extraArea: areaFault
+                    extraAreas: [areaFault]
                 }
             };
 
@@ -574,7 +801,7 @@
             tempo.style.top = config.tempo.top;
             tempo.style.left = config.tempo.left;
 
-            config.extraArea.hidden = false;
+            config.extraAreas.forEach(area => { area.hidden = false; });
         }
     </script>
 </body>

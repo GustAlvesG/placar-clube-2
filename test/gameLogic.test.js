@@ -177,6 +177,94 @@ test('futsal: não tem parcial para fechar', () => {
     const s = novoEstado({ esporte: 'futsal' });
 
 // ---------------------------------------------------------------------------
+// Anúncio do fechamento: o telão recebe o retrato da parcial no próprio evento
+// ---------------------------------------------------------------------------
+test('fechar_set anuncia a parcial com placar, sets e nomes', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.nome = 'Clube';
+    s.timeB.nome = 'Vila Nova';
+    s.timeA.placar = 25;
+    s.timeB.placar = 20;
+
+    const { animacoes } = logic.comandoPlacar(s, { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+
+    assert.equal(animacoes.length, 1);
+    assert.equal(animacoes[0].name, 'animacao_parcial');
+    assert.deepEqual(animacoes[0].payload, {
+        tipo: 'parcial',
+        rotulo: 'SET',
+        numero: 1,
+        vencedor: 'timeA',
+        placar: { a: 25, b: 20 },
+        sets: { a: 1, b: 0 },
+        times: { a: 'Clube', b: 'Vila Nova' }
+    });
+});
+
+test('o placar anunciado é o de antes de zerar', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.placar = 25;
+    s.timeB.placar = 23;
+
+    const { animacoes } = logic.comandoPlacar(s, { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+
+    assert.deepEqual(animacoes[0].payload.placar, { a: 25, b: 23 });
+    assert.equal(s.timeA.placar, 0, 'o estado zera, o anúncio não');
+    assert.equal(s.timeB.placar, 0);
+});
+
+test('fechar o set decisivo anuncia fim de jogo', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 25, b: 20 }, { a: 25, b: 18 }];
+    s.timeA.sets = 2;
+    s.timeA.placar = 25;
+    s.timeB.placar = 22;
+
+    const { animacoes } = logic.comandoPlacar(s, { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+
+    assert.equal(animacoes[0].payload.tipo, 'jogo');
+    assert.equal(animacoes[0].payload.numero, 3);
+    assert.deepEqual(animacoes[0].payload.sets, { a: 3, b: 0 });
+});
+
+test('set que só empata a série ainda é parcial, não fim de jogo', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 25, b: 20 }, { a: 20, b: 25 }];
+    s.timeA.sets = 1;
+    s.timeB.sets = 1;
+    s.timeB.placar = 25;
+    s.timeA.placar = 21;
+
+    const { animacoes } = logic.comandoPlacar(s, { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+
+    assert.equal(animacoes[0].payload.tipo, 'parcial');
+    assert.equal(animacoes[0].payload.vencedor, 'timeB');
+});
+
+test('quarto de basquete anuncia com o rótulo QUARTO e aceita empate', () => {
+    const s = novoEstado({ esporte: 'basquete' });
+    s.timeA.placar = 19;
+    s.timeB.placar = 19;
+
+    const { animacoes } = logic.comandoPlacar(s, { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+
+    assert.equal(animacoes[0].payload.rotulo, 'QUARTO');
+    assert.equal(animacoes[0].payload.vencedor, null);
+    assert.equal(animacoes[0].payload.tipo, 'parcial', 'basquete não decide jogo por parciais');
+    assert.deepEqual(animacoes[0].payload.sets, { a: 0, b: 0 });
+});
+
+test('reabrir_set não anuncia nada', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.parciais = [{ a: 25, b: 20 }];
+    s.timeA.sets = 1;
+
+    const { animacoes } = logic.comandoPlacar(s, { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
+
+    assert.deepEqual(animacoes, []);
+});
+
+// ---------------------------------------------------------------------------
 // Grade de parciais: o telão mostra todas, inclusive as que não começaram
 // ---------------------------------------------------------------------------
 test('vôlei desenha os 5 sets desde o primeiro saque', () => {

@@ -19,14 +19,39 @@
             <div id="anim-brilho"></div>
             <div id="anim-conteudo">
                 <img id="anim-foto" alt="">
+                <!-- Hierarquia: o jogador é o destaque, o clube vem depois e o
+                     lance é só a etiqueta de cima. -->
                 <div id="anim-jogador-texto">
-                    <div id="anim-time"></div>
                     <div id="anim-acao"></div>
                     <div id="anim-jogador-linha">
                         <span id="anim-numero"></span>
                         <span id="anim-nome"></span>
                     </div>
+                    <div id="anim-time"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fechamento de set/quarto e fim de jogo: mesma faixa grená da animação
+         de ponto, mais alta, com o placar da parcial e mais tempo em cena.
+         Ver "FECHAMENTO DE SET / JOGO" em style.css. -->
+    <div id="set-overlay">
+        <div id="set-faixa">
+            <div id="set-brilho"></div>
+            <div id="set-conteudo">
+                <div id="set-kicker"></div>
+                <div id="set-linhas">
+                    <div class="set-linha" id="set-linha-a">
+                        <span class="set-linha-nome"></span>
+                        <span class="set-linha-pontos"></span>
+                    </div>
+                    <div class="set-linha" id="set-linha-b">
+                        <span class="set-linha-nome"></span>
+                        <span class="set-linha-pontos"></span>
+                    </div>
+                </div>
+                <div id="set-rodape"></div>
             </div>
         </div>
     </div>
@@ -438,6 +463,41 @@
 
             ocultarVideoJogador({ imediato: true });
             mostrarCardAnimacao(texto, timeNome, j, tipo);
+        });
+
+        // Fechamento de parcial (e fim de jogo). Tudo vem no payload: o
+        // `atualizar_tela` chega depois do anúncio e já com o placar zerado.
+        const SET_DURACAO = 9000; // igual ao total do keyframe set-faixa
+        socket.on('animacao_parcial', (d) => {
+            document.getElementById('set-kicker').innerText =
+                d.tipo === 'jogo' ? 'FIM DE JOGO' : `${d.numero}º ${d.rotulo}`;
+
+            const linha = (id, nome, pontos, venceu) => {
+                const el = document.getElementById(id);
+                el.querySelector('.set-linha-nome').innerText = nome || '';
+                el.querySelector('.set-linha-pontos').innerText = pontos;
+                el.classList.toggle('venceu', venceu);
+            };
+            linha('set-linha-a', d.times.a, d.placar.a, d.vencedor === 'timeA');
+            linha('set-linha-b', d.times.b, d.placar.b, d.vencedor === 'timeB');
+
+            // SET -> SETS, QUARTO -> QUARTOS
+            document.getElementById('set-rodape').innerText =
+                `${d.rotulo}S   ${d.sets.a}   ×   ${d.sets.b}`;
+
+            // O fechamento manda em cena: corta a faixa de ponto e o vídeo do lance.
+            document.getElementById('anim-overlay').classList.remove('ativo');
+            clearTimeout(window._animTimer);
+            ocultarVideoJogador({ imediato: true });
+
+            const overlay = document.getElementById('set-overlay');
+            overlay.classList.toggle('fim-de-jogo', d.tipo === 'jogo');
+            overlay.classList.remove('ativo');
+            overlay.offsetHeight; // reflow: reinicia a sequência inteira
+            overlay.classList.add('ativo');
+
+            clearTimeout(window._setTimer);
+            window._setTimer = setTimeout(() => overlay.classList.remove('ativo'), SET_DURACAO);
         });
 
         // Cronômetro em tempo real (50ms para suavidade nos centissegundos do basquete)

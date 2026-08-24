@@ -157,7 +157,8 @@ Telão (index.html) + Controles (recebem estado)
 | Evento | Payload | Descrição |
 |--------|---------|-----------|
 | `atualizar_tela` | `{ ...gameState, serverTime }` | Broadcast do estado completo |
-| `animacao_ponto` | `{ texto, jogador, timeNome }` | Animação ao marcar ponto/falta |
+| `animacao_ponto` | `{ tipo, texto, jogador, timeNome }` | Faixa de ponto/falta com o jogador |
+| `animacao_parcial` | `{ tipo, rotulo, numero, vencedor, placar, sets, times }` | Faixa de fechamento de set/quarto (e fim de jogo) |
 | `executar_video` | `{ acao, arquivo? }` | Instrui telão a tocar vídeo |
 | `lista_videos` | `[filenames]` | Lista de vídeos disponíveis (também broadcast após upload/exclusão) |
 
@@ -543,9 +544,16 @@ em qualquer resolução de telão, sem recalcular no resize.
 Ao marcar com um jogador escolhido, o telão abre uma **faixa grená** de ponta a
 ponta da tela, nas cores do próprio placar: degradê `#2a0008 → #6a0414 →
 #8e1030`, fios dourados em cima e embaixo, meio-tom de bolinhas adensando à
-direita (o mesmo motivo da arte de fundo). Dentro dela, a foto redonda com anel
-dourado, o nome do time em dourado, a palavra do lance em branco e o número +
-nome do jogador.
+direita (o mesmo motivo da arte de fundo).
+
+Dentro dela, a foto redonda com anel dourado e o texto em três degraus — quem
+marcou é o assunto, o lance é só a etiqueta que diz por quê:
+
+| Degrau | Conteúdo | Tamanho |
+|---|---|---|
+| Etiqueta | `PONTO!` / `GOL!` / `CESTA!` / `FALTA!`, dourado | 2,6vh |
+| Destaque | `#número` (5vh) + **nome do jogador** | 8vh |
+| Apoio | nome do clube | 3,4vh |
 
 A coreografia mora inteira em `#anim-overlay` no [style.css](public/style.css) —
 o telão só põe e tira a classe `.ativo` (tirar e repor reinicia tudo, porque
@@ -569,6 +577,38 @@ fechado, fio rosado no lugar do dourado e sem o brilho (`.anim-falta`).
 A faixa ocupa cerca de 27% da altura, então o placar continua à vista acima e
 abaixo dela. Quando o jogador tem vídeo cadastrado, o vídeo em tela cheia vem
 antes e a faixa entra ao terminar.
+
+### Fechamento de set / fim de jogo
+
+Fechar a parcial dispara `animacao_parcial`, e o telão abre uma faixa na mesma
+linguagem da de ponto — grená, fios dourados, meio-tom, varredura — em versão
+maior e **9 segundos** em cena (o dobro), porque é quando a quadra para e todo
+mundo olha para o telão:
+
+```
+                        1º SET
+  ▌CLUBE DOS FUNCIONÁRIOS                              25
+   VILA NOVA                                           20
+                      SETS 1 × 0
+```
+
+Uma linha por time (nome à esquerda, pontos da parcial à direita), a de quem
+levou em dourado e com barra; embaixo, o total de sets/quartos. Com o jogo
+decidido a etiqueta vira **FIM DE JOGO**, os fios engrossam e o campeão pulsa em
+dourado três vezes — a linha continua mostrando o placar do último set, e o
+resultado da série fica no rodapé.
+
+O payload leva o **retrato do fechamento** (placar, sets, nomes, número da
+parcial) porque o `atualizar_tela` chega depois do anúncio e já com o placar da
+parcial zerado — ler do estado mostraria 0 × 0.
+
+O fechamento manda em cena: ao entrar, corta a faixa de ponto e o vídeo do lance
+que estiverem rodando (z-index 89, acima dos dois).
+
+O pulso do campeão fica nos **filhos** da linha (`.set-linha-nome`,
+`.set-linha-pontos`): aplicado na própria linha ele perderia para
+`#set-overlay.ativo #set-linha-a` — dois ids ganham de quatro classes — e o
+shorthand `animation` apagaria a animação de entrada.
 
 ### Set point
 

@@ -189,12 +189,33 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     // operador precisa poder encerrar uma parcial fora da regra (WO, partida
     // interrompida) sem ficar travado.
     if (acao === 'fechar_set') {
+        const regra = REGRAS_PARCIAL[state.esporte];
+        const numero = numeroParcialAtual(state);
         const vencedor = vencedorParcial(state);
-        state.parciais.push({ a: state.timeA.placar, b: state.timeB.placar });
+        const placar = { a: state.timeA.placar, b: state.timeB.placar };
+
+        state.parciais.push({ ...placar });
         if (vencedor) state[vencedor].sets += 1;
         state.timeA.placar = 0;
         state.timeB.placar = 0;
         state.sacando = null;
+
+        // O anúncio leva o retrato do fechamento porque o `atualizar_tela` só
+        // chega depois — e nele o placar da parcial já foi zerado.
+        const decidido = !!(regra && regra.parciaisParaVencer
+            && (state.timeA.sets >= regra.parciaisParaVencer || state.timeB.sets >= regra.parciaisParaVencer));
+        animacoes.push({
+            name: 'animacao_parcial',
+            payload: {
+                tipo: decidido ? 'jogo' : 'parcial',
+                rotulo: regra ? regra.rotulo : 'SET',
+                numero,
+                vencedor, // null num quarto empatado de basquete
+                placar,
+                sets: { a: state.timeA.sets, b: state.timeB.sets },
+                times: { a: state.timeA.nome, b: state.timeB.nome }
+            }
+        });
     }
 
     // Desfaz o último fechamento (operador clicou por engano): devolve o placar

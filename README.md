@@ -551,9 +551,12 @@ marcou é o assunto, o lance é só a etiqueta que diz por quê:
 
 | Degrau | Conteúdo | Tamanho |
 |---|---|---|
-| Etiqueta | `PONTO!` / `GOL!` / `CESTA!` / `FALTA!`, dourado | 2,6vh |
-| Destaque | `#número` (5vh) + **nome do jogador** | 8vh |
-| Apoio | nome do clube | 3,4vh |
+| Etiqueta | `PONTO!` / `GOL!` / `CESTA!` / `FALTA!`, dourado | 2,3cqw |
+| Destaque | `#número` (4,4cqw) + **nome do jogador** | 7cqw |
+| Apoio | nome do clube | 3cqw |
+
+As duas faixas de animação vivem **dentro** do `.placar-container` e medem em
+`cqw`, a mesma régua do resto do placar — ver "Escala das faixas" abaixo.
 
 A coreografia mora inteira em `#anim-overlay` no [style.css](public/style.css) —
 o telão só põe e tira a classe `.ativo` (tirar e repor reinicia tudo, porque
@@ -602,8 +605,30 @@ O payload leva o **retrato do fechamento** (placar, sets, nomes, número da
 parcial) porque o `atualizar_tela` chega depois do anúncio e já com o placar da
 parcial zerado — ler do estado mostraria 0 × 0.
 
-O fechamento manda em cena: ao entrar, corta a faixa de ponto e o vídeo do lance
-que estiverem rodando (z-index 89, acima dos dois).
+O fechamento manda em cena: ao entrar, corta a faixa de ponto (z-index 41 contra
+40, dentro do placar) e o vídeo do lance, que é irmão do container e por isso sai
+por JS.
+
+### Escala das faixas
+
+As faixas de ponto e de fechamento são **filhas do `.placar-container`** e todas
+as medidas delas estão em `cqw`, igual ao resto do placar.
+
+Isso não é detalhe de estilo, é correção de bug: o container tem **largura fixa
+de 1024px** (`width: 1024px` em [style.css](public/style.css)), então medir a
+faixa em `vh`/`vw` a amarrava ao tamanho da **janela**, não ao do placar. Em
+telas com proporção diferente da do monitor onde a animação foi ajustada — um
+painel largo e baixo, por exemplo — a faixa saía desproporcional em relação ao
+placar, apesar de o placar em si continuar igual.
+
+Com `cqw` a proporção é a mesma em qualquer tela: o nome do jogador é sempre 7%
+da largura do placar (contra 8% dos dígitos do placar), e a faixa sempre cobre a
+largura inteira dele. Verificado em 1280×720, 1920×1080, 1920×600 e 1024×768 —
+medidas idênticas nas quatro.
+
+Regra prática: **qualquer coisa desenhada sobre o placar mede em `cqw`**; `vh`/`vw`
+ficam para o que é realmente de tela cheia (standby, slides, comerciais e o vídeo
+do jogador).
 
 O pulso do campeão fica nos **filhos** da linha (`.set-linha-nome`,
 `.set-linha-pontos`): aplicado na própria linha ele perderia para

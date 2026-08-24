@@ -856,7 +856,7 @@ body {
 	display:flex;
 	
 	width:max-content;
-	animation:infiniteScroll 14s linear infinite;
+	animation:infiniteScroll 28s linear infinite;
 	
 }
 .sponsor-group{

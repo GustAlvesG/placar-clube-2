@@ -508,9 +508,14 @@ body {
 }
 
 /* ================= ANIMAÇÃO DE PONTO / FALTA =================
-   Faixa grená atravessando a tela, nas cores do próprio placar (o card preto
-   com texto amarelo saiu). A coreografia inteira mora aqui: o telão só põe e
-   tira a classe .ativo, e tirar/repor reinicia tudo.
+   Faixa grená atravessando o placar, nas cores dele (o card preto com texto
+   amarelo saiu). A coreografia inteira mora aqui: o telão só põe e tira a
+   classe .ativo, e tirar/repor reinicia tudo.
+
+   TUDO É MEDIDO EM cqw (largura do .placar-container), igual ao resto do
+   placar. Medir em vh/vw amarraria a faixa ao tamanho da JANELA, enquanto o
+   placar tem largura fixa de 1024px: em telão com proporção diferente da do
+   monitor do operador a faixa saía desproporcional.
 
    Linha do tempo (5s, igual ao ANIM_DURACAO do telão):
      0,00–0,55s  a faixa se abre da esquerda para a direita
@@ -518,9 +523,11 @@ body {
      0,55–1,65s  um brilho dourado varre a faixa
      4,55–5,00s  a faixa se fecha para a direita e some            */
 #anim-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    z-index: 85;
+    /* Acima de tudo que é do placar (o topo por lá é 5). Standby, slides,
+       comerciais e o vídeo do lance seguem cobrindo: são irmãos do container. */
+    z-index: 40;
 
     display: none;
     align-items: center;
@@ -545,13 +552,13 @@ body {
 #anim-faixa {
     position: relative;
     width: 100%;
-    padding: 3vh 6vw;
+    padding: 2.6cqw 5cqw;
     overflow: hidden; /* segura o brilho e o meio-tom */
 
     background: linear-gradient(100deg, #2a0008 0%, #6a0414 42%, #8e1030 68%, #3c0002 100%);
-    border-top: 0.4vh solid #ffd76a;
-    border-bottom: 0.4vh solid #ffd76a;
-    box-shadow: 0 0 8vh rgba(0, 0, 0, 0.65);
+    border-top: 0.35cqw solid #ffd76a;
+    border-bottom: 0.35cqw solid #ffd76a;
+    box-shadow: 0 0 6cqw rgba(0, 0, 0, 0.65);
 }
 
 #anim-overlay.ativo #anim-faixa {
@@ -573,7 +580,7 @@ body {
     position: absolute;
     inset: 0;
     background-image: radial-gradient(rgba(255, 255, 255, 0.13) 20%, transparent 21%);
-    background-size: 1.4vh 1.4vh;
+    background-size: 1.2cqw 1.2cqw;
     -webkit-mask-image: linear-gradient(90deg, transparent 45%, #000 100%);
     mask-image: linear-gradient(90deg, transparent 45%, #000 100%);
 }
@@ -601,17 +608,17 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 3vw;
+    gap: 4cqw;
 }
 
 #anim-foto {
     flex-shrink: 0;
-    width: 16vh;
-    height: 16vh;
+    width: 14cqw;
+    height: 14cqw;
     border-radius: 50%;
     object-fit: cover;
-    border: 0.5vh solid #ffd76a;
-    box-shadow: 0 0 3vh rgba(0, 0, 0, 0.55);
+    border: 0.45cqw solid #ffd76a;
+    box-shadow: 0 0 2.5cqw rgba(0, 0, 0, 0.55);
 }
 
 /* Sem foto o bloco de texto se centra sozinho */
@@ -631,18 +638,18 @@ body {
    "PONTO!" é só a etiqueta que diz por quê. */
 #anim-acao {
     color: #ffd76a;
-    font-size: 2.6vh;
+    font-size: 2.3cqw;
     font-weight: 700;
     letter-spacing: 0.3em;
     text-transform: uppercase;
-    margin-bottom: 1vh;
+    margin-bottom: 0.8cqw;
 }
 
 #anim-jogador-linha {
     display: flex;
     align-items: baseline;
     justify-content: flex-start;
-    gap: 1.2vw;
+    gap: 1.4cqw;
 }
 
 #anim-overlay.sem-foto #anim-jogador-linha {
@@ -651,25 +658,26 @@ body {
 
 #anim-numero {
     color: #ffd76a;
-    font-size: 5vh;
+    font-size: 4.4cqw;
     font-weight: 900;
 }
 
+/* O destaque da faixa: pouco menor que os dígitos do placar (8cqw) */
 #anim-nome {
     color: #ffffff;
-    font-size: 8vh;
+    font-size: 7cqw;
     font-weight: 900;
     line-height: 1.05;
-    text-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.6);
+    text-shadow: 0 0.5cqw 1.3cqw rgba(0, 0, 0, 0.6);
 }
 
 #anim-time {
     color: rgba(255, 255, 255, 0.82);
-    font-size: 3.4vh;
+    font-size: 3cqw;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    margin-top: 0.8vh;
+    margin-top: 0.7cqw;
 }
 
 /* Entrada escalonada: cada peça sobe um instante depois da faixa abrir */
@@ -681,12 +689,12 @@ body {
 #anim-overlay.ativo #anim-time          { animation: anim-sobe 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.48s both; }
 
 @keyframes anim-sobe {
-    from { opacity: 0; transform: translateY(1.6vh); }
+    from { opacity: 0; transform: translateY(1.4cqw); }
     to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes anim-destaque {
-    0%   { opacity: 0; transform: translateX(-2vw) scale(0.9); }
+    0%   { opacity: 0; transform: translateX(-2cqw) scale(0.9); }
     60%  { opacity: 1; transform: translateX(0) scale(1.05); }
     100% { opacity: 1; transform: translateX(0) scale(1); }
 }
@@ -718,17 +726,20 @@ body {
    fica 9s em cena (o dobro do ponto), porque é o momento em que a quadra para
    e todo mundo olha para o telão.
 
+   Medida em cqw pelo mesmo motivo da faixa de ponto: a régua é a largura do
+   placar, não a da janela.
+
    Linha do tempo (9s, igual ao SET_DURACAO do telão):
      0,00–0,60s  a faixa se abre
      0,30–1,30s  etiqueta, as duas linhas do placar e o rodapé entram em ordem
      0,60–1,90s  brilho dourado varre a faixa
      8,35–9,00s  a faixa se fecha                                          */
 #set-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
-    /* Acima da faixa de ponto (85) e do vídeo do lance (88): o fechamento
-       interrompe os dois. Abaixo do standby (90) e dos comerciais (100). */
-    z-index: 89;
+    /* Acima da faixa de ponto (40) — o fechamento interrompe o ponto e o vídeo
+       do lance (esse por JS, já que é irmão do placar). */
+    z-index: 41;
 
     display: none;
     align-items: center;
@@ -752,13 +763,13 @@ body {
 #set-faixa {
     position: relative;
     width: 100%;
-    padding: 4vh 6vw;
+    padding: 3.4cqw 5cqw;
     overflow: hidden;
 
     background: linear-gradient(100deg, #2a0008 0%, #6a0414 42%, #8e1030 68%, #3c0002 100%);
-    border-top: 0.5vh solid #ffd76a;
-    border-bottom: 0.5vh solid #ffd76a;
-    box-shadow: 0 0 10vh rgba(0, 0, 0, 0.7);
+    border-top: 0.45cqw solid #ffd76a;
+    border-bottom: 0.45cqw solid #ffd76a;
+    box-shadow: 0 0 7cqw rgba(0, 0, 0, 0.7);
 }
 
 #set-overlay.ativo #set-faixa {
@@ -779,7 +790,7 @@ body {
     position: absolute;
     inset: 0;
     background-image: radial-gradient(rgba(255, 255, 255, 0.13) 20%, transparent 21%);
-    background-size: 1.4vh 1.4vh;
+    background-size: 1.2cqw 1.2cqw;
     -webkit-mask-image: linear-gradient(90deg, transparent 45%, #000 100%);
     mask-image: linear-gradient(90deg, transparent 45%, #000 100%);
 }
@@ -799,14 +810,14 @@ body {
 
 #set-conteudo {
     position: relative;
-    width: min(72vw, 150vh);
+    width: 86cqw;
     margin: 0 auto;
     text-align: center;
 }
 
 #set-kicker {
     color: #ffd76a;
-    font-size: 3vh;
+    font-size: 2.6cqw;
     font-weight: 900;
     letter-spacing: 0.34em;
     text-transform: uppercase;
@@ -815,22 +826,22 @@ body {
 /* Uma linha por time: nome à esquerda, pontos da parcial à direita. Aguenta
    nome comprido sem empurrar o placar de lugar. */
 #set-linhas {
-    margin: 2vh 0 1.6vh;
+    margin: 1.8cqw 0 1.4cqw;
 }
 
 .set-linha {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 3vw;
+    gap: 3cqw;
 
-    padding: 0.6vh 0 0.6vh 1.4vw;
-    border-left: 0.6vh solid transparent; /* a barra do vencedor, reservada */
+    padding: 0.5cqw 0 0.5cqw 1.4cqw;
+    border-left: 0.5cqw solid transparent; /* a barra do vencedor, reservada */
     color: rgba(255, 255, 255, 0.72);
 }
 
 .set-linha + .set-linha {
-    border-top: 0.15vh solid rgba(255, 255, 255, 0.16);
+    border-top: 0.15cqw solid rgba(255, 255, 255, 0.16);
 }
 
 /* Quem levou a parcial: dourado e barra à esquerda */
@@ -840,7 +851,7 @@ body {
 }
 
 .set-linha-nome {
-    font-size: 4.6vh;
+    font-size: 4cqw;
     font-weight: 900;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -849,15 +860,15 @@ body {
 
 .set-linha-pontos {
     flex-shrink: 0;
-    font-size: 7vh;
+    font-size: 6.2cqw;
     font-weight: 900;
     line-height: 1;
-    text-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.6);
+    text-shadow: 0 0.5cqw 1.3cqw rgba(0, 0, 0, 0.6);
 }
 
 #set-rodape {
     color: rgba(255, 255, 255, 0.82);
-    font-size: 2.8vh;
+    font-size: 2.4cqw;
     font-weight: 700;
     letter-spacing: 0.3em;
     text-transform: uppercase;
@@ -870,19 +881,19 @@ body {
 #set-overlay.ativo #set-rodape    { animation: anim-sobe 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both; }
 
 @keyframes set-entra-linha {
-    from { opacity: 0; transform: translateX(-2.5vw); }
+    from { opacity: 0; transform: translateX(-2.5cqw); }
     to   { opacity: 1; transform: translateX(0); }
 }
 
 /* FIM DE JOGO: o mesmo cartão, um tom acima — fios mais grossos e um pulso
    lento no time campeão enquanto a faixa fica em cena. */
 #set-overlay.fim-de-jogo #set-faixa {
-    border-top-width: 0.9vh;
-    border-bottom-width: 0.9vh;
+    border-top-width: 0.8cqw;
+    border-bottom-width: 0.8cqw;
 }
 
 #set-overlay.fim-de-jogo #set-kicker {
-    font-size: 3.6vh;
+    font-size: 3.1cqw;
 }
 
 /* O pulso vai nos FILHOS da linha: a regra da linha em si perderia para
@@ -894,8 +905,8 @@ body {
 }
 
 @keyframes set-campeao {
-    0%, 100% { text-shadow: 0 0.6vh 1.6vh rgba(0, 0, 0, 0.6); }
-    50%      { text-shadow: 0 0 2.4vh rgba(255, 215, 106, 0.9); }
+    0%, 100% { text-shadow: 0 0.5cqw 1.3cqw rgba(0, 0, 0, 0.6); }
+    50%      { text-shadow: 0 0 2cqw rgba(255, 215, 106, 0.9); }
 }
 
 /* ================= SET POINT =================

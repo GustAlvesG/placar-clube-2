@@ -11,54 +11,9 @@
 </head>
 <body>
 
-    <!-- Animação de ponto / falta: faixa grená atravessando a tela, na paleta
-         do placar. Toda a sequência é disparada pela classe .ativo no overlay —
-         ver o bloco "ANIMAÇÃO DE PONTO / FALTA" em style.css. -->
-    <div id="anim-overlay">
-        <div id="anim-faixa">
-            <div id="anim-brilho"></div>
-            <div id="anim-conteudo">
-                <img id="anim-foto" alt="">
-                <!-- Hierarquia: o jogador é o destaque, o clube vem depois e o
-                     lance é só a etiqueta de cima. -->
-                <div id="anim-jogador-texto">
-                    <div id="anim-acao"></div>
-                    <div id="anim-jogador-linha">
-                        <span id="anim-numero"></span>
-                        <span id="anim-nome"></span>
-                    </div>
-                    <div id="anim-time"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Fechamento de set/quarto e fim de jogo: mesma faixa grená da animação
-         de ponto, mais alta, com o placar da parcial e mais tempo em cena.
-         Ver "FECHAMENTO DE SET / JOGO" em style.css. -->
-    <div id="set-overlay">
-        <div id="set-faixa">
-            <div id="set-brilho"></div>
-            <div id="set-conteudo">
-                <div id="set-kicker"></div>
-                <div id="set-linhas">
-                    <div class="set-linha" id="set-linha-a">
-                        <span class="set-linha-nome"></span>
-                        <span class="set-linha-pontos"></span>
-                    </div>
-                    <div class="set-linha" id="set-linha-b">
-                        <span class="set-linha-nome"></span>
-                        <span class="set-linha-pontos"></span>
-                    </div>
-                </div>
-                <div id="set-rodape"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- Vídeo de apresentação do jogador em tela cheia (só na marcação de ponto).
-         Fica acima do card de animação (85) e abaixo de standby/slides/comerciais,
-         mantendo a mesma ordem de prioridade que a animação já tinha. -->
+         Continua em tela cheia (as faixas de animação vivem dentro do placar) e
+         abaixo de standby/slides/comerciais, mantendo a ordem de prioridade. -->
     <div id="anim-video-overlay" style="display:none;opacity:0;position:fixed;inset:0;z-index:88;background:#000;transition:opacity 600ms ease;">
         <video id="anim-video" style="width:100%;height:100%;object-fit:contain;background:#000;" playsinline></video>
     </div>
@@ -162,6 +117,51 @@
 	<div class="sponsor-carousel-container" style="display:none;">
 		<div class="sponsor-track" id="sponsorTrack"></div>
 	</div>
+
+        <!-- Animação de ponto / falta: faixa grená atravessando a tela, na paleta
+             do placar. Toda a sequência é disparada pela classe .ativo no overlay —
+             ver o bloco "ANIMAÇÃO DE PONTO / FALTA" em style.css. -->
+        <div id="anim-overlay">
+            <div id="anim-faixa">
+                <div id="anim-brilho"></div>
+                <div id="anim-conteudo">
+                    <img id="anim-foto" alt="">
+                    <!-- Hierarquia: o jogador é o destaque, o clube vem depois e o
+                         lance é só a etiqueta de cima. -->
+                    <div id="anim-jogador-texto">
+                        <div id="anim-acao"></div>
+                        <div id="anim-jogador-linha">
+                            <span id="anim-numero"></span>
+                            <span id="anim-nome"></span>
+                        </div>
+                        <div id="anim-time"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fechamento de set/quarto e fim de jogo: mesma faixa grená da animação
+             de ponto, mais alta, com o placar da parcial e mais tempo em cena.
+             Ver "FECHAMENTO DE SET / JOGO" em style.css. -->
+        <div id="set-overlay">
+            <div id="set-faixa">
+                <div id="set-brilho"></div>
+                <div id="set-conteudo">
+                    <div id="set-kicker"></div>
+                    <div id="set-linhas">
+                        <div class="set-linha" id="set-linha-a">
+                            <span class="set-linha-nome"></span>
+                            <span class="set-linha-pontos"></span>
+                        </div>
+                        <div class="set-linha" id="set-linha-b">
+                            <span class="set-linha-nome"></span>
+                            <span class="set-linha-pontos"></span>
+                        </div>
+                    </div>
+                    <div id="set-rodape"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

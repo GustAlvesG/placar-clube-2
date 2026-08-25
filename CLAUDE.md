@@ -51,7 +51,7 @@ Key Socket.IO events: `configurar_jogo`, `comando_placar`, `comando_cronometro`,
 
 ### Clock synchronization across screens
 
-Each `atualizar_tela` broadcast includes `serverTime: Date.now()`. Clients compute `clockOffset = Date.now() - serverTime` and add it to `cronometro.inicioTimestamp` so the countdown/count-up timer renders in sync across multiple screens regardless of network latency or local clock drift. This logic is duplicated in each HTML page that displays a timer — see the `clockOffset` block in `public/index.html` and the `public/controle/*.html` files.
+Each `atualizar_tela` broadcast includes `serverTime: Date.now()`. Clients compute `clockOffset = Date.now() - serverTime` and add it to `cronometro.inicioTimestamp` so the countdown/count-up timer renders in sync across multiple screens regardless of network latency or local clock drift. This logic is duplicated in each HTML page that displays a timer — see the `clockOffset` block in `public/index.html` and `public/controle/controle.html`.
 
 ### Per-sport rule differences (encoded in gameLogic.js, not config)
 
@@ -73,4 +73,10 @@ The telão footer scrolls sponsor logos (`.sponsor-*` in style.css). Source of t
 
 ### Frontend structure (no build step)
 
-`public/index.html` is the scoreboard display (the "telão"). `public/controle/` holds the operator-facing pages: `index.html` (setup: sport, team names/logos, roster), `controle.html` (universal control), `controle_futsal.html`/`controle_basquete.html`/`controle_volei.html` (sport-specific controls), `controle_anuncios.html` (video queue manager). All are static HTML with inline/linked vanilla JS and Tailwind-style CSS — edit them directly, there's no compilation step and nodemon explicitly ignores `public/` for reloads.
+`public/index.html` is the scoreboard display (the "telão"). `public/controle/` holds the operator-facing pages: `index.html` (setup: sport, team names/logos, roster), `controle.html` (the scoring table — **one screen for all three sports**), `controle_anuncios.html` (video queue manager). All are static HTML with inline/linked vanilla JS and Tailwind-style CSS — edit them directly, there's no compilation step and nodemon explicitly ignores `public/` for reloads.
+
+`controle_futsal.html`/`controle_basquete.html`/`controle_volei.html` are **not** separate screens any more — they are one-line redirects to `controle.html`, kept only so bookmarks saved on the operators' tablets keep working. Everything that differs per sport (number of point buttons, faltas vs. sets, período, timer direction, set-closing bar) lives in the `ESPORTES` object at the top of `controle.html`'s script; add a sport or change a per-sport rule there, not by forking the page. The layout is ordered by how often the operator touches each control: clock in the top bar (tapping it toggles play/pause), a full-height scoring button per team in the middle, correction (−1, behind a `confirm()`) plus the contextual action in the bottom bar, and everything used once per game or destructive (definir tempo, período, inverter lados, fechar jogo, parar transmissão, zerar) behind the `⚙ MAIS` overlay.
+
+Team colors are **CSS custom properties** (`.tema-azul`/`.tema-vermelho` in the page's `<style>`), applied to `[data-lado]` elements by `aplicarTemas()` — not Tailwind color classes. This is what lets "inverter lados" repaint both panels so the color follows the *team* rather than the screen position. When restyling a panel, extend the variables; a hardcoded `bg-blue-600` there would stop swapping on invert.
+
+Note the two "zerar" are different and both must keep existing: `comando_placar`/`zerar_tudo` (from the table, preserves teams/roster/API link mid-match) vs. `zerar_configuracao_completa` (from the setup screen, resets everything and unlinks the API game).

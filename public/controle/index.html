@@ -17,9 +17,7 @@
     <!-- Navegação otimizada para toque -->
     <nav class="bg-gray-900 text-white p-4 shadow-lg mb-8 flex flex-wrap justify-center gap-2 md:gap-6 font-bold text-sm md:text-base">
         <a href="index.html" class="bg-gray-800 text-yellow-400 px-4 py-3 rounded-lg border-b-4 border-yellow-400">⚙️ CONFIGURAÇÃO</a>
-        <a id="link-jogo" href="controle.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">▶️ JOGO</a>
-        <!-- <a href="controle_futsal.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">⚽ Futsal</a> -->
-        <!-- <a href="controle_volei.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">🏐 VÔLEI</a> -->
+        <a href="controle.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">▶️ JOGO</a>
         <a href="controle_anuncios.html" class="px-4 py-3 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">📺 ANÚNCIOS</a>
     </nav>
 
@@ -31,13 +29,18 @@
             <p id="integracao-aviso" class="text-sm text-gray-500 mb-4">Verificando...</p>
 
             <div class="flex flex-wrap gap-2 mb-6">
-                <button type="button" class="modo-tab tab-ativa" data-modo="manual" onclick="mudarModoIntegracao('manual')">✋ Manual (sem API)</button>
-                <button type="button" class="modo-tab" data-modo="planejado" onclick="mudarModoIntegracao('planejado')">📋 Selecionar jogo existente</button>
-                <button type="button" class="modo-tab" data-modo="avulso" onclick="mudarModoIntegracao('avulso')">➕ Criar jogo agora</button>
+                <button type="button" class="modo-tab" data-modo="planejado" onclick="selecionarModoIntegracao('planejado')">📋 Selecionar jogo existente <span class="text-[10px] font-normal opacity-70">· recomendado</span></button>
+                <button type="button" class="modo-tab" data-modo="avulso" onclick="selecionarModoIntegracao('avulso')">➕ Criar jogo agora</button>
+                <button type="button" class="modo-tab tab-ativa" data-modo="manual" onclick="selecionarModoIntegracao('manual')">✋ Manual (sem API)</button>
             </div>
 
-            <!-- Manual: nada a mostrar, é o fluxo de sempre (abaixo, sem depender da API) -->
-            <p id="painel-manual" class="text-sm text-gray-400">Modo atual: preencha os times abaixo e clique em SALVAR CONFIGURAÇÃO — nada é enviado à API do Placar Clube.</p>
+            <!-- Manual: nada a mostrar, é o fluxo alternativo (abaixo, sem depender da API) -->
+            <p id="painel-manual" class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                ⚠️ Use o modo manual só quando a partida <b>não</b> estiver cadastrada no sistema do clube:
+                preencha os times abaixo e clique em SALVAR CONFIGURAÇÃO — nada é enviado à API do Placar Clube,
+                então placar e eventos não entram na súmula. Sempre que possível, prefira
+                <b>📋 Selecionar jogo existente</b>.
+            </p>
 
             <!-- Planejado: busca jogos já cadastrados na API -->
             <div id="painel-planejado" class="hidden space-y-4">
@@ -71,6 +74,7 @@
                     class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold px-6 py-3 rounded-xl transition-transform text-sm">
                     🚦 Iniciar jogo (marcar ao vivo na API)
                 </button>
+                <p class="text-xs text-gray-400 mt-2">Isso também acontece sozinho ao apertar ▶ PLAY no cronômetro — este botão é só para marcar como ao vivo antes de começar a contar o tempo.</p>
             </div>
         </div>
 
@@ -84,21 +88,21 @@
                     <!-- <label class="block text-sm text-gray-600 font-bold mb-3 uppercase tracking-wide">Qual esporte vai para o telão?</label> -->
                     <div class="grid grid-cols-3 gap-3">
                         <label class="cursor-pointer w-full">
-                            <input type="radio" name="esporte" value="basquete" class="peer sr-only" onchange="atualizarConfig()">
+                            <input type="radio" name="esporte" value="basquete" class="peer sr-only">
                             <div class="rounded-xl border-2 border-gray-200 py-6 px-4 min-h-[140px] flex flex-col items-center justify-center text-center font-bold text-gray-500 hover:bg-gray-50 hover:scale-105 active:scale-95 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all duration-200">
                                 <div class="text-2xl mb-1">🏀</div>
                                 <div class="text-sm md:text-base">Basquete</div>
                             </div>
                         </label>
                         <label class="cursor-pointer w-full">
-                            <input type="radio" name="esporte" value="futsal" class="peer sr-only" onchange="atualizarConfig()">
+                            <input type="radio" name="esporte" value="futsal" class="peer sr-only">
                             <div class="rounded-xl border-2 border-gray-200 py-6 px-4 min-h-[140px] flex flex-col items-center justify-center text-center font-bold text-gray-500 hover:bg-gray-50 hover:scale-105 active:scale-95 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all duration-200">
                                 <div class="text-2xl mb-1">⚽</div>
                                 <div class="text-sm md:text-base">Futsal</div>
                             </div>
                         </label>
                         <label class="cursor-pointer w-full">
-                            <input type="radio" name="esporte" value="volei" class="peer sr-only" onchange="atualizarConfig()">
+                            <input type="radio" name="esporte" value="volei" class="peer sr-only">
                             <div class="rounded-xl border-2 border-gray-200 py-6 px-4 min-h-[140px] flex flex-col items-center justify-center text-center font-bold text-gray-500 hover:bg-gray-50 hover:scale-105 active:scale-95 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-700 transition-all duration-200">
                                 <div class="text-2xl mb-1">🏐</div>
                                 <div class="text-sm md:text-base">Vôlei</div>
@@ -118,7 +122,7 @@
             <div class="bg-blue-50 p-6 md:p-8 rounded-2xl border-2 border-blue-200 shadow-sm">
                 <h3 class="font-black text-blue-800 text-2xl mb-6 flex items-center gap-2">🏠 TIME A (Local)</h3>
                 
-                <input type="text" id="nome_a" placeholder="Nome da Equipe" class="w-full border-2 border-white p-4 rounded-xl mb-5 font-black text-xl text-gray-800 shadow-sm focus:border-blue-400 outline-none" onchange="atualizarConfig()">
+                <input type="text" id="nome_a" placeholder="Nome da Equipe" class="w-full border-2 border-white p-4 rounded-xl mb-5 font-black text-xl text-gray-800 shadow-sm focus:border-blue-400 outline-none">
                 
                 <label class="block text-sm text-gray-600 mb-2 font-bold uppercase">Logo (Opcional):</label>
                 <input type="file" accept="image/*" class="w-full text-base mb-6 bg-white p-3 border-2 border-dashed border-blue-300 rounded-xl cursor-pointer" onchange="enviarLogo('timeA', this)">
@@ -139,7 +143,7 @@
             <div class="bg-red-50 p-6 md:p-8 rounded-2xl border-2 border-red-200 shadow-sm">
                 <h3 class="font-black text-red-800 text-2xl mb-6 flex items-center gap-2">✈️ TIME B (Visitante)</h3>
                 
-                <input type="text" id="nome_b" placeholder="Nome da Equipe" class="w-full border-2 border-white p-4 rounded-xl mb-5 font-black text-xl text-gray-800 shadow-sm focus:border-red-400 outline-none" onchange="atualizarConfig()">
+                <input type="text" id="nome_b" placeholder="Nome da Equipe" class="w-full border-2 border-white p-4 rounded-xl mb-5 font-black text-xl text-gray-800 shadow-sm focus:border-red-400 outline-none">
                 
                 <label class="block text-sm text-gray-600 mb-2 font-bold uppercase">Logo (Opcional):</label>
                 <input type="file" accept="image/*" class="w-full text-base mb-6 bg-white p-3 border-2 border-dashed border-red-300 rounded-xl cursor-pointer" onchange="enviarLogo('timeB', this)">
@@ -207,7 +211,9 @@ Ana Lima</pre>
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
+        // Uma tela de controle só para os três esportes — ela se adapta ao
+        // esporte que estiver no gameState (antes havia um arquivo por esporte).
+        const TELA_CONTROLE = 'controle.html';
         let transmissaoAtiva = false;
         let elenco = { timeA: [], timeB: [] };
         let elencoCarregado = false;
@@ -219,6 +225,10 @@ Ana Lima</pre>
         // eventos de ponto/falta referenciarem o time certo).
         let integracao = { configurada: false, jogoId: null, statusConexao: 'nao_configurado', pendentes: 0 };
         let modoAtual = 'manual';
+        // Fica true assim que o operador escolhe uma aba clicando nela — a
+        // partir daí o auto-direcionamento para o fluxo de API para de mexer
+        // na aba ativa, pra não brigar com uma escolha explícita.
+        let modoEscolhidoManualmente = false;
         let timeAIdApi = null, timeBIdApi = null;
 
         socket.on('integracao_status', (status) => {
@@ -238,9 +248,24 @@ Ana Lima</pre>
                 aviso.textContent = integracao.jogoId
                     ? `Jogo #${integracao.jogoId} carregado — status: ${integracao.statusConexao}` + (integracao.pendentes ? ` (${integracao.pendentes} evento(s) pendente(s) de envio)` : '')
                     : 'Integração ativa. Selecione um jogo existente ou crie um novo abaixo.';
+                // O fluxo principal é pela API: assim que ela fica disponível
+                // (e o operador ainda não escolheu nada nem há jogo carregado),
+                // leva a tela direto para "Selecionar jogo existente" e já
+                // busca — em vez de deixar o manual como aba padrão.
+                if (!modoEscolhidoManualmente && modoAtual === 'manual' && !integracao.jogoId) {
+                    mudarModoIntegracao('planejado');
+                    buscarJogos();
+                }
             }
             const btnIniciar = document.getElementById('btn-iniciar-jogo-api');
             if (btnIniciar) btnIniciar.disabled = !integracao.jogoId;
+        }
+
+        // Chamada pelo clique do operador numa aba (distinta de
+        // mudarModoIntegracao, que também é usada pelo auto-direcionamento).
+        function selecionarModoIntegracao(modo) {
+            modoEscolhidoManualmente = true;
+            mudarModoIntegracao(modo);
         }
 
         function mudarModoIntegracao(modo) {
@@ -383,7 +408,7 @@ Ana Lima</pre>
             timeBIdApi = time_fora.id;
 
             const radio = document.querySelector(`input[name="esporte"][value="${jogo.esporte}"]`);
-            if (radio) { radio.checked = true; atualizarConfig(); }
+            if (radio) radio.checked = true;
 
             document.getElementById('nome_a').value = time_casa.nome_exibicao || '';
             document.getElementById('nome_b').value = time_fora.nome_exibicao || '';
@@ -417,8 +442,6 @@ Ana Lima</pre>
         }
 
         socket.on('atualizar_tela', (dados) => {
-            const link = document.getElementById('link-jogo');
-            if (mapaControle[dados.esporte]) link.href = mapaControle[dados.esporte];
             const radio = document.querySelector(`input[name="esporte"][value="${dados.esporte}"]`);
             if (radio) radio.checked = true;
 
@@ -465,22 +488,11 @@ Ana Lima</pre>
         function toggleTransmissao() {
             const ligando = !transmissaoAtiva;
             if (ligando) {
-                const esporte = document.querySelector('input[name="esporte"]:checked');
-                redirectAposTransmissao = (esporte && mapaControle[esporte.value])
-                    ? mapaControle[esporte.value]
-                    : document.getElementById('link-jogo').getAttribute('href');
+                redirectAposTransmissao = TELA_CONTROLE;
                 // fallback caso o broadcast de confirmação não chegue
                 setTimeout(() => { if (redirectAposTransmissao) window.location.href = redirectAposTransmissao; }, 1000);
             }
             socket.emit('comando_transmissao', { ativa: ligando });
-        }
-
-        function atualizarConfig() {
-            const esporteSelecionado = document.querySelector('input[name="esporte"]:checked');
-            const link = document.getElementById('link-jogo');
-            if (esporteSelecionado && mapaControle[esporteSelecionado.value]) {
-                link.href = mapaControle[esporteSelecionado.value];
-            }
         }
 
         function salvarConfig(){
@@ -675,9 +687,39 @@ Ana Lima</pre>
             socket.emit('comando_cronometro', { acao: 'set', valor: parseInt(document.getElementById('minutos_set').value) }); 
         }
         
+        // Diferente do "ZERAR TUDO" das telas de jogo (que só zera placar/sets/
+        // faltas/cronômetro, preservando nomes/elenco/vínculo com a API para não
+        // atrapalhar uma partida em andamento), este botão é o reset da tela de
+        // CONFIGURAÇÃO: apaga absolutamente tudo — nomes, logos, elenco, esporte
+        // selecionado e desvincula o jogo carregado da API — para começar uma
+        // configuração do zero. Os patrocinadores (recurso do carrossel) não são
+        // apagados por não serem "dados do jogo".
         function zerarTudo() {
-            if (!confirm('Zerar placar e dados?')) return;
-            socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+            if (!confirm('Isso apaga TUDO da configuração atual — esporte, nomes, logos, elenco e o vínculo com o jogo da API — e volta para uma configuração em branco. Continuar?')) return;
+            socket.emit('zerar_configuracao_completa');
+
+            // Estado local desta página
+            elenco = { timeA: [], timeB: [] };
+            elencoCarregado = false;
+            timeAIdApi = null;
+            timeBIdApi = null;
+            // Não mexe em `integracao` diretamente aqui — ela só reflete o
+            // broadcast 'integracao_status' do servidor, que já vem a seguir
+            // (o handler de zerar_configuracao_completa chama broadcastIntegracao()).
+            modoEscolhidoManualmente = false;
+            mudarModoIntegracao('manual');
+
+            document.getElementById('nome_a').value = '';
+            document.getElementById('nome_b').value = '';
+            document.querySelectorAll('input[name="esporte"]').forEach(r => r.checked = false);
+            document.getElementById('avulso-categoria').value = '';
+            document.getElementById('avulso-local').value = '';
+            document.getElementById('filtro-status-jogos').value = '';
+            document.getElementById('filtro-data-jogos').value = '';
+            document.getElementById('lista-jogos').textContent = 'Nenhuma busca feita ainda.';
+            renderElenco('timeA');
+            renderElenco('timeB');
+
             // Reabilita o formulário para nova configuração
             document.querySelectorAll('input, textarea, select, button').forEach(el => {
                 el.disabled = false;

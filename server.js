@@ -36,7 +36,10 @@ let integracao = {
     timeBId: null,
     fila: placarEventos.criarEstadoFila(0),
     statusConexao: integracaoConfigurada() ? 'ocioso' : 'nao_configurado',
-    ultimoErro: null
+    ultimoErro: null,
+    // Já foi marcado como ao_vivo nesta sessão? Evita chamar /iniciar de novo a
+    // cada PLAY (ver `iniciarJogoNaApi` e o handler de `comando_cronometro`).
+    iniciado: false
 };
 
 if (!integracaoConfigurada()) {
@@ -176,6 +179,23 @@ function aplicarJogoNoEstado(resposta) {
     integracao.fila = placarEventos.criarEstadoFila(0); // ultima_sequencia real só chega em /iniciar
     integracao.statusConexao = 'carregado';
     integracao.ultimoErro = null;
+    integracao.iniciado = false;
+}
+
+// Marca o jogo como ao_vivo na API. Chamada pelo botão manual
+// (`placar_iniciar_jogo`) e automaticamente no primeiro PLAY do cronômetro — o
+// "start" do tempo É o que diz que o jogo começou, então cobre a marcação de
+// ao vivo sem exigir um clique à parte do operador (ver handler de
+// `comando_cronometro`). Idempotente do lado da API: reconexão/reload no meio
+// da partida retoma a sequência em vez de reiniciar do zero.
+async function iniciarJogoNaApi(id, operador) {
+    const resposta = await placarApi.iniciarJogo(laravelConfig, id, { operador });
+    integracao.fila = placarEventos.criarEstadoFila(resposta.ultima_sequencia || 0);
+    integracao.statusConexao = 'sincronizado';
+    integracao.ultimoErro = null;
+    integracao.iniciado = true;
+    broadcastIntegracao();
+    return resposta;
 }
 
 // Dispatcher genérico para chamadas de API que são só leitura/criação e não
@@ -373,14 +393,7 @@ io.on('connection', (socket) => {
         const id = jogoId || integracao.jogoId;
         if (!id) return responder({ ok: false, erro: 'Nenhum jogo carregado' });
         try {
-            const resposta = await placarApi.iniciarJogo(laravelConfig, id, { operador });
-            // Idempotente: se o jogo já estava ao_vivo (reconexão/reload no meio
-            // da partida), retoma a sequência a partir do que a API já tem —
-            // nunca reinicia do zero.
-            integracao.fila = placarEventos.criarEstadoFila(resposta.ultima_sequencia || 0);
-            integracao.statusConexao = 'sincronizado';
-            integracao.ultimoErro = null;
-            broadcastIntegracao();
+            const resposta = await iniciarJogoNaApi(id, operador);
             responder({ ok: true, dado: resposta });
         } catch (erro) {
             responder({ ok: false, status: erro.status, erro: erro.message, corpo: erro.corpo });
@@ -486,6 +499,42 @@ io.on('connection', (socket) => {
         logic.comandoCronometro(gameState, payload, Date.now());
         broadcast();
         registrarEventoDeCronometro(payload);
+
+        // O "start" do cronômetro é o que marca o jogo como ao vivo na API —
+        // dá PLAY uma vez e não precisa lembrar de um botão separado antes.
+        // Só dispara uma vez por jogo (`integracao.iniciado`); erro aqui não
+        // deve travar o cronômetro, que já rodou otimisticamente.
+        if (payload && payload.acao === 'play' && integracaoConfigurada() && integracao.jogoId && !integracao.iniciado) {
+            iniciarJogoNaApi(integracao.jogoId).catch(erro => {
+                integracao.statusConexao = (erro.status === 401 || erro.status === 403) ? 'erro_configuracao' : 'erro';
+                integracao.ultimoErro = erro;
+                broadcastIntegracao();
+                console.error('Falha ao marcar jogo como ao vivo automaticamente ao dar PLAY:', erro.message);
+            });
+        }
+    });
+
+    // Reset completo da tela de configuração: diferente de `zerar_tudo` (ação
+    // de `comando_placar`, usada nas telas de jogo para zerar placar sem
+    // apagar nomes/elenco/vínculo com a API durante uma partida em
+    // andamento), este evento é "esquece tudo e começa do zero" — nomes,
+    // logos, elenco, esporte, transmissão e o vínculo com o jogo da API.
+    // Preserva só os patrocinadores (recurso do carrossel, não do jogo).
+    socket.on('zerar_configuracao_completa', () => {
+        const patrocinadoresAtuais = gameState.patrocinadores;
+        gameState = logic.criarEstadoInicial();
+        gameState.patrocinadores = patrocinadoresAtuais;
+
+        integracao.jogoId = null;
+        integracao.timeAId = null;
+        integracao.timeBId = null;
+        integracao.fila = placarEventos.criarEstadoFila(0);
+        integracao.statusConexao = integracaoConfigurada() ? 'ocioso' : 'nao_configurado';
+        integracao.ultimoErro = null;
+        integracao.iniciado = false;
+
+        broadcast();
+        broadcastIntegracao();
     });
 });
 

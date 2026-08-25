@@ -13,7 +13,7 @@
 
     <nav class="bg-gray-900 shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-700 text-sm">
         <a href="index.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">⚙️ CONFIG</a>
-        <a id="link-jogo" href="controle.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">▶️ JOGO</a>
+        <a href="controle.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">▶️ JOGO</a>
         <span class="text-purple-400 font-black tracking-wider">📺 ANÚNCIOS</span>
     </nav>
 
@@ -151,10 +151,9 @@
         let ultimosVideos = [];
         let ultimosSlides = [];
 
-        const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
+        // O link ▶️ JOGO é fixo: a mesa é uma tela só (controle.html), que se
+        // adapta ao esporte do gameState.
         socket.on('atualizar_tela', (dados) => {
-            const link = document.getElementById('link-jogo');
-            if (link && mapaControle[dados.esporte]) link.href = mapaControle[dados.esporte];
             renderPatrocinadores(dados.patrocinadores || []);
             renderEstadoSlides(dados.slides);
         });

@@ -112,10 +112,10 @@ placar-clube/
 │   ├── videos/                    # Vídeos/comerciais (.mp4, .webm, .mkv, etc)
 │   └── controle/
 │       ├── index.html             # Configuração (nomes, elenco, esporte)
-│       ├── controle.html          # Controle universal
-│       ├── controle_futsal.html   # Controle futsal
-│       ├── controle_basquete.html # Controle basquete
-│       ├── controle_volei.html    # Controle vôlei
+│       ├── controle.html          # Mesa de controle (única, adapta-se ao esporte)
+│       ├── controle_futsal.html   # ↳ redirect p/ controle.html (atalhos antigos)
+│       ├── controle_basquete.html # ↳ redirect p/ controle.html (atalhos antigos)
+│       ├── controle_volei.html    # ↳ redirect p/ controle.html (atalhos antigos)
 │       └── controle_anuncios.html # Gerenciador de vídeos
 └── test/
     └── gameLogic.test.js          # Suite de testes (31 testes)
@@ -151,6 +151,7 @@ Telão (index.html) + Controles (recebem estado)
 | `comando_transmissao` | `{ ativa: boolean }` | Liga/desliga transmissão |
 | `comando_video` | `{ acao, arquivo?, arquivos?, loop? }` | Play/stop de vídeos; `loop: true` repete a playlist até o STOP |
 | `solicitar_videos` | `{}` | Lista vídeos em `public/videos/` |
+| `zerar_configuracao_completa` | `{}` | Reset total da tela de configuração: esporte, nomes, logos, elenco, cronômetro, transmissão e o vínculo com o jogo da API voltam ao estado inicial (preserva só os patrocinadores). Diferente de `comando_placar`/`zerar_tudo`, que só zera placar/sets/faltas/cronômetro sem apagar configuração/elenco/vínculo com a API — usado nas telas de jogo para não atrapalhar uma partida em andamento |
 
 #### Do Servidor para Clientes
 
@@ -394,8 +395,11 @@ Um painel "Integração com o Placar Clube" oferece três modos: **Manual** (o d
 API), **Selecionar jogo existente** (busca por `status`/`data`, carrega elenco e nomes da
 API) e **Criar jogo agora** (avulso — cria times pelo nome e o jogo). Depois de carregar/criar
 um jogo, "Iniciar jogo (API)" marca a partida `ao_vivo`; o elenco ganha checkboxes de
-titular/capitão e um botão para salvar a escalação. Em `controle.html`, um botão "Encerrar
-jogo (API)" fecha o placar quando a partida termina.
+titular/capitão e um botão para salvar a escalação. Apertar ▶ PLAY no cronômetro da mesa
+já marca a partida como `ao_vivo` sozinho, na primeira vez — o botão "Iniciar jogo (API)"
+continua existindo para quem quiser marcar isso antes de começar a contar o tempo. Na mesa
+(`controle.html`), dentro do painel **⚙ MAIS**, o botão "🏁 Fechar jogo" (com confirmação)
+fecha o placar quando a partida termina, enviando o placar/sets/período correntes.
 
 Todo evento de placar/cronômetro gerado a partir daí (`comando_placar`/`comando_cronometro`)
 é aplicado **otimisticamente** no `gameState` e propagado ao telão antes de qualquer chamada
@@ -414,35 +418,56 @@ caso de falha de rede.
 - **Importar elenco** (.txt/.csv/.xlsx): uma linha por jogador, ex. `10;João Silva` (aceita `;`, `,`, TAB ou espaço como separador; em planilhas, colunas Número/Nome) — a página traz um guia com exemplos dos dois formatos
 - Clicar **SALVAR** emite `configurar_jogo` com `timeA_elenco` e `timeB_elenco`
 - Botão de **INICIAR/ENCERRAR TRANSMISSÃO** toggle `transmissaoAtiva`
+- Botão **⚠️ ZERAR PLACAR E DADOS** (com confirmação) emite `zerar_configuracao_completa`:
+  apaga absolutamente tudo — esporte, nomes, logos, elenco, cronômetro e o vínculo com o
+  jogo da API — e volta para uma configuração em branco. Diferente do "ZERAR TUDO" das
+  telas de jogo (que só zera placar/sets/faltas/cronômetro, ver evento
+  `zerar_configuracao_completa` acima)
 
-### 2. Controle do Jogo
+### 2. Mesa de controle (`/controle/controle.html`)
 
-#### Controle Universal (`/controle/controle.html`)
-- Layout 3-colunas: TIME A | TIMER | TIME B
-- Mostra +1 (sempre), +2/+3 (só basquete), Sets (só vôlei), Faltas (futsal + basquete)
-- Período (futsal + basquete)
-- Timer com PLAY/PAUSE e definidor MM:SS
+**Uma tela só para os três esportes.** Antes eram quatro arquivos quase idênticos
+(`controle.html` + um por esporte); a diferença entre eles cabe no objeto `ESPORTES`
+no topo do script. `controle_futsal.html`, `controle_basquete.html` e
+`controle_volei.html` continuam existindo apenas como **redirecionamentos**, para não
+quebrar atalhos já salvos nos tablets da mesa.
 
-#### Controle do Futsal (`/controle/controle_futsal.html`)
-- +1 GOL por time
-- Faltas com +/−
-- Período com +/−
-- Cronômetro descendente MM:SS (sem centissegundos), com definidor de tempo e botão REINICIAR CRONO
-- Modal de seleção de jogador ao marcar
+O layout é organizado por **frequência de uso**, não por assunto:
 
-#### Controle do Basquete (`/controle/controle_basquete.html`)
-- +1/+2/+3 por time
-- Faltas com +/−
-- Período com +/−
-- Cronômetro descendente MM:SS.cc (centissegundos)
-- Modal de seleção de jogador ao marcar
+| Região | O que fica lá | Por quê |
+|---|---|---|
+| **Topo** | esporte, badge de sincronização e o **cronômetro** | tocar no relógio liga/pausa — um alvo só, em vez de escolher entre um PLAY e um PAUSA dos quais só um faz sentido por vez. Verde = parado, âmbar = correndo |
+| **Meio** | um painel por time, quase inteiro tomado pelo **botão de marcar ponto** | é o alvo que o operador acerta dezenas de vezes por jogo, sem olhar. Ocupa toda a altura que sobra na coluna |
+| **Rodapé** | **−1** de cada lado e a **ação do momento** (FECHAR SET no vôlei, período no futsal/basquete) | correção fica perto, mas fora do caminho do botão principal. Tirar ponto **pede confirmação** (dizendo de qual time é e como o placar fica), e o botão fica apagado com o placar em 0 |
+| **⚙ MAIS** | definir tempo, reiniciar crono, período, inverter lados, fechar jogo, parar transmissão, zerar | usados 1× por jogo ou destrutivos — saem da frente para não serem clicados por engano no meio de um lance |
 
-#### Controle do Vôlei (`/controle/controle_volei.html`)
-- +1 PONTO por time
-- Sets com +/−
-- Indicador de saque (TIME A / nenhum / TIME B)
-- Cronômetro ascendente MM:SS
-- Modal de seleção de jogador ao marcar
+O que muda por esporte:
+
+| | Futsal | Basquete | Vôlei |
+|---|---|---|---|
+| Botões de ponto | +1 GOL | +1 / +2 / +3 | +1 PONTO |
+| Rodapé do time | Faltas −/+ | Faltas −/+ | Sets (só leitura) |
+| Cronômetro | regressivo MM:SS | regressivo MM:SS.cc | crescente MM:SS |
+| Período | sim | sim | — |
+| Fechar set | — | — | sim (+ parciais e ↩ REABRIR) |
+
+Em qualquer esporte, **🔁 Inverter lados** (dentro do ⚙ MAIS) troca qual time aparece
+à esquerda **só naquele aparelho** — não manda nada ao servidor, não muda
+`gameState.timeA`/`timeB`, e não afeta o telão nem a tela de configuração (que sempre
+mostram a ordem original). A preferência fica no `localStorage` do navegador, então
+persiste entre recarregamentos daquele tablet.
+
+O **tema de cor acompanha o time**, não a posição: invertido, o painel da esquerda veste
+o vermelho do visitante e o da direita o azul da casa — borda, nome, botões de ponto,
+faltas e o −1 do rodapé, todos juntos. Só os nomes trocando de lugar passaria
+despercebido no meio do jogo. É por isso que essas cores são **variáveis CSS**
+(`.tema-azul` / `.tema-vermelho` no `<style>`, aplicadas por `aplicarTemas()`) e não
+classes fixas do Tailwind espalhadas pelos elementos — ao mexer no visual dos painéis,
+use as variáveis, senão a inversão deixa de repintar aquele pedaço.
+
+Dar ▶ PLAY no cronômetro também marca o jogo como `ao_vivo` na API, na primeira vez
+(ver `iniciarJogoNaApi` em [server.js](server.js)) — não existe um "iniciar" separado
+na mesa.
 
 ### 3. Seleção de Jogador
 
@@ -452,6 +477,22 @@ Ao clicar +ponto/+falta, se o time tiver elenco cadastrado:
 3. Operador toca nome do jogador
 4. Emite `comando_placar` com objeto completo do jogador
 5. Modal fecha
+
+No rodapé do modal há duas saídas, que fazem coisas **diferentes**:
+
+| Botão | O que faz |
+|---|---|
+| **Sem jogador específico** | marca o ponto/falta, só não credita a ninguém (sem animação de jogador) |
+| **✕ Cancelar** | desiste da ação: fecha o modal, volta à mesa e **não envia nada** ao servidor |
+
+O cancelar existe para o toque errado — abrir a seleção pelo botão errado, ou
+pelo time errado — que antes só tinha saída marcando e desmarcando depois. Ele
+limpa `pendingAcao`, então a ação abandonada não pode "vazar" para a próxima
+seleção. `Esc` faz o mesmo, para quem opera com teclado (e, com o modal fechado,
+fecha o painel ⚙ MAIS).
+
+A lista sai **ordenada por número**; quem não tem número cadastrado vai para o fim,
+em vez de se misturar com o 1, 2, 3.
 
 ### 4. Anúncios (`/controle/controle_anuncios.html`)
 
@@ -693,8 +734,11 @@ para ligar no basquete faltam dois passos:
 
 1. em `public/index.html`, no `sportConfig.basquete`, trocar
    `extraAreas: [areaFault]` por `extraAreas: [areaFault, areaParciais]`;
-2. em `public/controle/controle_basquete.html`, acrescentar o botão que emite
-   `comando_placar` com `acao: 'fechar_set'` (e o `reabrir_set` para desfazer).
+2. em `public/controle/controle.html`, marcar `parciais: true` para o basquete no objeto
+   `ESPORTES` — é isso que mostra a barra de fechar/reabrir parcial no rodapé da mesa
+   (hoje ligada só no vôlei, para preservar o comportamento atual). O flag é separado de
+   `sets` justamente por isso: o basquete ganharia a barra de fechar quarto sem ganhar um
+   contador de sets no painel.
 
 Nada em `gameLogic.js`/`server.js` precisa mudar.
 

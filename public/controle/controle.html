@@ -8,145 +8,310 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
         .font-digital { font-family: 'Share Tech Mono', monospace; }
-        body { user-select: none; }
+        body { user-select: none; height: 100vh; height: 100dvh; }
+
+        /* Cada time tem um TEMA de cor, e o tema anda junto com o time quando o
+           operador inverte os lados — é o que faz a troca ser percebida de
+           relance, em vez de só os nomes mudarem de lugar. Por isso as cores
+           são variáveis aplicadas por `aplicarTemas()`, e não classes fixas do
+           Tailwind espalhadas pelos elementos. */
+        .tema-azul {
+            --borda: #1e3a8a; --nome: #93c5fd; --rotulo: #60a5fa;
+            --ponto: #2563eb; --ponto-ativo: #60a5fa;
+            --acao: #1d4ed8;  --acao-ativo: #2563eb;
+            --fraco: #172554; --fraco-borda: #1e40af; --fraco-texto: #93c5fd;
+        }
+        .tema-vermelho {
+            --borda: #7f1d1d; --nome: #fca5a5; --rotulo: #f87171;
+            --ponto: #dc2626; --ponto-ativo: #f87171;
+            --acao: #b91c1c;  --acao-ativo: #dc2626;
+            --fraco: #450a0a; --fraco-borda: #991b1b; --fraco-texto: #fca5a5;
+        }
+
+        .painel-time { border-color: var(--borda); }
+        .nome-time   { color: var(--nome); }
+        .rotulo-time { color: var(--rotulo); }
+
+        .btn-ponto, .btn-acao, .btn-fraco { transition: background-color .12s, border-color .12s, color .12s, transform .12s; }
+        .btn-ponto { background-color: var(--ponto); color: #fff; }
+        .btn-ponto:active { background-color: var(--ponto-ativo); }
+        .btn-acao  { background-color: var(--acao); color: #fff; }
+        .btn-acao:active { background-color: var(--acao-ativo); }
+        .btn-fraco { background-color: var(--fraco); border: 1px solid var(--fraco-borda); color: var(--fraco-texto); }
+        .btn-fraco:active { background-color: var(--fraco-borda); }
+
+        button:disabled { opacity: .35; }
     </style>
 </head>
-<body class="bg-gray-950 text-white flex flex-col h-screen overflow-hidden">
+<!--
+    MESA DE CONTROLE — tela única para os três esportes.
 
-    <!-- Navegação -->
-    <nav class="bg-gray-900 text-white p-3 shadow-lg flex flex-wrap justify-center gap-2 font-bold text-sm shrink-0 border-b border-gray-700">
-        <a href="index.html" class="px-4 py-2 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">⚙️ CONFIG</a>
-        <a id="link-jogo" href="controle.html" class="bg-gray-700 text-yellow-400 px-4 py-2 rounded-lg border-b-2 border-yellow-400">▶️ JOGO</a>
-        <a href="controle_anuncios.html" class="px-4 py-2 rounded-lg hover:bg-gray-800 hover:text-yellow-400 transition">📺 ANÚNCIOS</a>
-        <span id="badge-esporte" class="px-3 py-2 rounded-lg bg-yellow-900 text-yellow-300 font-black tracking-wider text-xs">—</span>
-        <span id="badge-integracao" class="hidden px-3 py-2 rounded-lg font-black tracking-wider text-xs" title="Status da integração com a API do Placar Clube"></span>
-    </nav>
+    Layout organizado por FREQUÊNCIA DE USO, não por assunto:
 
-    <!-- Área principal: TIME A | CENTRO | TIME B -->
-    <div class="flex flex-1 overflow-hidden">
+      topo    → cronômetro (o 2º controle mais usado) + status. Tocar no
+                relógio liga/pausa: um alvo só, em vez de escolher entre um
+                PLAY e um PAUSA dos quais apenas um faz sentido por vez.
+      meio    → um painel por time, quase inteiro tomado pelo botão de marcar
+                ponto — o alvo que o operador acerta dezenas de vezes por jogo,
+                sem olhar.
+      rodapé  → correção (−1 de cada lado) e a ação do momento (fechar set).
+      ⚙ MAIS  → tudo que se usa uma vez por jogo (definir tempo, período) ou
+                que é destrutivo (zerar, encerrar). Sai da frente para não ser
+                clicado por engano no meio de um lance.
 
-        <!-- TIME A -->
-        <div class="flex-1 bg-blue-950 flex flex-col items-center justify-center gap-3 p-3 border-r border-gray-700">
-            <span id="nome-a" class="text-sm font-black text-blue-300 uppercase tracking-widest text-center">TIME A</span>
-            <div id="score-a" class="font-digital text-7xl md:text-8xl text-white leading-none">0</div>
+    Antes eram quatro arquivos quase idênticos (controle.html + um por
+    esporte); a diferença entre eles cabe no objeto ESPORTES lá embaixo.
+-->
+<body class="bg-gray-950 text-white flex flex-col overflow-hidden">
 
-            <!-- Botões + ponto -->
-            <div class="flex gap-2 w-full">
-                <button onclick="marcar('timeA', 1)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
-                <button id="btn-a-2" onclick="marcar('timeA', 2)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
-                <button id="btn-a-3" onclick="marcar('timeA', 3)" class="flex-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
+    <!-- ================= TOPO: status + cronômetro ================= -->
+    <header class="shrink-0 grid items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800" style="grid-template-columns: 1fr auto 1fr">
+        <div class="flex items-center gap-2 min-w-0">
+            <span id="badge-esporte" class="font-black tracking-wider text-sm text-yellow-400 whitespace-nowrap">—</span>
+            <span id="badge-integracao" class="hidden px-2 py-1 rounded-lg font-black tracking-wider text-[10px] whitespace-nowrap" title="Status da integração com a API do Placar Clube"></span>
+        </div>
+
+        <!-- O relógio É o botão de liga/pausa: a cor diz o estado (verde =
+             parado, âmbar = correndo) e o ícone mostra o que o toque vai fazer. -->
+        <button id="btn-crono" onclick="toggleCronometro()"
+            class="flex items-center gap-3 px-5 py-2 rounded-2xl border-4 transition-transform active:scale-95 bg-emerald-700 border-emerald-500 text-white">
+            <span id="crono-icone" class="text-2xl leading-none">▶</span>
+            <span id="timer-display" class="font-digital text-4xl md:text-5xl leading-none tracking-tight">00:00</span>
+        </button>
+
+        <div class="flex justify-end">
+            <button onclick="abrirMais()" class="px-5 py-3 rounded-xl bg-gray-800 active:bg-gray-700 active:scale-95 border border-gray-600 font-bold text-sm transition-transform whitespace-nowrap">⚙ MAIS</button>
+        </div>
+    </header>
+
+    <!-- ================= MEIO: um painel por time ================= -->
+    <main class="flex-1 min-h-0 flex gap-2 p-2">
+
+        <!-- LADO ESQUERDO (o time — e o tema de cor dele — dependem de
+             `invertido`; ver timeDoLado e aplicarTemas) -->
+        <section data-lado="a" class="painel-time tema-azul flex-1 min-w-0 flex flex-col gap-2 rounded-3xl border-4 bg-gray-900 p-2">
+            <div class="shrink-0 flex items-center justify-between gap-2 px-2">
+                <h2 id="nome-a" class="nome-time min-w-0 truncate text-base md:text-xl font-black uppercase tracking-wider">CASA</h2>
+                <span id="score-a" class="shrink-0 font-digital text-5xl md:text-6xl leading-none text-white">0</span>
             </div>
 
-            <!-- Botão - ponto -->
-            <button onclick="cmdPlacar('timeA', 'sub_ponto', 1)" class="w-full bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 text-xl font-bold py-3 rounded-xl transition-transform">−1 ponto</button>
-
-            <!-- Sets (vôlei) -->
-            <!-- Sets vencidos — só leitura: o fechamento do set é o botão da
-                 coluna central, que só aparece quando a pontuação fecha. -->
-            <div id="sets-area-a" class="hidden w-full">
-                <div class="text-center text-blue-400 text-sm font-bold">Sets: <span id="sets-a" class="text-white text-xl font-digital">0</span></div>
+            <!-- Botões de ponto: os três existem sempre no HTML e o esporte
+                 decide quantos aparecem (1 no futsal/vôlei, 3 no basquete). -->
+            <div id="pontos-a" class="flex-1 min-h-0 grid gap-2" style="grid-template-columns: repeat(1, minmax(0, 1fr))">
+                <button id="pt-a-1" onclick="marcar('esquerda', 1)" class="btn-ponto rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+1</button>
+                <button id="pt-a-2" onclick="marcar('esquerda', 2)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+2</button>
+                <button id="pt-a-3" onclick="marcar('esquerda', 3)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+3</button>
             </div>
 
-            <!-- Faltas (futsal / basquete) -->
-            <div id="faltas-area-a" class="hidden w-full space-y-1">
-                <div class="text-center text-blue-400 text-xs font-bold uppercase tracking-wide">Faltas: <span id="faltas-a" class="text-white font-digital text-base">0</span></div>
-                <div class="flex gap-2">
-                    <button onclick="cmdPlacar('timeA', 'add_falta', 1)" class="flex-1 bg-blue-700 hover:bg-blue-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
-                    <button onclick="cmdPlacar('timeA', 'sub_falta', 1)" class="flex-1 bg-blue-900 hover:bg-blue-800 active:scale-95 text-blue-300 font-bold py-2 rounded-xl transition-transform text-sm">−Falta</button>
+            <div class="shrink-0">
+                <!-- Faltas (futsal / basquete) -->
+                <div id="faltas-a-box" class="hidden flex items-center gap-2">
+                    <button onclick="cmdPlacar('esquerda', 'sub_falta', 1)" class="btn-fraco shrink-0 w-14 rounded-xl font-black py-3 active:scale-95">−</button>
+                    <div class="shrink-0 text-center leading-none px-1">
+                        <div class="rotulo-time text-[10px] font-bold uppercase tracking-widest">Faltas</div>
+                        <div id="faltas-a" class="font-digital text-2xl text-white">0</div>
+                    </div>
+                    <button onclick="cmdPlacar('esquerda', 'add_falta', 1)" class="btn-acao flex-1 rounded-xl font-black py-3 text-base active:scale-95">+ FALTA</button>
                 </div>
+                <!-- Sets vencidos (vôlei) — só leitura: quem credita o set é o
+                     fechamento da parcial, no rodapé. -->
+                <div id="sets-a-box" class="hidden text-center leading-none py-2">
+                    <span class="rotulo-time text-xs font-bold uppercase tracking-widest">Sets</span>
+                    <span id="sets-a" class="font-digital text-3xl text-white ml-2">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- LADO DIREITO -->
+        <section data-lado="b" class="painel-time tema-vermelho flex-1 min-w-0 flex flex-col gap-2 rounded-3xl border-4 bg-gray-900 p-2">
+            <div class="shrink-0 flex items-center justify-between gap-2 px-2">
+                <h2 id="nome-b" class="nome-time min-w-0 truncate text-base md:text-xl font-black uppercase tracking-wider">VISITANTE</h2>
+                <span id="score-b" class="shrink-0 font-digital text-5xl md:text-6xl leading-none text-white">0</span>
+            </div>
+
+            <div id="pontos-b" class="flex-1 min-h-0 grid gap-2" style="grid-template-columns: repeat(1, minmax(0, 1fr))">
+                <button id="pt-b-1" onclick="marcar('direita', 1)" class="btn-ponto rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+1</button>
+                <button id="pt-b-2" onclick="marcar('direita', 2)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+2</button>
+                <button id="pt-b-3" onclick="marcar('direita', 3)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+3</button>
+            </div>
+
+            <div class="shrink-0">
+                <div id="faltas-b-box" class="hidden flex items-center gap-2">
+                    <button onclick="cmdPlacar('direita', 'sub_falta', 1)" class="btn-fraco shrink-0 w-14 rounded-xl font-black py-3 active:scale-95">−</button>
+                    <div class="shrink-0 text-center leading-none px-1">
+                        <div class="rotulo-time text-[10px] font-bold uppercase tracking-widest">Faltas</div>
+                        <div id="faltas-b" class="font-digital text-2xl text-white">0</div>
+                    </div>
+                    <button onclick="cmdPlacar('direita', 'add_falta', 1)" class="btn-acao flex-1 rounded-xl font-black py-3 text-base active:scale-95">+ FALTA</button>
+                </div>
+                <div id="sets-b-box" class="hidden text-center leading-none py-2">
+                    <span class="rotulo-time text-xs font-bold uppercase tracking-widest">Sets</span>
+                    <span id="sets-b" class="font-digital text-3xl text-white ml-2">0</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============ RODAPÉ: correção + ação do momento ============ -->
+    <footer class="shrink-0 grid items-stretch gap-2 px-2 pb-2" style="grid-template-columns: minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)">
+        <button id="menos-a" data-lado="a" onclick="corrigirPonto('esquerda')" class="btn-fraco tema-azul rounded-2xl font-bold py-3 px-2 text-sm md:text-base active:scale-95 truncate">
+            ↩ −1 <span id="menos-a-nome" class="opacity-70"></span>
+        </button>
+
+        <div id="centro-acao" class="min-w-0 flex items-center justify-center gap-2">
+            <!-- futsal / basquete: em que período o jogo está -->
+            <div id="info-periodo" class="hidden text-center text-gray-500 text-xs font-bold uppercase tracking-widest">
+                <span id="periodo-display-rodape">1</span>º período
+            </div>
+            <!-- vôlei: parciais fechadas + fechamento manual do set. O botão de
+                 fechar só aparece quando a pontuação fecha a parcial (regra em
+                 gameLogic.parcialFechavel — não é duplicada aqui). -->
+            <div id="area-set" class="hidden w-full flex items-center gap-2">
+                <div id="parciais-mesa" class="shrink-0 flex items-center gap-1 overflow-x-auto text-xs font-digital text-gray-400"></div>
+                <button id="btn-fechar-set" onclick="fecharSet()" class="hidden flex-1 rounded-2xl bg-emerald-600 active:bg-emerald-500 text-white font-black py-3 text-base shadow-lg transition-transform active:scale-95">
+                    ✔ FECHAR SET <span id="btn-fechar-set-detalhe" class="font-normal text-emerald-100 text-xs"></span>
+                </button>
+                <div id="aviso-set" class="flex-1 text-center text-gray-600 text-xs font-bold uppercase tracking-widest"></div>
+                <button id="btn-reabrir-set" onclick="reabrirSet()" class="hidden shrink-0 rounded-xl bg-gray-800 active:bg-gray-700 border border-gray-600 text-gray-300 font-bold px-3 py-3 text-xs transition-transform active:scale-95">↩ REABRIR</button>
             </div>
         </div>
 
-        <!-- CENTRO (cronômetro + ações) -->
-        <div class="w-44 md:w-52 bg-gray-900 flex flex-col items-center justify-center gap-3 p-3 shrink-0">
+        <button id="menos-b" data-lado="b" onclick="corrigirPonto('direita')" class="btn-fraco tema-vermelho rounded-2xl font-bold py-3 px-2 text-sm md:text-base active:scale-95 truncate">
+            ↩ −1 <span id="menos-b-nome" class="opacity-70"></span>
+        </button>
+    </footer>
 
-            <!-- Display do cronômetro -->
-            <div class="bg-black rounded-2xl w-full flex items-center justify-center py-4 border border-gray-700">
-                <span id="timer-display" class="font-digital text-3xl md:text-4xl text-yellow-400 leading-none">00:00</span>
-            </div>
-
-            <!-- Play / Pause -->
-            <button onclick="cmdCronometro('play')" class="w-full bg-green-700 hover:bg-green-600 active:scale-95 text-white font-black py-4 rounded-xl text-base transition-transform">▶ PLAY</button>
-            <button onclick="cmdCronometro('pause')" class="w-full bg-yellow-700 hover:bg-yellow-600 active:scale-95 text-white font-black py-4 rounded-xl text-base transition-transform">⏸ PAUSA</button>
-
-            <!-- Definir tempo MM:SS -->
-            <div class="w-full space-y-1">
-                <div class="text-xs text-gray-400 text-center">Definir tempo</div>
-                <div class="flex gap-1 items-center">
-                    <input id="set-minutos" type="number" min="0" max="99" value="10"
-                        class="w-0 flex-1 bg-gray-800 text-white text-center text-lg py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
-                    <span class="text-gray-400 font-bold text-lg">:</span>
-                    <input id="set-segundos" type="number" min="0" max="59" value="00"
-                        class="w-0 flex-1 bg-gray-800 text-white text-center text-lg py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
-                    <button onclick="setTempo()" class="bg-gray-600 hover:bg-gray-500 active:scale-95 text-white px-3 py-2 rounded-lg font-bold transition-transform text-sm">SET</button>
-                </div>
-            </div>
-
-            <!-- Set / parcial (vôlei): o placar não fecha o set sozinho — o
-                 botão aparece quando a pontuação fecha a parcial. -->
-            <div id="set-area" class="hidden w-full space-y-1">
-                <div id="parciais-mesa" class="flex flex-wrap justify-center gap-1 text-[10px] font-digital text-gray-400"></div>
-                <div id="aviso-set" class="text-xs text-gray-500 text-center font-bold uppercase"></div>
-                <button id="btn-fechar-set" onclick="fecharSet()" class="hidden w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black py-3 rounded-xl text-sm transition-transform">✔ FECHAR SET</button>
-                <button id="btn-reabrir-set" onclick="reabrirSet()" class="hidden w-full bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-2 rounded-lg text-xs border border-gray-600 transition-transform">↩ REABRIR SET</button>
-            </div>
-
-            <!-- Período (futsal / basquete) -->
-            <div id="periodo-area" class="hidden w-full space-y-1">
-                <div class="text-xs text-gray-400 text-center font-bold uppercase">Período: <span id="periodo-display" class="text-white font-digital">1</span></div>
-                <div class="flex gap-1 w-full">
-                    <button onclick="cmdPlacar('nenhum', 'add_periodo', 1)" class="flex-1 bg-gray-700 hover:bg-gray-600 active:scale-95 text-white font-bold py-2 rounded-lg transition-transform text-sm">+Per.</button>
-                    <button onclick="cmdPlacar('nenhum', 'sub_periodo', 1)" class="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-2 rounded-lg transition-transform text-sm">−Per.</button>
-                </div>
-            </div>
-
-            <!-- Zerar tudo -->
-            <button onclick="zerarTudo()" class="w-full bg-red-950 hover:bg-red-900 active:scale-95 text-red-400 font-bold py-3 rounded-xl text-xs border border-red-800 transition-transform mt-1">⚠ ZERAR TUDO</button>
-
-            <!-- Encerrar jogo na API (só aparece com integração ativa e jogo carregado) -->
-            <button id="btn-encerrar-jogo-api" onclick="encerrarJogoApi()" class="hidden w-full bg-emerald-950 hover:bg-emerald-900 active:scale-95 text-emerald-400 font-bold py-3 rounded-xl text-xs border border-emerald-800 transition-transform mt-1">🏁 ENCERRAR JOGO (API)</button>
-
-            <button onclick="pararTransmissao()" class="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 font-bold py-3 rounded-xl text-xs border border-gray-600 transition-transform mt-1">⏹ PARAR TRANSMISSÃO</button>
+    <!-- ================= ⚙ MAIS: o que se usa 1x por jogo ================= -->
+    <div id="painel-mais" class="hidden fixed inset-0 z-40 bg-black/85 flex flex-col">
+        <div class="shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-gray-900 border-b border-gray-700">
+            <span class="font-black text-lg">⚙ Mais controles</span>
+            <button onclick="fecharMais()" class="px-6 py-3 rounded-xl bg-gray-800 active:bg-gray-700 border border-gray-600 font-bold transition-transform active:scale-95">✕ Fechar</button>
         </div>
 
-        <!-- TIME B -->
-        <div class="flex-1 bg-red-950 flex flex-col items-center justify-center gap-3 p-3 border-l border-gray-700">
-            <span id="nome-b" class="text-sm font-black text-red-300 uppercase tracking-widest text-center">TIME B</span>
-            <div id="score-b" class="font-digital text-7xl md:text-8xl text-white leading-none">0</div>
+        <div class="flex-1 overflow-y-auto p-4">
+            <div class="w-full max-w-3xl mx-auto space-y-5">
 
-            <!-- Botões + ponto -->
-            <div class="flex gap-2 w-full">
-                <button onclick="marcar('timeB', 1)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform">+1</button>
-                <button id="btn-b-2" onclick="marcar('timeB', 2)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+2</button>
-                <button id="btn-b-3" onclick="marcar('timeB', 3)" class="flex-1 bg-red-600 hover:bg-red-500 active:scale-95 text-white text-3xl font-black py-5 rounded-2xl shadow-lg transition-transform hidden">+3</button>
-            </div>
+                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Cronômetro</h3>
+                    <div class="flex gap-2 items-center">
+                        <input id="set-minutos" type="number" min="0" max="99" value="10"
+                            class="w-0 flex-1 bg-gray-950 text-white text-center text-2xl py-3 rounded-xl border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
+                        <span class="text-gray-400 font-bold text-2xl">:</span>
+                        <input id="set-segundos" type="number" min="0" max="59" value="00"
+                            class="w-0 flex-1 bg-gray-950 text-white text-center text-2xl py-3 rounded-xl border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
+                        <button onclick="setTempo()" class="shrink-0 bg-gray-700 active:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-transform active:scale-95">DEFINIR</button>
+                    </div>
+                    <button id="mais-reiniciar-crono" onclick="zerarCronometro()" class="w-full bg-gray-800 active:bg-gray-700 text-gray-300 font-bold py-3 rounded-xl text-sm border border-gray-600 transition-transform active:scale-95">↺ Reiniciar cronômetro (volta ao tempo definido)</button>
+                </section>
 
-            <!-- Botão - ponto -->
-            <button onclick="cmdPlacar('timeB', 'sub_ponto', 1)" class="w-full bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 text-xl font-bold py-3 rounded-xl transition-transform">−1 ponto</button>
+                <section id="mais-periodo" class="hidden bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Período — atual: <span id="mais-periodo-display" class="text-white font-digital">1</span></h3>
+                    <div class="flex gap-2">
+                        <button onclick="cmdPlacar('nenhum', 'sub_periodo', 1)" class="flex-1 bg-gray-800 active:bg-gray-700 text-gray-300 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">− Período</button>
+                        <button onclick="cmdPlacar('nenhum', 'add_periodo', 1)" class="flex-1 bg-gray-700 active:bg-gray-600 text-white font-bold py-3 rounded-xl transition-transform active:scale-95">+ Período</button>
+                    </div>
+                </section>
 
-            <!-- Sets (vôlei) -->
-            <!-- Sets vencidos — só leitura (ver comentário no time A) -->
-            <div id="sets-area-b" class="hidden w-full">
-                <div class="text-center text-red-400 text-sm font-bold">Sets: <span id="sets-b" class="text-white text-xl font-digital">0</span></div>
-            </div>
+                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Esta tela</h3>
+                    <button onclick="inverterLados()" class="w-full bg-gray-800 active:bg-gray-700 text-gray-200 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">🔁 Inverter lados</button>
+                    <p class="text-xs text-gray-500">Troca qual time fica à esquerda <b>só neste aparelho</b> — o telão e a configuração não mudam. Agora: <span id="estado-inversao" class="text-gray-300 font-bold"></span></p>
+                </section>
 
-            <!-- Faltas (futsal / basquete) -->
-            <div id="faltas-area-b" class="hidden w-full space-y-1">
-                <div class="text-center text-red-400 text-xs font-bold uppercase tracking-wide">Faltas: <span id="faltas-b" class="text-white font-digital text-base">0</span></div>
-                <div class="flex gap-2">
-                    <button onclick="cmdPlacar('timeB', 'add_falta', 1)" class="flex-1 bg-red-700 hover:bg-red-600 active:scale-95 text-white font-bold py-2 rounded-xl transition-transform text-sm">+Falta</button>
-                    <button onclick="cmdPlacar('timeB', 'sub_falta', 1)" class="flex-1 bg-red-900 hover:bg-red-800 active:scale-95 text-red-300 font-bold py-2 rounded-xl transition-transform text-sm">−Falta</button>
-                </div>
+                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Fim de jogo</h3>
+                    <button id="btn-fechar-jogo" onclick="fecharJogoApi()" class="hidden w-full bg-emerald-900 active:bg-emerald-800 text-emerald-200 font-bold py-4 rounded-xl border border-emerald-700 transition-transform active:scale-95">🏁 Fechar jogo (envia o resultado para a API)</button>
+                    <button onclick="pararTransmissao()" class="w-full bg-gray-800 active:bg-gray-700 text-gray-300 font-bold py-4 rounded-xl border border-gray-600 transition-transform active:scale-95">⏹ Parar transmissão do telão</button>
+                    <button onclick="zerarTudo()" class="w-full bg-red-950 active:bg-red-900 text-red-300 font-bold py-4 rounded-xl border border-red-800 transition-transform active:scale-95">⚠ Zerar placar, faltas e cronômetro</button>
+                </section>
+
+                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Ir para</h3>
+                    <div class="flex gap-2">
+                        <a href="index.html" class="flex-1 text-center bg-gray-800 active:bg-gray-700 text-gray-200 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">⚙️ Configuração</a>
+                        <a href="controle_anuncios.html" class="flex-1 text-center bg-gray-800 active:bg-gray-700 text-gray-200 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">📺 Anúncios</a>
+                    </div>
+                </section>
+
             </div>
         </div>
+    </div>
 
+    <!-- ================= Modal de seleção de jogador ================= -->
+    <div id="modal-jogador" class="hidden fixed inset-0 z-50 bg-black/85 flex flex-col">
+        <div class="shrink-0 p-4 border-b border-gray-700 bg-gray-900">
+            <p id="modal-titulo" class="text-center text-white font-black text-xl"></p>
+        </div>
+        <div id="modal-lista" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 gap-3 content-start"></div>
+        <div class="shrink-0 p-4 border-t border-gray-700 bg-gray-900 flex gap-3">
+            <button onclick="cancelarJogador()" class="shrink-0 px-6 bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold py-5 rounded-xl text-xl border border-gray-600 transition-transform">✕ Cancelar</button>
+            <button onclick="confirmarSemJogador()" class="flex-1 bg-gray-700 active:bg-gray-600 active:scale-95 text-gray-200 font-bold py-5 rounded-xl text-xl transition-transform">Sem jogador específico</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+
+        // A diferença entre os três esportes cabe aqui: quantos botões de ponto
+        // o painel tem, se o time acumula falta (futsal/basquete) ou set
+        // (vôlei), se há período, e como o cronômetro conta. Todo o resto da
+        // tela é igual — foi por isso que as quatro telas viraram uma.
+        //
+        // `sets` (contador no painel do time) e `parciais` (barra de fechar
+        // set/quarto no rodapé) são separados de propósito: gameLogic já sabe
+        // fechar o QUARTO do basquete, que continuaria tendo faltas e nenhum
+        // contador de sets — para ligar isso basta `parciais: true` no basquete.
+        const ESPORTES = {
+            futsal:   { rotulo: '⚽ FUTSAL',   botoes: 1, textoPonto: '+1 GOL',   faltas: true,  periodo: true,  sets: false, parciais: false, crono: 'regressivo' },
+            basquete: { rotulo: '🏀 BASQUETE', botoes: 3, textoPonto: '+1',       faltas: true,  periodo: true,  sets: false, parciais: false, crono: 'regressivo_cs' },
+            volei:    { rotulo: '🏐 VÔLEI',    botoes: 1, textoPonto: '+1 PONTO', faltas: false, periodo: false, sets: true,  parciais: true,  crono: 'crescente' }
+        };
+        const ESPORTE_PADRAO = 'futsal';
+
         let estadoAtual = null;
+        let esporteMontado = null;   // remonta o layout só quando o esporte muda
+        let pendingAcao = null;
         let integracao = { configurada: false, jogoId: null, statusConexao: 'nao_configurado', pendentes: 0 };
+
+        // Inversão de lados: preferência só deste aparelho (localStorage), nunca
+        // do jogo. Não manda nada ao servidor — o telão e a tela de configuração
+        // sempre mostram timeA/timeB na ordem original.
+        let invertido = false;
+        try { invertido = localStorage.getItem('placar_controle_invertido') === '1'; } catch (e) {}
+        // Aplica já no carregamento: a preferência vem do localStorage, então a
+        // tela tem de abrir com as cores certas, antes do primeiro broadcast.
+        aplicarTemas();
+
+        function timeDoLado(lado) {
+            if (lado === 'esquerda') return invertido ? 'timeB' : 'timeA';
+            if (lado === 'direita') return invertido ? 'timeA' : 'timeB';
+            return lado; // 'nenhum' e chaves já resolvidas passam direto
+        }
+
+        // O tema de cor segue o TIME, não a posição: com os lados invertidos, o
+        // painel da esquerda veste o vermelho do visitante e o da direita o azul
+        // da casa. É o que faz a inversão ser percebida de relance — só os nomes
+        // trocando de lugar passa despercebido no meio do jogo.
+        function aplicarTemas() {
+            const temas = {
+                a: invertido ? 'tema-vermelho' : 'tema-azul',
+                b: invertido ? 'tema-azul' : 'tema-vermelho'
+            };
+            for (const lado of ['a', 'b']) {
+                document.querySelectorAll(`[data-lado="${lado}"]`).forEach(el => {
+                    el.classList.remove('tema-azul', 'tema-vermelho');
+                    el.classList.add(temas[lado]);
+                });
+            }
+        }
+
+        function cfgEsporte(esporte) {
+            return ESPORTES[esporte] || ESPORTES[ESPORTE_PADRAO];
+        }
+
+        // ---- Estado vindo do servidor ----
 
         socket.on('atualizar_tela', (dados) => {
             if (dados.serverTime && dados.cronometro) {
@@ -154,43 +319,298 @@
                 dados.cronometro.inicioTimestamp += clockOffset;
             }
             estadoAtual = dados;
-            atualizarUI(dados);
+            renderizar(dados);
         });
 
-        // Status da fila de eventos (placarEventos.js, via server.js) — não
-        // decide nada localmente, só reflete o que o servidor manda.
+        function renderizar(dados) {
+            if (dados.esporte !== esporteMontado) montarEsporte(dados.esporte);
+            const cfg = cfgEsporte(dados.esporte);
+
+            // Os painéis "a"/"b" são POSIÇÕES na tela, não os times A/B do jogo.
+            const times = { a: dados[timeDoLado('esquerda')], b: dados[timeDoLado('direita')] };
+            for (const lado of ['a', 'b']) {
+                const time = times[lado];
+                document.getElementById('nome-' + lado).innerText = time.nome || (lado === 'a' ? 'CASA' : 'VISITANTE');
+                document.getElementById('score-' + lado).innerText = time.placar;
+                document.getElementById('faltas-' + lado).innerText = time.faltas ?? 0;
+                document.getElementById('sets-' + lado).innerText = time.sets ?? 0;
+                document.getElementById('menos-' + lado + '-nome').innerText = time.nome || '';
+                // Sem ponto no placar não há o que corrigir — o botão apagado
+                // evita a pergunta de confirmação para uma ação que não faria nada.
+                document.getElementById('menos-' + lado).disabled = (time.placar || 0) <= 0;
+            }
+
+            document.getElementById('periodo-display-rodape').innerText = dados.periodo || 1;
+            document.getElementById('mais-periodo-display').innerText = dados.periodo || 1;
+            atualizarBotaoCrono(!!(dados.cronometro && dados.cronometro.rodando));
+            if (cfg.parciais) atualizarBarraSet(dados);
+        }
+
+        // Aplica ao layout o que muda de um esporte para o outro. Só roda na
+        // troca de esporte, não a cada broadcast.
+        function montarEsporte(esporte) {
+            esporteMontado = esporte;
+            const cfg = cfgEsporte(esporte);
+            document.getElementById('badge-esporte').innerText = cfg.rotulo;
+            document.title = 'Controle — ' + cfg.rotulo.replace(/^\S+\s/, '');
+
+            for (const lado of ['a', 'b']) {
+                document.getElementById('pontos-' + lado).style.gridTemplateColumns =
+                    `repeat(${cfg.botoes}, minmax(0, 1fr))`;
+                document.getElementById('pt-' + lado + '-1').innerText = cfg.textoPonto;
+                document.getElementById('pt-' + lado + '-2').classList.toggle('hidden', cfg.botoes < 2);
+                document.getElementById('pt-' + lado + '-3').classList.toggle('hidden', cfg.botoes < 3);
+                document.getElementById('faltas-' + lado + '-box').classList.toggle('hidden', !cfg.faltas);
+                document.getElementById('sets-' + lado + '-box').classList.toggle('hidden', !cfg.sets);
+            }
+
+            // Período e barra de parciais dividem o centro do rodapé: nunca
+            // ficam visíveis ao mesmo tempo hoje, mas a de parcial tem
+            // prioridade se algum dia um esporte tiver os dois.
+            document.getElementById('area-set').classList.toggle('hidden', !cfg.parciais);
+            document.getElementById('info-periodo').classList.toggle('hidden', !cfg.periodo || cfg.parciais);
+            document.getElementById('mais-periodo').classList.toggle('hidden', !cfg.periodo);
+            // Reiniciar cronômetro só faz sentido em cronômetro regressivo.
+            document.getElementById('mais-reiniciar-crono').classList.toggle('hidden', cfg.crono === 'crescente');
+            atualizarEstadoInversao();
+        }
+
+        // ---- Cronômetro ----
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        // 50ms para os centissegundos do basquete correrem lisos; nos outros
+        // esportes o texto simplesmente repete.
+        setInterval(() => {
+            if (!estadoAtual) return;
+            const cfg = cfgEsporte(estadoAtual.esporte);
+            const crono = estadoAtual.cronometro;
+            let decorrido = crono.tempoAcumulado;
+            if (crono.rodando) decorrido += (Date.now() - crono.inicioTimestamp);
+
+            let texto;
+            if (cfg.crono === 'crescente') {
+                const total = Math.floor(decorrido / 1000);
+                texto = `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+            } else {
+                const restante = Math.max(0, crono.duracaoConfigurada - decorrido);
+                texto = `${pad(Math.floor(restante / 60000))}:${pad(Math.floor((restante % 60000) / 1000))}`;
+                if (cfg.crono === 'regressivo_cs') texto += '.' + pad(Math.floor((restante % 1000) / 10));
+            }
+            document.getElementById('timer-display').innerText = texto;
+        }, 50);
+
+        function atualizarBotaoCrono(rodando) {
+            document.getElementById('crono-icone').innerText = rodando ? '⏸' : '▶';
+            document.getElementById('btn-crono').className = rodando
+                ? 'flex items-center gap-3 px-5 py-2 rounded-2xl border-4 transition-transform active:scale-95 bg-amber-600 border-amber-400 text-white'
+                : 'flex items-center gap-3 px-5 py-2 rounded-2xl border-4 transition-transform active:scale-95 bg-emerald-700 border-emerald-500 text-white';
+        }
+
+        // Dar PLAY aqui também marca o jogo como ao vivo na API (server.js faz
+        // isso no primeiro play) — não existe um "iniciar" separado na mesa.
+        function toggleCronometro() {
+            const rodando = !!(estadoAtual && estadoAtual.cronometro && estadoAtual.cronometro.rodando);
+            socket.emit('comando_cronometro', { acao: rodando ? 'pause' : 'play' });
+        }
+
+        function setTempo() {
+            const minutos = parseInt(document.getElementById('set-minutos').value) || 0;
+            const segundos = parseInt(document.getElementById('set-segundos').value) || 0;
+            if (minutos > 0 || segundos > 0) {
+                socket.emit('comando_cronometro', { acao: 'set', valor: minutos, segundos });
+            }
+        }
+
+        // Volta o cronômetro para o tempo configurado (re-aplica a duração atual)
+        function zerarCronometro() {
+            const dur = estadoAtual?.cronometro?.duracaoConfigurada ?? 600000;
+            socket.emit('comando_cronometro', {
+                acao: 'set',
+                valor: Math.floor(dur / 60000),
+                segundos: Math.floor((dur % 60000) / 1000)
+            });
+        }
+
+        // ---- Placar ----
+
+        function marcar(lado, valor) {
+            const time = timeDoLado(lado);
+            const elenco = estadoAtual?.[time]?.elenco || [];
+            if (elenco.length > 0) abrirModal(time, 'add_ponto', valor, elenco);
+            else socket.emit('comando_placar', { time, acao: 'add_ponto', valor });
+        }
+
+        function cmdPlacar(lado, acao, valor) {
+            const time = timeDoLado(lado);
+            const elenco = estadoAtual?.[time]?.elenco || [];
+            if (acao === 'add_falta' && elenco.length > 0) abrirModal(time, acao, valor, elenco);
+            else socket.emit('comando_placar', { time, acao, valor });
+        }
+
+        // Tirar ponto pede confirmação: os botões de correção ficam no rodapé,
+        // ao alcance do polegar de quem está marcando, e apagar um ponto legítimo
+        // por engano custa mais caro que o segundo da confirmação. A pergunta diz
+        // de qual time é e como o placar fica, para pegar também o erro de lado.
+        function corrigirPonto(lado) {
+            if (!estadoAtual) return;
+            const time = timeDoLado(lado);
+            const dados = estadoAtual[time];
+            if ((dados.placar || 0) <= 0) return;
+            if (!confirm(`Tirar 1 ponto de ${dados.nome}?\n\nO placar dele vai de ${dados.placar} para ${dados.placar - 1}.`)) return;
+            socket.emit('comando_placar', { time, acao: 'sub_ponto', valor: 1 });
+        }
+
+        // ---- Parciais (vôlei) ----
+
+        // `parcialFechavel` e `parcialAtual` vêm calculados do servidor
+        // (gameLogic.parcialFechavel) — a regra do 25/15 com 2 de vantagem não é
+        // duplicada aqui.
+        function atualizarBarraSet(dados) {
+            const fechavel = !!dados.parcialFechavel;
+            const parciais = Array.isArray(dados.parciais) ? dados.parciais : [];
+
+            document.getElementById('btn-fechar-set').classList.toggle('hidden', !fechavel);
+            const aviso = document.getElementById('aviso-set');
+            aviso.classList.toggle('hidden', fechavel);
+            aviso.innerText = `${dados.parcialAtual || 1}º set em andamento`;
+
+            if (fechavel) {
+                const vencedor = dados.timeA.placar > dados.timeB.placar ? dados.timeA.nome : dados.timeB.nome;
+                document.getElementById('btn-fechar-set-detalhe').innerText =
+                    `${dados.timeA.placar}×${dados.timeB.placar} · ${vencedor || ''}`;
+            }
+
+            document.getElementById('btn-reabrir-set').classList.toggle('hidden', parciais.length === 0);
+
+            const faixa = document.getElementById('parciais-mesa');
+            faixa.innerHTML = '';
+            parciais.forEach((p, i) => {
+                const item = document.createElement('span');
+                item.className = 'px-2 py-1 rounded-lg bg-gray-800 border border-gray-700 whitespace-nowrap';
+                item.textContent = `${i + 1}º ${p.a}×${p.b}`;
+                faixa.appendChild(item);
+            });
+        }
+
+        function fecharSet() {
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'fechar_set', valor: 0 });
+        }
+
+        function reabrirSet() {
+            if (!confirm('Reabrir o último set? O placar dele volta para o painel e o set sai da contagem.')) return;
+            socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
+        }
+
+        // ---- Modal de seleção de jogador ----
+
+        // Jogadores sem número (ou número inválido) vão para o fim da lista,
+        // não para o começo (senão "—" ficaria misturado com o 1, 2, 3...).
+        function compararPorNumero(a, b) {
+            const na = parseInt(a.numero, 10);
+            const nb = parseInt(b.numero, 10);
+            return (Number.isNaN(na) ? Infinity : na) - (Number.isNaN(nb) ? Infinity : nb);
+        }
+
+        function abrirModal(time, acao, valor, elenco) {
+            pendingAcao = { time, acao, valor };
+            const titulos = { add_ponto: `+${valor} — Quem marcou?`, add_falta: 'Falta — Qual jogador?' };
+            document.getElementById('modal-titulo').innerText = titulos[acao] || 'Selecione o jogador';
+            const lista = document.getElementById('modal-lista');
+            lista.innerHTML = '';
+            elenco.slice().sort(compararPorNumero).forEach(j => {
+                const btn = document.createElement('button');
+                btn.className = 'bg-gray-700 active:bg-gray-600 active:scale-95 text-white rounded-xl py-6 px-2 flex flex-col items-center justify-center gap-1.5 transition-transform';
+                btn.innerHTML = `<span class="font-black leading-none text-6xl">${j.numero || '—'}</span><span class="text-sm text-gray-300 truncate max-w-full">${(j.nome || '').replace(/</g, '&lt;')}</span>`;
+                btn.onclick = () => confirmarComJogador(j);
+                lista.appendChild(btn);
+            });
+            document.getElementById('modal-jogador').classList.remove('hidden');
+        }
+
+        function confirmarComJogador(jogador) {
+            document.getElementById('modal-jogador').classList.add('hidden');
+            if (!pendingAcao) return;
+            socket.emit('comando_placar', { ...pendingAcao, jogador });
+            pendingAcao = null;
+        }
+
+        function confirmarSemJogador() {
+            document.getElementById('modal-jogador').classList.add('hidden');
+            if (!pendingAcao) return;
+            socket.emit('comando_placar', { ...pendingAcao });
+            pendingAcao = null;
+        }
+
+        // Desiste da ação e volta à mesa: nada é enviado ao servidor. Não
+        // confundir com "sem jogador específico", que MARCA o ponto/falta e só
+        // não credita a ninguém.
+        function cancelarJogador() {
+            document.getElementById('modal-jogador').classList.add('hidden');
+            pendingAcao = null;
+        }
+
+        // ---- Painel ⚙ MAIS ----
+
+        function abrirMais() { document.getElementById('painel-mais').classList.remove('hidden'); }
+        function fecharMais() { document.getElementById('painel-mais').classList.add('hidden'); }
+
+        function atualizarEstadoInversao() {
+            if (!estadoAtual) return;
+            const esq = estadoAtual[timeDoLado('esquerda')].nome || 'Time A';
+            const dir = estadoAtual[timeDoLado('direita')].nome || 'Time B';
+            document.getElementById('estado-inversao').innerText = `${esq} à esquerda, ${dir} à direita`;
+        }
+
+        function inverterLados() {
+            invertido = !invertido;
+            try { localStorage.setItem('placar_controle_invertido', invertido ? '1' : '0'); } catch (e) {}
+            aplicarTemas();
+            if (estadoAtual) { renderizar(estadoAtual); atualizarEstadoInversao(); }
+        }
+
+        function zerarTudo() {
+            if (confirm('Zerar placar, sets, faltas e cronômetro? A configuração do jogo (times e elenco) é preservada.')) {
+                socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
+                fecharMais();
+            }
+        }
+
+        // Só desliga a transmissão do telão: não zera nada nem sai desta tela.
+        function pararTransmissao() {
+            if (confirm('Parar a transmissão do telão?')) {
+                socket.emit('comando_transmissao', { ativa: false });
+                fecharMais();
+            }
+        }
+
+        // ---- Integração com a API do Placar Clube ----
+
         socket.on('integracao_status', (status) => {
             integracao = status;
-            atualizarBadgeIntegracao();
-        });
-
-        socket.on('integracao_eventos_rejeitados', (rejeitados) => {
-            const motivos = rejeitados.map(r => `• ${r.motivo}`).join('\n');
-            alert(`A API do Placar Clube rejeitou ${rejeitados.length} evento(s):\n${motivos}`);
-        });
-
-        function atualizarBadgeIntegracao() {
             const badge = document.getElementById('badge-integracao');
-            const btnEncerrar = document.getElementById('btn-encerrar-jogo-api');
+            const btnFechar = document.getElementById('btn-fechar-jogo');
             if (!integracao.configurada || !integracao.jogoId) {
                 badge.classList.add('hidden');
-                btnEncerrar.classList.add('hidden');
+                btnFechar.classList.add('hidden');
                 return;
             }
             badge.classList.remove('hidden');
-            btnEncerrar.classList.remove('hidden');
+            btnFechar.classList.remove('hidden');
             const cores = {
                 sincronizado: 'bg-emerald-900 text-emerald-300',
                 carregado: 'bg-emerald-900 text-emerald-300',
-                sincronizando: 'bg-yellow-900 text-yellow-300',
-                erro: 'bg-red-900 text-red-300',
-                erro_configuracao: 'bg-red-900 text-red-300'
+                sincronizando: 'bg-yellow-900 text-yellow-300'
             };
-            badge.className = `px-3 py-2 rounded-lg font-black tracking-wider text-xs ${cores[integracao.statusConexao] || 'bg-gray-800 text-gray-300'}`;
+            badge.className = `px-2 py-1 rounded-lg font-black tracking-wider text-[10px] whitespace-nowrap ${cores[integracao.statusConexao] || 'bg-red-900 text-red-300'}`;
             badge.innerText = `🔗 #${integracao.jogoId}` + (integracao.pendentes ? ` · ${integracao.pendentes} pend.` : ' · ok');
-        }
+        });
 
-        function encerrarJogoApi() {
+        socket.on('integracao_eventos_rejeitados', (rejeitados) => {
+            alert(`A API do Placar Clube rejeitou ${rejeitados.length} evento(s):\n` + rejeitados.map(r => `• ${r.motivo}`).join('\n'));
+        });
+
+        function fecharJogoApi() {
             if (!integracao.jogoId || !estadoAtual) return;
             if (!confirm(`Encerrar o jogo #${integracao.jogoId} na API? Isso marca a partida como encerrada e fecha o placar.`)) return;
             socket.emit('placar_encerrar_jogo', {
@@ -206,142 +626,16 @@
                 alert(obs
                     ? `Jogo encerrado. A API registrou uma divergência para conferência:\n${obs}`
                     : 'Jogo encerrado na API.');
+                fecharMais();
             });
         }
 
-        const mapaControle = { futsal: 'controle_futsal.html', basquete: 'controle_basquete.html', volei: 'controle_volei.html' };
-
-         function atualizarUI(dados) {
-            document.getElementById('nome-a').innerText = dados.timeA.nome;
-            document.getElementById('nome-b').innerText = dados.timeB.nome;
-            document.getElementById('score-a').innerText = dados.timeA.placar;
-            document.getElementById('score-b').innerText = dados.timeB.placar;
-            document.getElementById('sets-a').innerText = dados.timeA.sets;
-            document.getElementById('sets-b').innerText = dados.timeB.sets;
-            document.getElementById('faltas-a').innerText = dados.timeA.faltas ?? 0;
-            document.getElementById('faltas-b').innerText = dados.timeB.faltas ?? 0;
-            document.getElementById('periodo-display').innerText = dados.periodo || 1;
-
-            const esporte = dados.esporte;
-            const nomesEsporte = { futsal: 'FUTSAL', basquete: 'BASQUETE', volei: 'VÔLEI' };
-            document.getElementById('badge-esporte').innerText = nomesEsporte[esporte] || esporte.toUpperCase();
-
-            const linkJogo = document.getElementById('link-jogo');
-            if (mapaControle[esporte]) linkJogo.href = mapaControle[esporte];
-
-            const ehBasquete = esporte === 'basquete';
-            const ehVolei = esporte === 'volei';
-            const temFaltas = esporte === 'futsal' || esporte === 'basquete';
-            const temPeriodo = esporte === 'futsal' || esporte === 'basquete';
-
-            ['btn-a-2', 'btn-a-3', 'btn-b-2', 'btn-b-3'].forEach(id =>
-                document.getElementById(id).classList.toggle('hidden', !ehBasquete)
-            );
-            ['sets-area-a', 'sets-area-b', 'set-area'].forEach(id =>
-                document.getElementById(id).classList.toggle('hidden', !ehVolei)
-            );
-            atualizarBarraSet(dados);
-            ['faltas-area-a', 'faltas-area-b'].forEach(id =>
-                document.getElementById(id).classList.toggle('hidden', !temFaltas)
-            );
-            document.getElementById('periodo-area').classList.toggle('hidden', !temPeriodo);
-        }
-
-        // `parcialFechavel` e `parcialAtual` vêm calculados do servidor
-        // (gameLogic.parcialFechavel) — a regra do 25/15 com 2 de vantagem não é
-        // duplicada aqui.
-        function atualizarBarraSet(dados) {
-            const fechavel = !!dados.parcialFechavel;
-            const parciais = Array.isArray(dados.parciais) ? dados.parciais : [];
-
-            document.getElementById('btn-fechar-set').classList.toggle('hidden', !fechavel);
-            document.getElementById('btn-reabrir-set').classList.toggle('hidden', parciais.length === 0);
-            document.getElementById('aviso-set').innerText = fechavel
-                ? `${dados.timeA.placar}×${dados.timeB.placar} fecha o ${dados.parcialAtual || 1}º set`
-                : `${dados.parcialAtual || 1}º set em andamento`;
-
-            const faixa = document.getElementById('parciais-mesa');
-            faixa.innerHTML = '';
-            parciais.forEach((p, i) => {
-                const item = document.createElement('span');
-                item.className = 'px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 whitespace-nowrap';
-                item.textContent = `${i + 1}º ${p.a}×${p.b}`;
-                faixa.appendChild(item);
-            });
-        }
-
-        function fecharSet() {
-            socket.emit('comando_placar', { time: 'nenhum', acao: 'fechar_set', valor: 0 });
-        }
-
-        function reabrirSet() {
-            if (!confirm('Reabrir o último set? O placar dele volta para o painel e o set sai da contagem.')) return;
-            socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
-        }
-
-        // Cronômetro em tempo real (50ms para centissegundos do basquete)
-        setInterval(() => {
-            if (!estadoAtual) return;
-            const crono = estadoAtual.cronometro;
-            const esporte = estadoAtual.esporte;
-            let elapsed = crono.tempoAcumulado;
-            if (crono.rodando) elapsed += (Date.now() - crono.inicioTimestamp);
-
-            let display = '';
-            if (esporte === 'volei') {
-                const totalSeg = Math.floor(elapsed / 1000);
-                const min = Math.floor(totalSeg / 60);
-                const seg = totalSeg % 60;
-                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
-            } else if (esporte === 'futsal') {
-                // Regressivo MM:SS (sem centissegundos)
-                const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
-                const min = Math.floor(restante / 60000);
-                const seg = Math.floor((restante % 60000) / 1000);
-                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
-            } else if (esporte === 'basquete') {
-                const restante = Math.max(0, crono.duracaoConfigurada - elapsed);
-                const min = Math.floor(restante / 60000);
-                const seg = Math.floor((restante % 60000) / 1000);
-                const cs = Math.floor((restante % 1000) / 10);
-                display = `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
-            }
-
-            document.getElementById('timer-display').innerText = display;
-        }, 50);
-
-        function marcar(time, valor) {
-            socket.emit('comando_placar', { time, acao: 'add_ponto', valor });
-        }
-
-        function cmdPlacar(time, acao, valor) {
-            socket.emit('comando_placar', { time, acao, valor });
-        }
-
-        function cmdCronometro(acao) {
-            socket.emit('comando_cronometro', { acao });
-        }
-
-        function setTempo() {
-            const minutos = parseInt(document.getElementById('set-minutos').value) || 0;
-            const segundos = parseInt(document.getElementById('set-segundos').value) || 0;
-            if (minutos > 0 || segundos > 0) {
-                socket.emit('comando_cronometro', { acao: 'set', valor: minutos, segundos });
-            }
-        }
-
-        function zerarTudo() {
-            if (confirm('Zerar placar, sets, faltas e cronômetro?')) {
-                socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
-            }
-        }
-
-        // Só desliga a transmissão do telão: não zera nada nem sai desta tela.
-        function pararTransmissao() {
-            if (confirm('Parar a transmissão do telão?')) {
-                socket.emit('comando_transmissao', { ativa: false });
-            }
-        }
+        // Esc fecha o que estiver aberto, do mais interno para o mais externo.
+        document.addEventListener('keydown', (ev) => {
+            if (ev.key !== 'Escape') return;
+            if (!document.getElementById('modal-jogador').classList.contains('hidden')) cancelarJogador();
+            else if (!document.getElementById('painel-mais').classList.contains('hidden')) fecharMais();
+        });
     </script>
 </body>
 </html>

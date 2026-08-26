@@ -41,26 +41,43 @@ test('add_ponto soma pelo valor e define o time que sacou', () => {
     const { animacoes } = logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 2 });
     assert.equal(s.timeA.placar, 2);
     assert.equal(s.sacando, 'timeA');
-    assert.deepEqual(animacoes, []);
 });
 
 test('add_ponto com jogador emite animação com texto por esporte', () => {
     for (const [esporte, texto] of [['futsal', 'GOL!'], ['basquete', 'CESTA!'], ['volei', 'PONTO!']]) {
         const s = novoEstado({ esporte });
         s.timeA.nome = 'Águia';
+        s.timeA.logo = 'data:logo-a';
         const jogador = { numero: '10', nome: 'João', foto: '' };
         const { animacoes } = logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1, jogador });
         assert.equal(animacoes.length, 1);
         assert.equal(animacoes[0].name, 'animacao_ponto');
-        assert.deepEqual(animacoes[0].payload, { tipo: 'ponto', texto, jogador, timeNome: 'Águia' });
+        assert.deepEqual(animacoes[0].payload, { tipo: 'ponto', texto, jogador, timeNome: 'Águia', timeLogo: 'data:logo-a' });
     }
 });
 
-test('add_ponto sem jogador não emite animação', () => {
-    const s = novoEstado();
+// "Sem jogador específico" na mesa: o ponto conta para o time, então o telão
+// anuncia o TIME. Antes o lance passava mudo.
+test('add_ponto sem jogador anuncia o time, com nome e logo', () => {
+    const s = novoEstado({ esporte: 'futsal' });
+    s.timeB.nome = 'Vila Nova';
+    s.timeB.logo = 'data:logo-b';
     const { animacoes } = logic.comandoPlacar(s, { time: 'timeB', acao: 'add_ponto', valor: 3 });
     assert.equal(s.timeB.placar, 3);
-    assert.deepEqual(animacoes, []);
+    assert.equal(animacoes.length, 1);
+    assert.equal(animacoes[0].name, 'animacao_ponto');
+    assert.deepEqual(animacoes[0].payload, {
+        tipo: 'ponto_time', texto: 'GOL!', timeNome: 'Vila Nova', timeLogo: 'data:logo-b'
+    });
+});
+
+test('add_ponto sem jogador e sem logo cadastrada ainda anuncia o time', () => {
+    const s = novoEstado({ esporte: 'volei' });
+    s.timeA.nome = 'Águia';
+    const { animacoes } = logic.comandoPlacar(s, { time: 'timeA', acao: 'add_ponto', valor: 1 });
+    assert.equal(animacoes[0].payload.tipo, 'ponto_time');
+    assert.equal(animacoes[0].payload.timeNome, 'Águia');
+    assert.equal(animacoes[0].payload.timeLogo, '', 'logo vazia é normal — o telão centra só o texto');
 });
 
 test('sub_ponto decrementa mas nunca abaixo de zero', () => {
@@ -409,11 +426,12 @@ test('add_set / sub_set respeitam o piso zero', () => {
 test('add_falta com jogador emite animação FALTA!', () => {
     const s = novoEstado();
     s.timeB.nome = 'Leões';
+    s.timeB.logo = 'data:logo-b';
     const jogador = { numero: '7', nome: 'Pedro', foto: 'data:img' };
     const { animacoes } = logic.comandoPlacar(s, { time: 'timeB', acao: 'add_falta', jogador });
     assert.equal(s.timeB.faltas, 1);
     assert.equal(animacoes.length, 1);
-    assert.deepEqual(animacoes[0].payload, { tipo: 'falta', texto: 'FALTA!', jogador, timeNome: 'Leões' });
+    assert.deepEqual(animacoes[0].payload, { tipo: 'falta', texto: 'FALTA!', jogador, timeNome: 'Leões', timeLogo: 'data:logo-b' });
 });
 
 test('add_falta sem jogador não emite animação', () => {
@@ -682,6 +700,31 @@ test('filtrarSlides aceita extensões de imagem e de vídeo, ignora o resto', ()
 
 test('filtrarSlides com lista vazia retorna vazio', () => {
     assert.deepEqual(logic.filtrarSlides([]), []);
+});
+
+// ---------------------------------------------------------------------------
+// escolherVideoBase (vídeo da tela de espera, em public/base/)
+// ---------------------------------------------------------------------------
+test('escolherVideoBase pega o vídeo no meio das imagens da pasta de arte', () => {
+    const arquivos = ['FUNDO.png', 'background.png', 'abertura.mp4', 'futsal'];
+    assert.equal(logic.escolherVideoBase(arquivos), 'abertura.mp4');
+});
+
+test('escolherVideoBase é estável: com mais de um vídeo, sempre o primeiro em ordem alfabética', () => {
+    // A ordem de readdir varia por sistema de arquivos; dois telões não podem
+    // acabar exibindo vídeos diferentes.
+    assert.equal(logic.escolherVideoBase(['zebra.mp4', 'abertura.webm']), 'abertura.webm');
+    assert.equal(logic.escolherVideoBase(['abertura.webm', 'zebra.mp4']), 'abertura.webm');
+});
+
+test('escolherVideoBase retorna null quando não há vídeo na pasta', () => {
+    assert.equal(logic.escolherVideoBase(['FUNDO.png', 'background.png']), null);
+    assert.equal(logic.escolherVideoBase([]), null);
+    assert.equal(logic.escolherVideoBase(), null);
+});
+
+test('criarEstadoInicial começa sem vídeo de espera', () => {
+    assert.equal(logic.criarEstadoInicial().videoStandby, null);
 });
 
 // ---------------------------------------------------------------------------

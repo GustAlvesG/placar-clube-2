@@ -36,6 +36,7 @@ There is one global `gameState` object per server process (not per-room/per-matc
 ```
 { esporte, sacando, periodo, transmissaoAtiva,
   patrocinadores: [filename],   // imagens em public/patrocinadores/, sincronizado pelo servidor
+  videoStandby: filename|null,  // vídeo de espera em public/base/, sincronizado pelo servidor
   timeA: { nome, logo, placar, sets, faltas, elenco: [{numero, nome, foto}] },
   timeB: { ...same },
   cronometro: { rodando, tempoAcumulado, inicioTimestamp, duracaoConfigurada } }
@@ -67,9 +68,21 @@ Videos live in `public/videos/` (gitignored, created at server startup if missin
 
 `server.js` exposes streaming HTTP endpoints (no multer/body-parser — the request body is piped straight to disk): `POST /api/upload/:tipo?nome=<filename>` and `DELETE /api/:tipo/:nome`, where `tipo` is `video` (→ `public/videos/`) or `patrocinador` (→ `public/patrocinadores/`, gitignored). Filenames pass through `sanitizarNomeArquivo()` in gameLogic.js (strips paths, replaces unsafe chars) and must have a valid extension for the type (`EXTENSOES_VIDEO` / `EXTENSOES_IMAGEM`). After any change the server re-syncs: video changes broadcast `lista_videos` to everyone; sponsor changes reload `gameState.patrocinadores` and `broadcast()`. Upload/delete UI lives in `public/controle/controle_anuncios.html`.
 
+### Standby video
+
+The telão's waiting screen (`#tela-inicial`, shown until `transmissaoAtiva`) plays a video from **`public/base/`** on loop, muted, filling the screen. `escolherVideoBase()` in gameLogic.js picks the first video file there in alphabetical order (stability matters: two telões must never pick differently); `sincronizarVideoStandby()` in server.js writes it to `gameState.videoStandby` at boot **and on every socket connection**, so dropping a new file in the folder and reloading the telão is enough — no restart. With no video in `public/base/`, the page falls back to the old card (`#standby-texto`: sport icon + club name + "Aguardando transmissão...").
+
+`public/base/` is the art folder (backgrounds, per-sport elements) and is **git-tracked** — unlike `videos/`, `slides/` and `patrocinadores/` there is no upload endpoint or UI for it, and it is deliberately absent from `TIPOS_ARQUIVO`.
+
+`aplicarStandby()` in public/index.html only touches `video.src` when the filename actually changes (assigning it restarts playback, and `atualizar_tela` arrives on every clock tick) and pauses the video while transmission is on so it isn't decoded behind the scoreboard.
+
 ### Sponsor carousel
 
 The telão footer scrolls sponsor logos (`.sponsor-*` in style.css). Source of truth is the files in `public/patrocinadores/`: at startup (and after each upload/delete) the server reads the dir into `gameState.patrocinadores` as an array of filenames, and the telão builds the track as `<img src="patrocinadores/<name>">`. Empty list hides the carousel container. The telão caches a signature of the list to avoid rebuilding the DOM (and restarting the CSS animation) on every broadcast.
+
+The footer strip is **not free real estate**: the artwork reserves a dark band for it that starts at y=455 of the scoreboard's 512px height (**88.87%**, identical in all three sports — measured by compositing `base/background.png` with each sport's `box.png` and finding the first row, contiguous to the bottom, where no pixel exceeds luminance 20). `.sponsor-carousel-container`'s `top` is that number; raising it spills the logos onto the team-names strip above. Inside the band, logos render at ~52px. Size everything in that footer in `cqw`, never `px` — the strip used fixed `150x60px` and shrank relative to the rest of the telão, which is what made the logos look tiny.
+
+Because the band is inherently short, the same list also feeds the **point-animation banner** (`#anim-patrocinadores`, filled by `montarPatrocinadoresAnim`), where **all** sponsors appear at once, much larger, for the 5s the banner is on screen.
 
 ### Frontend structure (no build step)
 

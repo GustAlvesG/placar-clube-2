@@ -226,6 +226,10 @@ const ACOES_PLACAR_API = {
 };
 
 const videoDir = path.join(__dirname, 'public', 'videos');
+// Pasta de arte do telão (fundos e elementos por esporte). O vídeo de espera
+// mora aqui: é conteúdo fixo da casa, não material que o operador sobe a cada
+// jogo — por isso não tem tela de upload nem entra em TIPOS_ARQUIVO.
+const baseDir = path.join(__dirname, 'public', 'base');
 const patrocinadorDir = path.join(__dirname, 'public', 'patrocinadores');
 const slideDir = path.join(__dirname, 'public', 'slides');
 for (const dir of [videoDir, patrocinadorDir, slideDir]) {
@@ -280,6 +284,17 @@ function listarSlides(cb) {
     });
 }
 
+// Relê public/base/ e guarda no estado o vídeo de espera. Roda no boot e a cada
+// telão que conecta: assim, largar o arquivo na pasta e recarregar o telão já
+// basta — sem reiniciar o servidor no meio de um evento.
+function sincronizarVideoStandby(cb) {
+    fs.readdir(baseDir, (err, files) => {
+        const anterior = gameState.videoStandby;
+        gameState.videoStandby = err ? null : logic.escolherVideoBase(files);
+        if (cb) cb(gameState.videoStandby !== anterior);
+    });
+}
+
 function sincronizarPatrocinadores(broadcastDepois) {
     fs.readdir(patrocinadorDir, (err, files) => {
         gameState.patrocinadores = err ? [] : logic.filtrarImagens(files);
@@ -294,6 +309,7 @@ function aposMudancaArquivo(tipo) {
 }
 
 sincronizarPatrocinadores(false); // carrega as logos já presentes na pasta
+sincronizarVideoStandby();        // e o vídeo de espera, se houver um em base/
 
 app.post('/api/upload/:tipo', (req, res) => {
     const cfg = TIPOS_ARQUIVO[req.params.tipo];
@@ -338,6 +354,9 @@ app.delete('/api/:tipo/:nome', (req, res) => {
 io.on('connection', (socket) => {
     // Sincroniza novo cliente com o estado atual do jogo
     socket.emit('atualizar_tela', payloadEstado());
+    // O vídeo de espera pode ter sido trocado na pasta com o servidor no ar;
+    // só rebroadcasta se mudou de verdade, para não repintar o telão à toa.
+    sincronizarVideoStandby(mudou => { if (mudou) broadcast(); });
     socket.emit('integracao_status', statusIntegracao());
 
     // ---- Integração com a API do Placar Clube ----
@@ -522,8 +541,12 @@ io.on('connection', (socket) => {
     // Preserva só os patrocinadores (recurso do carrossel, não do jogo).
     socket.on('zerar_configuracao_completa', () => {
         const patrocinadoresAtuais = gameState.patrocinadores;
+        const videoStandbyAtual = gameState.videoStandby;
         gameState = logic.criarEstadoInicial();
         gameState.patrocinadores = patrocinadoresAtuais;
+        // Ambos vêm de pasta, não da configuração do jogo: zerar o jogo não
+        // pode apagá-los do estado.
+        gameState.videoStandby = videoStandbyAtual;
 
         integracao.jogoId = null;
         integracao.timeAId = null;

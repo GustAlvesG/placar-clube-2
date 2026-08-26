@@ -48,6 +48,9 @@ function criarEstadoInicial() {
         periodo: 1,
         transmissaoAtiva: false,
         patrocinadores: [],
+        // Nome do vídeo de espera em public/base/ (null = tela de espera antiga,
+        // com o degradê e o "Aguardando transmissão..."). Ver escolherVideoBase.
+        videoStandby: null,
         // Placar de cada parcial já FECHADA, em ordem: [{ a, b }, ...].
         // Alimenta a faixa de parciais do telão e o número da parcial atual.
         parciais: [],
@@ -160,11 +163,17 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     if (acao === 'add_ponto') {
         state[time].placar += valor;
         state.sacando = time;
+        const texto = TEXTOS_PONTO[state.esporte] || 'PONTO!';
         if (jogador) {
-            const texto = TEXTOS_PONTO[state.esporte] || 'PONTO!';
             // `tipo: 'ponto'` é o que permite o telão preferir o vídeo do
             // jogador (se tiver) nessa animação — falta nunca usa vídeo.
-            animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'ponto', texto, jogador, timeNome: state[time].nome } });
+            animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'ponto', texto, jogador, timeNome: state[time].nome, timeLogo: state[time].logo } });
+        } else {
+            // Sem jogador escolhido o ponto ainda é do TIME: a faixa entra com
+            // o nome e a logo dele no lugar do jogador, em vez de o lance
+            // passar sem anúncio nenhum no telão. `tipo` próprio porque não há
+            // jogador — e, portanto, nunca há vídeo de apresentação para tocar.
+            animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'ponto_time', texto, timeNome: state[time].nome, timeLogo: state[time].logo } });
         }
 
         // O set/quarto NÃO fecha sozinho aqui: chegar a 25 (ou 15 no tie-break)
@@ -179,7 +188,7 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
         state[time].faltas += 1;
         // `tipo: 'falta'` faz o telão usar sempre a foto (nunca o vídeo),
         // mesmo que o jogador tenha um vídeo cadastrado.
-        if (jogador) animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'falta', texto: 'FALTA!', jogador, timeNome: state[time].nome } });
+        if (jogador) animacoes.push({ name: 'animacao_ponto', payload: { tipo: 'falta', texto: 'FALTA!', jogador, timeNome: state[time].nome, timeLogo: state[time].logo } });
     }
     if (acao === 'sub_falta' && state[time].faltas > 0) state[time].faltas -= 1;
 
@@ -312,6 +321,16 @@ function filtrarSlides(files = []) {
     return files.filter(f => EXTENSOES_SLIDE.includes(extname(f)));
 }
 
+// Vídeo de espera do telão: o primeiro vídeo que estiver em public/base/.
+// A pasta é de arte (fundos, elementos por esporte), então basta largar o
+// arquivo lá — não há tela de upload para ela. Ordem alfabética, e não a ordem
+// que o sistema de arquivos devolver, para que dois telões nunca discordem.
+function escolherVideoBase(files = []) {
+    const videos = filtrarVideos(files)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    return videos[0] || null;
+}
+
 // Reduz um nome vindo do cliente a um nome de arquivo seguro para gravar em
 // disco: descarta qualquer caminho (previne traversal) e troca caracteres
 // problemáticos por "_". Retorna '' se não sobrar nada utilizável.
@@ -348,5 +367,6 @@ module.exports = {
     filtrarVideos,
     filtrarImagens,
     filtrarSlides,
+    escolherVideoBase,
     sanitizarNomeArquivo
 };

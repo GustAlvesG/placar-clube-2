@@ -18,11 +18,16 @@
         <video id="anim-video" style="width:100%;height:100%;object-fit:contain;background:#000;" playsinline></video>
     </div>
 
-    <!-- Tela inicial / standby (visível até a transmissão ser iniciada) -->
+    <!-- Tela inicial / standby (visível até a transmissão ser iniciada).
+         Com um vídeo em public/base/ ele toca em loop ocupando a tela toda; sem
+         vídeo, cai no cartão antigo (#standby-texto). Ver aplicarStandby(). -->
     <div id="tela-inicial" style="position:fixed;inset:0;z-index:90;background:linear-gradient(to bottom,#490025 , #1D0518) ;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
-        <div id="icone-esporte" style="font-size:9rem;line-height:1;">⚽</div>
-        <h1 style="color:#fff;font-size:2.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;font-family:sans-serif;">Clube dos Funcionários</h1>
-        <p style="color:#6b7280;font-size:1.25rem;font-family:sans-serif;animation:pulse 2s infinite;">Aguardando transmissão...</p>
+        <video id="video-standby" loop playsinline style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
+        <div id="standby-texto" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
+            <div id="icone-esporte" style="font-size:9rem;line-height:1;">⚽</div>
+            <h1 style="color:#fff;font-size:2.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;font-family:sans-serif;">Clube dos Funcionários</h1>
+            <p style="color:#6b7280;font-size:1.25rem;font-family:sans-serif;animation:pulse 2s infinite;">Aguardando transmissão...</p>
+        </div>
     </div>
     <style>
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -134,8 +139,19 @@
                             <span id="anim-numero"></span>
                             <span id="anim-nome"></span>
                         </div>
-                        <div id="anim-time"></div>
+                        <!-- O clube entra com logo + nome: a foto do jogador
+                             manda na faixa, mas quem pontuou também é o time. -->
+                        <div id="anim-time">
+                            <img id="anim-time-logo" alt="">
+                            <span id="anim-time-nome"></span>
+                        </div>
                     </div>
+                </div>
+                <!-- Patrocinadores dentro da faixa de ponto: é o momento em que
+                     todo mundo olha para o telão, e a barra do rodapé é pequena
+                     demais para dar retorno. Preenchido por `montarPatrocinadoresAnim`. -->
+                <div id="anim-patrocinadores">
+                    <div id="anim-patro-logos"></div>
                 </div>
             </div>
         </div>
@@ -251,6 +267,36 @@
                     el.addEventListener('error', falhou, { once: true });
                 });
             });
+        }
+
+        // ---- Tela de espera --------------------------------------------------
+        // Com um vídeo em public/base/ a espera é ele, em loop e sem som (o loop
+        // roda solto por até horas antes do jogo: som aqui brigaria com o som da
+        // quadra, e ainda deixaria o aviso de "som bloqueado" aceso o tempo todo
+        // enquanto ninguém tocasse na tela). Para querer som, é trocar
+        // `comSom: false` por `true` abaixo.
+        let standbyArquivo = null;   // o que está carregado no <video> agora
+        function aplicarStandby(dados) {
+            const tela = document.getElementById('tela-inicial');
+            const video = document.getElementById('video-standby');
+            const arquivo = dados.videoStandby || null;
+
+            // Mexer no src reinicia o vídeo do zero, e `atualizar_tela` chega a
+            // cada tique do cronômetro — só troca quando o arquivo mudou mesmo.
+            if (arquivo !== standbyArquivo) {
+                standbyArquivo = arquivo;
+                if (arquivo) video.src = 'base/' + encodeURIComponent(arquivo);
+                else video.removeAttribute('src');
+            }
+            video.style.display = arquivo ? 'block' : 'none';
+            document.getElementById('standby-texto').style.display = arquivo ? 'none' : 'flex';
+
+            const emEspera = !dados.transmissaoAtiva;
+            tela.style.display = emEspera ? 'flex' : 'none';
+            if (!arquivo) return;
+            // Fora de cena não fica decodificando atrás do placar.
+            if (emEspera) { if (video.paused) tocarSemGesto(video, { comSom: false }); }
+            else video.pause();
         }
 
         // Lógica de Vídeo com playlist sequencial (com loop opcional)
@@ -421,25 +467,42 @@
         // falta) e o reinício — pontos chegam em rajada e o lance novo tem que
         // cortar o anterior.
         const ANIM_DURACAO = 5000; // igual ao total do keyframe anim-faixa
-        function mostrarCardAnimacao(texto, timeNome, j, tipo) {
-            document.getElementById('anim-time').innerText = timeNome || '';
+        function mostrarCardAnimacao(texto, timeNome, j, tipo, timeLogo) {
+            // Sem jogador escolhido na mesa, quem é anunciado é o TIME: a logo
+            // ocupa o lugar da foto e o nome do clube vira a linha de destaque.
+            const soTime = tipo === 'ponto_time';
+            const imagem = soTime ? (timeLogo || '') : j.foto;
+
+            document.getElementById('anim-time-nome').innerText = timeNome || '';
             document.getElementById('anim-acao').innerText = texto || '';
-            document.getElementById('anim-numero').innerText = j.numero ? '#' + j.numero : '';
-            document.getElementById('anim-nome').innerText = j.nome || '';
+            document.getElementById('anim-numero').innerText = (!soTime && j.numero) ? '#' + j.numero : '';
+            document.getElementById('anim-nome').innerText = soTime ? (timeNome || '') : (j.nome || '');
 
             const fotoEl = document.getElementById('anim-foto');
-            if (j.foto) {
-                fotoEl.src = j.foto;
+            if (imagem) {
+                fotoEl.src = imagem;
             } else {
                 // removeAttribute (e não src=''): src vazio faria o navegador
                 // pedir a própria página como imagem.
                 fotoEl.removeAttribute('src');
             }
 
+            // Brasão do clube ao lado do nome dele. No modo só-time a logo já é
+            // o destaque no lugar da foto, então aqui ela seria repetição.
+            const logoEl = document.getElementById('anim-time-logo');
+            const temLogoClube = !soTime && !!timeLogo;
+            if (temLogoClube) logoEl.src = timeLogo;
+            else logoEl.removeAttribute('src');
+
             const overlay = document.getElementById('anim-overlay');
-            overlay.classList.toggle('sem-foto', !j.foto);
+            overlay.classList.toggle('sem-foto', !imagem);
+            overlay.classList.toggle('sem-logo-time', !temLogoClube);
+            overlay.classList.toggle('anim-time-only', soTime);
             // Falta não é comemoração: mesma faixa, tons apagados e sem brilho.
             overlay.classList.toggle('anim-falta', tipo === 'falta');
+
+            // Patrocinadores só na comemoração de ponto — falta não é vitrine.
+            montarPatrocinadoresAnim(tipo !== 'falta');
 
             overlay.classList.remove('ativo');
             overlay.offsetHeight; // reflow: reinicia a sequência inteira
@@ -449,7 +512,40 @@
             window._animTimer = setTimeout(() => overlay.classList.remove('ativo'), ANIM_DURACAO);
         }
 
-        socket.on('animacao_ponto', ({ tipo, texto, jogador, timeNome }) => {
+        // Todos os patrocinadores em cena, sempre — ninguém fica de fora de um
+        // lance. Como a linha é uma só e a largura da faixa é fixa, é a altura
+        // das logos que cede conforme a lista cresce. O CSS garante que caibam
+        // (cada logo divide a largura por igual e usa `contain`); esta escada
+        // só evita que fiquem altas e espremidas em vez de proporcionais.
+        function alturaLogoPatro(n) {
+            if (n <= 4) return 6;
+            if (n <= 6) return 5.2;
+            if (n <= 9) return 4.4;
+            return 3.6;
+        }
+        function montarPatrocinadoresAnim(mostrar) {
+            const overlay = document.getElementById('anim-overlay');
+            const caixa = document.getElementById('anim-patro-logos');
+            const lista = patrocinadoresAtuais;
+
+            if (!mostrar || lista.length === 0) {
+                overlay.classList.add('sem-patrocinio');
+                caixa.innerHTML = '';
+                return;
+            }
+            overlay.classList.remove('sem-patrocinio');
+
+            caixa.style.setProperty('--patro-h', alturaLogoPatro(lista.length) + 'cqw');
+            caixa.innerHTML = '';
+            for (const nome of lista) {
+                const img = document.createElement('img');
+                img.src = 'patrocinadores/' + encodeURIComponent(nome);
+                img.alt = nome.replace(/\.[^.]+$/, '');
+                caixa.appendChild(img);
+            }
+        }
+
+        socket.on('animacao_ponto', ({ tipo, texto, jogador, timeNome, timeLogo }) => {
             // jogador pode ser objeto {numero, nome, foto, video} ou string (legado)
             const j = (jogador && typeof jogador === 'object') ? jogador : { numero: '', nome: jogador || '', foto: '', video: '' };
 
@@ -457,12 +553,12 @@
                 // Lance novo durante um vídeo corta o card anterior na hora.
                 document.getElementById('anim-overlay').classList.remove('ativo');
                 clearTimeout(window._animTimer);
-                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j, tipo));
+                mostrarVideoJogador(j.video, () => mostrarCardAnimacao(texto, timeNome, j, tipo, timeLogo));
                 return;
             }
 
             ocultarVideoJogador({ imediato: true });
-            mostrarCardAnimacao(texto, timeNome, j, tipo);
+            mostrarCardAnimacao(texto, timeNome, j, tipo, timeLogo);
         });
 
         // Fechamento de parcial (e fim de jogo). Tudo vem no payload: o
@@ -538,8 +634,12 @@
         // imagem em public/patrocinadores/ (gerenciados pela aba Anúncios).
         // A assinatura evita reconstruir o DOM (e reiniciar a animação CSS) a cada broadcast.
         let patrocinadoresAssinatura = null;
+        // Lista corrente, também consumida pela faixa de ponto
+        // (`montarPatrocinadoresAnim`) — por isso vive fora do render.
+        let patrocinadoresAtuais = [];
         function renderPatrocinadores(lista) {
             const nomes = Array.isArray(lista) ? lista : [];
+            patrocinadoresAtuais = nomes;
             const assinatura = nomes.join('|');
             if (assinatura === patrocinadoresAssinatura) return;
             patrocinadoresAssinatura = assinatura;
@@ -694,10 +794,9 @@
             }
 
             // Tela inicial: oculta quando transmissão está ativa
-            const telaInicial = document.getElementById('tela-inicial');
             const icones = { futsal: '⚽', basquete: '🏀', volei: '🏐' };
             document.getElementById('icone-esporte').innerText = icones[dados.esporte] || '🏆';
-            telaInicial.style.display = dados.transmissaoAtiva ? 'none' : 'flex';
+            aplicarStandby(dados);
 
             changeCssSport(dados.esporte);
             estadoLocal = dados;
@@ -769,8 +868,10 @@
         });
 
         function changeCssSport(sport) {
-            const bola = document.getElementById("element-1");
-            const logo = document.getElementById("element-2");
+            // Cuidado: element-1 é a LOGO do esporte (o brasão com o nome) e
+            // element-2 é a BOLA — estes nomes já estiveram trocados aqui.
+            const logo = document.getElementById("element-1");
+            const bola = document.getElementById("element-2");
             const box = document.getElementById("box");
 
             const pontoMandante = document.querySelector(".pontos-mandante");
@@ -786,8 +887,8 @@
             const areaQuarter = document.getElementById("area_quarter");
             const areaFault = document.getElementById("area_fault");
 
-            logo.style.backgroundImage = `url('./base/${sport}/element-2.png')`;
-            bola.style.backgroundImage = `url('./base/${sport}/element-1.png')`;
+            logo.style.backgroundImage = `url('./base/${sport}/element-1.png')`;
+            bola.style.backgroundImage = `url('./base/${sport}/element-2.png')`;
             box.style.backgroundImage = `url('./base/${sport}/box.png')`;
 
             areaSets.hidden = true;

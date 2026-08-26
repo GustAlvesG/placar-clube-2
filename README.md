@@ -158,7 +158,7 @@ Telão (index.html) + Controles (recebem estado)
 | Evento | Payload | Descrição |
 |--------|---------|-----------|
 | `atualizar_tela` | `{ ...gameState, serverTime }` | Broadcast do estado completo |
-| `animacao_ponto` | `{ tipo, texto, jogador, timeNome }` | Faixa de ponto/falta com o jogador |
+| `animacao_ponto` | `{ tipo, texto, jogador?, timeNome, timeLogo? }` | Faixa de ponto/falta. `tipo`: `ponto` (com jogador), `ponto_time` (marcado sem escolher jogador — anuncia o time) ou `falta`. `timeLogo` vai nos três: no card do jogador vira o brasão ao lado do nome do clube; no `ponto_time`, a imagem grande |
 | `animacao_parcial` | `{ tipo, rotulo, numero, vencedor, placar, sets, times }` | Faixa de fechamento de set/quarto (e fim de jogo) |
 | `executar_video` | `{ acao, arquivo? }` | Instrui telão a tocar vídeo |
 | `lista_videos` | `[filenames]` | Lista de vídeos disponíveis (também broadcast após upload/exclusão) |
@@ -257,7 +257,7 @@ const { animacoes } = logic.comandoPlacar(state, {
   valor: 2,
   jogador: { numero: '7', nome: 'Pedro', foto: 'data:...' }
 });
-// animacoes[0] = { name: 'animacao_ponto', payload: { texto: 'CESTA!', jogador, timeNome } }
+// animacoes[0] = { name: 'animacao_ponto', payload: { tipo: 'ponto', texto: 'CESTA!', jogador, timeNome, timeLogo } }
 ```
 
 ### `comandoCronometro(state, { acao, valor, segundos }, now)`
@@ -503,12 +503,12 @@ em vez de se misturar com o 1, 2, 3.
 - Adicionar vídeo à fila com botão **+ Adicionar**
 - **REPRODUZIR FILA**: emite `comando_video` com array de arquivos
 - Toggle **🔁 LOOP**: com ele marcado, a fila reinicia do começo ao terminar o último vídeo (até clicar em ⏹ PARAR)
-- **Patrocinadores**: seção com as logos do carrossel do telão — **⬆ Enviar logo** grava em `public/patrocinadores/` e o **×** exclui; o telão atualiza na hora em todas as telas
+- **Patrocinadores**: seção com as logos do carrossel do telão — **⬆ Enviar logo** grava em `public/patrocinadores/` e o **×** exclui; o telão atualiza na hora em todas as telas. As mesmas logos aparecem também dentro da faixa de ponto (ver "Patrocinadores na faixa de ponto")
 - Telão toca sequencialmente, ao terminar o último retorna ao placar (ou reinicia a fila, se em loop)
 
 ### 5. Telão (Placar) (`/index.html`)
 
-- **Tela inicial**: overlay preto com ícone do esporte + "Aguardando transmissão..." (pulsando)
+- **Tela inicial**: o **vídeo de espera** em `public/base/`, em loop e mudo, ocupando a tela (ver "Vídeo da tela de espera" adiante). Sem vídeo na pasta, cai no cartão antigo: ícone do esporte + nome do clube + "Aguardando transmissão..." (pulsando)
   - Desaparece ao clicar INICIAR TRANSMISSÃO na configuração
 - **Placar**: nomes, placar, sets, faltas, período (conforme o esporte)
 - **Logos**: repositionados por esporte (vôlei esquerda/direita, futsal/basquete mais abaixo)
@@ -516,7 +516,7 @@ em vez de se misturar com o 1, 2, 3.
   - Vôlei: ascendente MM:SS
   - Futsal: descendente MM:SS
   - Basquete: descendente MM:SS.cc
-- **Animação de ponto/falta**: faixa grená atravessando a tela com o time, a ação (GOL!/CESTA!/PONTO!/FALTA!) e a **foto redonda** do jogador + número + nome (5 segundos) — ver "Animação de ponto/falta" adiante
+- **Animação de ponto/falta**: faixa grená atravessando a tela com o time, a ação (GOL!/CESTA!/PONTO!/FALTA!) e a **foto redonda** do jogador + número + nome + o brasão do clube (5 segundos) — ver "Animação de ponto/falta" adiante
 - **Vídeos**: tocam fullscreen (z-index 100), ao terminar retorna ao placar
 
 ---
@@ -594,7 +594,13 @@ marcou é o assunto, o lance é só a etiqueta que diz por quê:
 |---|---|---|
 | Etiqueta | `PONTO!` / `GOL!` / `CESTA!` / `FALTA!`, dourado | 2,3cqw |
 | Destaque | `#número` (4,4cqw) + **nome do jogador** | 7cqw |
-| Apoio | nome do clube | 3cqw |
+| Apoio | **brasão do clube** (4,2cqw de altura) + nome do clube | 3cqw |
+
+O brasão fica pequeno de propósito: identifica o clube sem disputar com a foto
+e o nome do jogador, que são o assunto da faixa. Usa `object-fit: contain` —
+escudo cortado deixa de ser reconhecível. Time **sem logo** cadastrada perde só
+o brasão (`.sem-logo-time`), o nome continua; e no modo só-time (adiante) a
+linha inteira some, porque lá a logo já é o destaque no lugar da foto.
 
 As duas faixas de animação vivem **dentro** do `.placar-container` e medem em
 `cqw`, a mesma régua do resto do placar — ver "Escala das faixas" abaixo.
@@ -614,13 +620,98 @@ Abrir, segurar e fechar estão num **único** keyframe de 5s: duas animações c
 delay brigariam pelo `clip-path` e a de saída venceria já na entrada (a última
 da lista ganha, e `fill: both` aplica o quadro inicial durante o atraso).
 
-Duas variações de layout: **sem foto** cadastrada o bloco de texto se centra
-sozinho (`.sem-foto`), e **falta** não é comemoração — mesma faixa em grená
-fechado, fio rosado no lugar do dourado e sem o brilho (`.anim-falta`).
+Variações de layout: **sem foto** cadastrada o bloco de texto se centra sozinho
+(`.sem-foto`, e a linha do clube se centra junto); **sem logo** do clube o
+brasão some e sobra o nome (`.sem-logo-time`); **falta** não é comemoração — mesma faixa em grená
+fechado, fio rosado no lugar do dourado e sem o brilho (`.anim-falta`); e
+**sem jogador escolhido** (`.anim-time-only`, ver adiante).
 
-A faixa ocupa cerca de 27% da altura, então o placar continua à vista acima e
-abaixo dela. Quando o jogador tem vídeo cadastrado, o vídeo em tela cheia vem
-antes e a faixa entra ao terminar.
+### Ponto sem jogador escolhido
+
+Marcar com **"Sem jogador específico"** não passa mais mudo no telão: o ponto é
+do time, então quem é anunciado é o time. A faixa entra com a **logo do clube**
+no lugar da foto e o **nome do clube** como linha de destaque; o `#` do jogador
+e a linha de apoio somem (seria eco do próprio nome).
+
+A logo **não** é recortada em círculo como a foto de jogador — marca cortada
+fica ilegível: vira um quadrado arredondado com `object-fit: contain`. Time sem
+logo cadastrada cai no mesmo `.sem-foto` de sempre, com o texto centrado.
+
+Quem decide é `comandoPlacar` em [gameLogic.js](gameLogic.js), que agora emite
+`animacao_ponto` sempre em `add_ponto` — com `tipo: 'ponto'` quando há jogador e
+`tipo: 'ponto_time'` quando não há. **Falta sem jogador continua sem animação**:
+falta não é comemoração e não tem a quem creditar.
+
+### Vídeo da tela de espera
+
+Enquanto a transmissão não começa, o telão mostra o **vídeo que estiver em
+`public/base/`**, em **loop**, **mudo** e ocupando a tela inteira
+(`object-fit: contain`, sem cortar nada).
+
+Para trocar o vídeo, basta largar o arquivo em `public/base/` (`.mp4`, `.webm`,
+`.mov`, `.avi` ou `.mkv`) e **recarregar o telão** — o servidor relê a pasta a
+cada conexão, então não precisa reiniciar no meio de um evento. Havendo mais de
+um vídeo lá, vale o **primeiro em ordem alfabética** (`escolherVideoBase()` em
+[gameLogic.js](gameLogic.js)): a ordem tem de ser previsível, senão dois telões
+podem acabar exibindo vídeos diferentes.
+
+Sem nenhum vídeo na pasta, volta o cartão de antes — ícone do esporte, nome do
+clube e "Aguardando transmissão..." piscando.
+
+Por que **mudo**: a espera roda solta por horas antes do jogo; som aqui brigaria
+com o som da quadra e ainda deixaria o aviso "🔇 Som bloqueado" aceso enquanto
+ninguém tocasse na tela (a política de autoplay só libera áudio após um gesto).
+Para querer som, é trocar `comSom: false` por `true` em `aplicarStandby()` em
+[public/index.html](public/index.html).
+
+`public/base/` é a pasta de arte do telão (fundos e elementos de cada esporte) e
+**vai para o Git** — ao contrário de `videos/`, `slides/` e `patrocinadores/`,
+ela não tem tela de upload: é conteúdo fixo da casa.
+
+### Carrossel do rodapé
+
+A arte do telão **reserva uma faixa escura** para o carrossel, e o carrossel tem
+de caber nela. Ela começa em **y=455 dos 512px** de altura do placar — 88,87% —
+e vai até a base, 57px de altura. O valor foi medido compondo
+`base/background.png` com o `box.png` de cada esporte e procurando a primeira
+linha, contígua até a base, em que nenhum pixel passa de luminância 20; dá o
+mesmo número nos três esportes.
+
+É esse número que está no `top` de `.sponsor-carousel-container` em
+[public/style.css](public/style.css). Subi-lo (já esteve em 85%) joga as logos
+por cima da tira com os nomes dos times. Dentro da faixa as logos ficam com
+**52px** de altura. Se a arte mudar, remeça antes de mexer no `top`.
+
+Como a faixa é curta por natureza, quem dá retorno de verdade ao patrocinador é
+a faixa de ponto, onde **todos** eles entram bem maiores (ver adiante).
+
+### Patrocinadores na faixa de ponto
+
+A barra do rodapé é estreita por natureza (sobra pouca altura acima da borda do
+placar), então as logos também entram **dentro da faixa de ponto** — o momento
+em que a quadra para e todo mundo olha para o telão. Ficam numa linha própria no
+rodapé da faixa, e não ao lado do texto: nome de jogador tem largura
+imprevisível e invadiria o espaço delas.
+
+Entram **todos os patrocinadores, em toda animação**, na ordem em que estão em
+`public/patrocinadores/` — sem rodízio e sem etiqueta antes deles (a lista
+costuma já trazer as próprias placas de "APOIO:" / "REALIZAÇÃO:" como imagem).
+
+Como a linha é uma só e a largura da faixa é fixa, **quem cede é a altura**:
+cada logo recebe uma fatia igual da largura (`flex: 1 1 0` + `min-width: 0`), o
+que garante que a lista nunca estoure a faixa, e `alturaLogoPatro()` em
+[public/index.html](public/index.html) baixa a altura conforme a lista cresce —
+6cqw até 4 logos, 5,2cqw até 6, 4,4cqw até 9, 3,6cqw acima disso. Medido com 8
+patrocinadores: **45px de altura** cada. Menos logos, logos maiores.
+
+Em **falta** a linha não aparece: falta não é vitrine.
+
+O custo é altura: com 8 patrocinadores a faixa vai de **47% para 60%** da altura
+do placar enquanto está em cena (5s). O placar continua visível acima e abaixo.
+Para reverter, é só esconder `#anim-patrocinadores`.
+
+Quando o jogador tem vídeo cadastrado, o vídeo em tela cheia vem antes e a faixa
+entra ao terminar.
 
 ### Fechamento de set / fim de jogo
 

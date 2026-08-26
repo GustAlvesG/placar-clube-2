@@ -56,8 +56,26 @@ body {
     z-index: 2;
 }
 
+/* ATENÇÃO ao que é cada um — os nomes enganam:
+     element-1 = a LOGO do esporte (o brasão "VOLEIBOL/FUTSAL/BASQUETE CFCSN")
+     element-2 = a BOLA
+   (as variáveis `bola`/`logo` no changeCssSport de index.html já apontaram
+   para o lado trocado; confira sempre o .png antes de mexer aqui.)
+
+   Os elementos usam as propriedades INDIVIDUAIS `translate`, `rotate` e
+   `scale` — não o `transform`. A bola (element-2) roda duas animações ao mesmo
+   tempo (flutuar + girar) e, com `transform`, a segunda da lista
+   sobrescreveria a primeira por inteiro: era o que fazia o `flutuar-2` não ter
+   efeito nenhum e o `translate(-50%,-50%)` sumir. Como propriedades separadas,
+   elas se compõem.
+
+   Isso pede Chrome/Edge 104+ — que é o navegador do telão (ver a seção de
+   autoplay no README). Não dá para deixar um `transform` como reserva: onde as
+   duas formas existem, elas SOMAM, e o deslocamento sairia dobrado. */
+
+/* LOGO do esporte */
 .element-1 {
-    transform: translate(-50%, -50%);
+    translate: -50% -50%;
     width: 60%;
     aspect-ratio: 1 / 1;
 
@@ -66,11 +84,18 @@ body {
 
     background-image: url('./base/volei/element-1.png');
 
-    animation: flutuar-1 10s ease-in-out infinite;
+    /* Só flutua e balança: dar volta completa numa logo deixaria o texto de
+       cabeça para baixo. A inclinação vem dentro do próprio `flutuar-1`. */
+    animation: flutuar-1 7s ease-in-out infinite;
 }
 
+/* BOLA */
 .element-2 {
-    transform: translate(-50%, -50%);
+    /* Sem centralização de propósito: o `spin` antigo anulava o
+       `translate(-50%,-50%)` da base, então é com o canto superior esquerdo
+       nestas coordenadas que este elemento sempre apareceu no telão. Mantido
+       assim para não deslocar a arte já ajustada. */
+    translate: 0 0;
     width: 50%;
     aspect-ratio: 1 / 1;
 
@@ -79,8 +104,10 @@ body {
 
     background-image: url('./base/volei/element-2.png');
 
-    animation: flutuar-2 6s ease-in-out, spin 90s linear infinite;
-
+    /* A volta completa é só desta: bola girando lê como bola. Por isso o
+       `flutuar-2` não mexe em `rotate` — se mexesse, o `girar`, por vir depois
+       na lista, anularia aquele pedaço. */
+    animation: flutuar-2 9s ease-in-out infinite, girar 30s linear infinite;
 }
 
 /* =========================
@@ -147,102 +174,43 @@ body {
    ANIMAÇÕES
 ========================= */
 
+/* As distâncias são em % do PRÓPRIO elemento (é assim que `translate` resolve
+   porcentagem), então a amplitude acompanha o tamanho dele em qualquer
+   resolução de telão. O element-1 tem ~644px: 4,5% dá ~29px de sobe-e-desce,
+   contra os 8,5px de antes. */
+
+/* As excursões são simétricas em amplitude E em tempo (sobe até 25%, volta ao
+   repouso em 50%, desce até 75%): assim a posição MÉDIA do elemento continua
+   sendo exatamente a de repouso, e a arte não parece ter sido reposicionada. */
+/* LOGO: a inclinação vive aqui dentro — é um balanço de ida e volta, e não a
+   volta completa que a bola dá. */
 @keyframes flutuar-1 {
-
-    0%{
-        transform:
-            translate(-50%, -50%)
-            scale(1)
-            rotate(0deg)
-            translateY(0px);
-    }
-
-    20%{
-        transform:
-            translate(-50%, -50%)
-            scale(1.03)
-            rotate(1.2deg)
-            translateY(-6px);
-    }
-
-    40%{
-        transform:
-            translate(-50%, -50%)
-            scale(0.985)
-            rotate(-1.5deg)
-            translateY(3px);
-    }
-
-    60%{
-        transform:
-            translate(-50%, -50%)
-            scale(1.02)
-            rotate(0.8deg)
-            translateY(-4px);
-    }
-
-    80%{
-        transform:
-            translate(-50%, -50%)
-            scale(1.01)
-            rotate(-0.6deg)
-            translateY(2px);
-    }
-
-    100%{
-        transform:
-            translate(-50%, -50%)
-            scale(1)
-            rotate(0deg)
-            translateY(0px);
-    }
+    0%, 100% { translate: -50%   -50%;   scale: 1;    rotate:  0deg; }
+    25%      { translate: -50.5% -54.5%; scale: 1.05; rotate: -3deg; }
+    50%      { translate: -50%   -50%;   scale: 1;    rotate:  0deg; }
+    75%      { translate: -49.5% -45.5%; scale: 0.95; rotate:  3deg; }
 }
 
 /* =========================
    ANIMAÇÃO ELEMENT-2
 ========================= */
 
+/* BOLA: sai do 0 0 (ver a nota em .element-2 sobre a centralização) e
+   simétrico pelo mesmo motivo do flutuar-1. Sem `rotate` de propósito — quem
+   gira a bola é o `girar`. */
 @keyframes flutuar-2 {
+    0%, 100% { translate:  0   0;    scale: 1; }
+    25%      { translate: -4%  1.5%; scale: 1.05; }
+    50%      { translate:  0   0;    scale: 1; }
+    75%      { translate:  4% -1.5%; scale: 0.95; }
+}
 
-    0%{
-        transform:
-            translate(-50%, -50%)
-            scale(1)
-            rotate(0deg)
-            translateX(0px);
-    }
-
-    25%{
-        transform:
-            translate(-50%, -50%)
-            scale(1.02)
-            rotate(-1deg)
-            translateX(-4px);
-    }
-
-    50%{
-        transform:
-            translate(-50%, -50%)
-            scale(1.04)
-            rotate(1.4deg)
-            translateX(3px);
-    }
-
-    75%{
-        transform:
-            translate(-50%, -50%)
-            scale(0.99)
-            rotate(-0.5deg)
-            translateX(5px);
-    }
-
-    100%{
-        transform:
-            translate(-50%, -50%)
-            scale(1)
-            rotate(0deg)
-            translateX(0px);
-    }
+/* Gira pela propriedade `rotate`, para poder rodar junto com o flutuar sem que
+   um anule o outro. O `spin` abaixo (via `transform`) continua existindo para
+   a bolinha do indicador de saque, que não tem animação concorrente. */
+@keyframes girar {
+    from { rotate: 0deg; }
+    to   { rotate: 360deg; }
 }
 
 @keyframes spin {
@@ -671,13 +639,94 @@ body {
     text-shadow: 0 0.5cqw 1.3cqw rgba(0, 0, 0, 0.6);
 }
 
+/* Linha do clube: brasão + nome. Vira flex porque a logo entra ao lado do
+   texto — com `text-align` a imagem não se alinha pela altura da linha. */
 #anim-time {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1.1cqw;
+
     color: rgba(255, 255, 255, 0.82);
     font-size: 3cqw;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     margin-top: 0.7cqw;
+}
+
+/* Sem foto do jogador o bloco inteiro se centra; a linha do clube acompanha
+   (`text-align` do pai não alcança um flex container). */
+#anim-overlay.sem-foto #anim-time {
+    justify-content: center;
+}
+
+/* O brasão fica pequeno de propósito: identifica o clube sem disputar com a
+   foto e o nome do jogador, que são o assunto da faixa. `contain` porque
+   escudo cortado deixa de ser reconhecível. */
+#anim-time-logo {
+    height: 4.2cqw;
+    max-width: 8cqw;
+    object-fit: contain;
+    /* Sobre o grená escuro, escudos escuros somem sem um realce. */
+    filter: brightness(1.12) drop-shadow(0 0.15cqw 0.4cqw rgba(0, 0, 0, 0.6));
+}
+
+/* Time sem logo cadastrada: a linha continua, só com o nome. */
+#anim-overlay.sem-logo-time #anim-time-logo {
+    display: none;
+}
+
+/* ---- Patrocinadores dentro da faixa de ponto ----
+   A barra do rodapé é estreita por natureza (sobra pouca altura acima da borda
+   do placar); aqui as logos entram grandes, no momento em que a quadra para e
+   todo mundo olha para o telão. Fica no rodapé da faixa, em linha própria, em
+   vez de ao lado do texto: nome de jogador é de tamanho imprevisível e
+   invadiria o espaço delas. */
+#anim-patrocinadores {
+    position: relative; /* acima do meio-tom */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Margens curtas de propósito: a linha custa altura à faixa, e a faixa
+       precisa continuar deixando o placar à vista acima e abaixo dela. O
+       espaço poupado aqui vira tamanho de logo logo abaixo. */
+    margin-top: 1cqw;
+    padding-top: 1cqw;
+    border-top: 0.12cqw solid rgba(255, 215, 106, 0.35);
+}
+
+/* Sem patrocinador cadastrado a linha inteira some — inclusive o filete. */
+#anim-overlay.sem-patrocinio #anim-patrocinadores {
+    display: none;
+}
+
+/* Todos os patrocinadores entram juntos, numa linha só. Ocupa a largura toda da
+   faixa e cada logo recebe uma fatia igual (`flex: 1 1 0` + `min-width: 0`) —
+   é isso que garante que a lista NUNCA estoure a faixa, por maior que ela
+   fique. A altura vem do `--patro-h`, que o telão ajusta pelo tamanho da lista
+   (ver `alturaLogoPatro` em index.html). */
+#anim-patro-logos {
+    --patro-h: 6cqw;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--patro-h) * 0.5);
+}
+
+/* `contain` dentro da fatia: as logos vêm em proporções variadas e nenhuma pode
+   ser cortada nem distorcida — a que não preenche a fatia sobra espaço nas
+   laterais, e é só. */
+#anim-patro-logos img {
+    flex: 1 1 0;
+    min-width: 0;
+    height: var(--patro-h);
+    object-fit: contain;
+    /* As logos são coloridas sobre um fundo grená escuro — um leve realce
+       impede que as escuras desapareçam. */
+    filter: brightness(1.12) drop-shadow(0 0.2cqw 0.5cqw rgba(0, 0, 0, 0.55));
 }
 
 /* Entrada escalonada: cada peça sobe um instante depois da faixa abrir */
@@ -687,6 +736,8 @@ body {
 #anim-overlay.ativo #anim-acao          { animation: anim-sobe 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.28s both; }
 #anim-overlay.ativo #anim-jogador-linha { animation: anim-destaque 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both; }
 #anim-overlay.ativo #anim-time          { animation: anim-sobe 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.48s both; }
+/* Os patrocinadores entram por último: primeiro o lance, depois o apoio. */
+#anim-overlay.ativo #anim-patrocinadores { animation: anim-sobe 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both; }
 
 @keyframes anim-sobe {
     from { opacity: 0; transform: translateY(1.4cqw); }
@@ -697,6 +748,36 @@ body {
     0%   { opacity: 0; transform: translateX(-2cqw) scale(0.9); }
     60%  { opacity: 1; transform: translateX(0) scale(1.05); }
     100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ---- PONTO SEM JOGADOR ESCOLHIDO ----
+   O ponto é do time, então quem ocupa o lugar de destaque é o time: a logo
+   entra no lugar da foto e o nome do clube vira a linha grande. A logo NÃO é
+   recortada em círculo como a foto de jogador — marca cortada fica ilegível. */
+#anim-overlay.anim-time-only #anim-foto {
+    border-radius: 0.8cqw;
+    object-fit: contain;
+    width: 15cqw;
+    height: 15cqw;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.8cqw;
+}
+
+/* O número é do jogador; sem jogador, não existe. */
+#anim-overlay.anim-time-only #anim-numero {
+    display: none;
+}
+
+/* O nome do clube já é o destaque — repeti-lo embaixo seria eco. */
+#anim-overlay.anim-time-only #anim-time {
+    display: none;
+}
+
+/* Nome de clube é mais longo que nome de jogador: um pouco menor para caber
+   sem competir com os dígitos do placar. */
+#anim-overlay.anim-time-only #anim-nome {
+    font-size: 5.6cqw;
 }
 
 /* FALTA: mesma faixa, sem festa — grená fechado, fio rosado no lugar do
@@ -1046,42 +1127,57 @@ body {
 }
 
 
+/* Carrossel do rodapé. Tudo em cqw (e não em px fixo, como já foi): o placar
+   mede 1024px de largura declarada mas é escalado pelo container, então medida
+   em px encolhia a logo em relação ao resto do telão.
+
+   O `top` NÃO é um número escolhido a gosto: a arte reserva uma faixa escura
+   para o carrossel, e ela começa exatamente em y=455 dos 512px de altura do
+   placar — 88,87%. Medido compondo base/background.png com o box.png de cada
+   esporte e procurando a primeira linha, contígua até a base, em que nenhum
+   pixel passa de luminância 20; dá o mesmo valor nos três esportes. Subir esse
+   `top` joga as logos por cima da tira dos nomes dos times, que é o que
+   acontecia com 85%.
+
+   Da faixa para baixo tudo é 100% de altura, para a logo usar a tira inteira
+   que sobrou. Se a arte mudar, remeça e ajuste aqui. */
 .sponsor-carousel-container{
 	position:absolute;
-	top:86.5%;
+	top:88.87%;
+	bottom:0;
 	width:100%;
 	overflow:hidden;
 	background-color:transparent;
-	padding:10px;
+	/* Respiro mínimo: a faixa tem só 57px e cada px daqui sai da logo. */
+	padding:0.25cqw 0;
 	box-sizing:border-box;
 }
 .sponsor-track{
 	display:flex;
-	
+	height:100%;
 	width:max-content;
 	animation:infiniteScroll 28s linear infinite;
-	
 }
 .sponsor-group{
 	display:flex;
-	gap:50px;
-	padding-right:30px;
+	align-items:center;
+	height:100%;
+	gap:5cqw;
+	padding-right:5cqw;
 }
 .sponsor-item{
-	width:150px;
-	height:60px;
+	width:20cqw;
+	height:100%;
 	background-color:transparent;
-	color:white;
 	display:flex;
 	justify-content:center;
 	align-items:center;
-	border-radius:8px;
-	font-family:sans-serif;
-	font-weight:bold;
 }
+/* `contain` com limite nos dois eixos: as logos chegam em proporções variadas
+   e nenhuma pode ser cortada nem estourar a faixa. */
 .sponsor-item img{
-	max-height: 75%;
-	min-height:70%;
+	max-height:100%;
+	max-width:100%;
 	object-fit:contain;
 }
 @keyframes infiniteScroll{

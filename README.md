@@ -416,8 +416,21 @@ caso de falha de rede.
 - Cadastra nome e logo de cada time (upload de imagem)
 - **Cadastro de Elenco**: adiciona jogadores com número, nome e foto (opcional)
 - **Importar elenco** (.txt/.csv/.xlsx): uma linha por jogador, ex. `10;João Silva` (aceita `;`, `,`, TAB ou espaço como separador; em planilhas, colunas Número/Nome) — a página traz um guia com exemplos dos dois formatos
-- Clicar **SALVAR** emite `configurar_jogo` com `timeA_elenco` e `timeB_elenco`
-- Botão de **INICIAR/ENCERRAR TRANSMISSÃO** toggle `transmissaoAtiva`
+- **Carregar um jogo pela API já salva a configuração**: `aplicarRespostaJogoNaTela`
+  preenche esporte, nomes e elencos e emite `configurar_jogo` na sequência — não há um
+  "agora clique em SALVAR" no meio do caminho. Vale igual para **Carregar** (jogo
+  planejado) e para **Criar times e jogo agora** (avulso). O formulário **não** trava
+  nesse salvamento, porque mexer no elenco logo depois é comum; e quem mexe precisa
+  clicar em **SALVAR CONFIGURAÇÃO** de novo (o `alert` de carregamento avisa)
+- Clicar **SALVAR CONFIGURAÇÃO** emite `configurar_jogo` com `timeA_elenco` e
+  `timeB_elenco` e **trava** o formulário (só ZERAR e TRANSMISSÃO seguem ativos): é a
+  confirmação do modo manual, onde não há API para preencher nada
+- Botão de **INICIAR/ENCERRAR TRANSMISSÃO** toggle `transmissaoAtiva`. Fica logo abaixo
+  do bloco da API, e não no fim da página: no fluxo pela API a configuração já está
+  salva quando o jogo é carregado, então o passo seguinte é transmitir. Tudo abaixo
+  dele (regras, elenco, importação) é ajuste opcional. A lista de jogos tem altura
+  limitada com rolagem própria pelo mesmo motivo — a agenda inteira do clube empurrava
+  o botão para ~1500px abaixo do topo
 - Botão **⚠️ ZERAR PLACAR E DADOS** (com confirmação) emite `zerar_configuracao_completa`:
   apaga absolutamente tudo — esporte, nomes, logos, elenco, cronômetro e o vínculo com o
   jogo da API — e volta para uma configuração em branco. Diferente do "ZERAR TUDO" das
@@ -741,14 +754,46 @@ O fechamento manda em cena: ao entrar, corta a faixa de ponto (z-index 41 contra
 40, dentro do placar) e o vídeo do lance, que é irmão do container e por isso sai
 por JS.
 
+### Tela cheia
+
+A arte do telão (`base/background.png` + o `box.png` de cada esporte) é **2:1**,
+e o `.placar-container` cresce até o **maior 2:1 que cabe na janela**
+(`width: min(100vw, 200vh)` em [style.css](public/style.css)). Antes ele tinha
+largura fixa de 1024px: numa TV 1920×1080 o placar ocupava um quarto da tela e o
+resto era fundo liso.
+
+A escala é **uniforme** de propósito. Esticar para 16:9 quebraria o alinhamento
+(as posições são % da altura, mas as fontes são `cqw`, que só acompanha a
+largura) e cortar (`cover`) comeria as logos do Clube e da CBC, que a arte põe
+nos cantos de cima.
+
+A sobra que aparece quando a tela não é 2:1 — 60px em cima e embaixo numa
+1920×1080 — é **pintada com a cor da borda da própria arte** (`body::before` /
+`body::after`, e o fundo do `body` para as laterais de telas mais largas que
+2:1). Dá para fazer isso porque a arte é constante na vertical nas
+primeiras/últimas dezenas de linhas: a faixa repete a linha da borda e a emenda
+não aparece. O vídeo de standby (`base/waiting.mp4`, 1920×960) tem as mesmas
+bordas e usa o mesmo preenchimento pela classe `.preenche-sobra` — era ali que
+a tarja preta mais aparecia, porque é a tela que fica no ar antes do jogo.
+
+**Se a arte mudar, remeça as bordas** (linhas 0 e 511 de `background.png`
+escalado para 1024×512, colunas 0/1023 para as laterais) e atualize os
+gradientes `--borda-arte-*` no topo do style.css.
+
+O telão ainda **pede tela cheia ao navegador** no primeiro clique/tecla da
+sessão (o mesmo gesto que libera o áudio; fullscreen exige gesto do usuário).
+Só na primeira vez — insistir a cada clique impediria o operador de sair. Depois
+disso o **duplo-clique liga/desliga** e o Esc sai. Em quiosque já sobe cheio e o
+pedido vira no-op.
+
 ### Escala das faixas
 
 As faixas de ponto e de fechamento são **filhas do `.placar-container`** e todas
 as medidas delas estão em `cqw`, igual ao resto do placar.
 
-Isso não é detalhe de estilo, é correção de bug: o container tem **largura fixa
-de 1024px** (`width: 1024px` em [style.css](public/style.css)), então medir a
-faixa em `vh`/`vw` a amarrava ao tamanho da **janela**, não ao do placar. Em
+Isso não é detalhe de estilo, é correção de bug: o container ocupa **só a maior
+área 2:1 que cabe na janela** (ver "Tela cheia" acima), então medir a faixa em
+`vh`/`vw` a amarrava ao tamanho da **janela**, não ao do placar. Em
 telas com proporção diferente da do monitor onde a animação foi ajustada — um
 painel largo e baixo, por exemplo — a faixa saía desproporcional em relação ao
 placar, apesar de o placar em si continuar igual.
@@ -959,8 +1004,11 @@ página) e já toca o primeiro vídeo com som. No Firefox o equivalente é
 4. Adicione jogadores:
    - `10 | João Silva | [foto]`
    - `7 | Pedro Santos | [foto]`
-5. Clique **SALVAR**
-6. Clique **INICIAR TRANSMISSÃO** (overlay de standby desaparece no telão)
+5. Clique **SALVAR CONFIGURAÇÃO**
+6. Clique **INICIAR TRANSMISSÃO** (a tela de espera do telão dá lugar ao placar)
+
+Pela API (fluxo recomendado) são dois passos: **Carregar** o jogo — que já salva a
+configuração — e **INICIAR TRANSMISSÃO**, logo abaixo.
 
 ### Durante o Jogo
 1. Abra `http://192.168.1.50:3000/controle/controle_futsal.html` no tablet

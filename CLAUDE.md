@@ -76,6 +76,32 @@ The telão's waiting screen (`#tela-inicial`, shown until `transmissaoAtiva`) pl
 
 `aplicarStandby()` in public/index.html only touches `video.src` when the filename actually changes (assigning it restarts playback, and `atualizar_tela` arrives on every clock tick) and pauses the video while transmission is on so it isn't decoded behind the scoreboard.
 
+### Telão sizing (full screen)
+
+The artwork (`base/background.png` + each sport's `box.png`) is **2:1**, and every
+element inside the scoreboard is positioned in % / `cqw` of `.placar-container` —
+so the only transformation that keeps the numbers aligned with the art is a
+**uniform scale**. The container therefore grows to the largest 2:1 box that fits
+the window (`width: min(100vw, 200vh)`); it used to be a fixed `1024px`, which on a
+1080p TV left the scoreboard at a quarter of the screen. Don't "fix" the leftover
+by stretching (positions are % of height, fonts are `cqw` = width only) or by
+`cover`-cropping (it eats the club and CBC logos in the art's top corners, and the
+sponsor band on screens wider than 2:1).
+
+The leftover is painted with the artwork's own **edge colors** — `--borda-arte-topo`
+/ `--borda-arte-base` / `--borda-arte-lados` at the top of style.css, applied via
+`body::before`/`body::after` (top/bottom) and the body background (sides). The art
+is vertically constant in its first/last few dozen rows, so the strip continues it
+seamlessly. The standby video (`base/waiting.mp4`, 1920×960, same edges) reuses them
+through the `.preenche-sobra` class instead of its old `background:#000`. **If the
+art changes, re-measure those edges** and update the three variables.
+
+The telão also requests browser fullscreen on the session's first click/keypress
+(the same gesture that unlocks audio) — once only, so the operator can still leave;
+after that double-click toggles it. And a debounced `resize` handler re-runs
+`ajustarNome()`, whose fitting math caches px values that go stale when the window
+(or fullscreen state) changes.
+
 ### Sponsor carousel
 
 The telão footer scrolls sponsor logos (`.sponsor-*` in style.css). Source of truth is the files in `public/patrocinadores/`: at startup (and after each upload/delete) the server reads the dir into `gameState.patrocinadores` as an array of filenames, and the telão builds the track as `<img src="patrocinadores/<name>">`. Empty list hides the carousel container. The telão caches a signature of the list to avoid rebuilding the DOM (and restarting the CSS animation) on every broadcast.
@@ -91,5 +117,7 @@ Because the band is inherently short, the same list also feeds the **point-anima
 `controle_futsal.html`/`controle_basquete.html`/`controle_volei.html` are **not** separate screens any more — they are one-line redirects to `controle.html`, kept only so bookmarks saved on the operators' tablets keep working. Everything that differs per sport (number of point buttons, faltas vs. sets, período, timer direction, set-closing bar) lives in the `ESPORTES` object at the top of `controle.html`'s script; add a sport or change a per-sport rule there, not by forking the page. The layout is ordered by how often the operator touches each control: clock in the top bar (tapping it toggles play/pause), a full-height scoring button per team in the middle, correction (−1, behind a `confirm()`) plus the contextual action in the bottom bar, and everything used once per game or destructive (definir tempo, período, inverter lados, fechar jogo, parar transmissão, zerar) behind the `⚙ MAIS` overlay.
 
 Team colors are **CSS custom properties** (`.tema-azul`/`.tema-vermelho` in the page's `<style>`), applied to `[data-lado]` elements by `aplicarTemas()` — not Tailwind color classes. This is what lets "inverter lados" repaint both panels so the color follows the *team* rather than the screen position. When restyling a panel, extend the variables; a hardcoded `bg-blue-600` there would stop swapping on invert.
+
+In the setup screen, `enviarConfiguracao()` is the emit and `salvarConfig()` is emit + validate + lock the form. Loading a game from the API (`aplicarRespostaJogoNaTela`, shared by "Carregar" and by the avulso creation) calls `enviarConfiguracao()` directly, so the API flow never needs an explicit save — and deliberately does **not** lock the form, because editing the roster right after is normal. Keep that split: putting the lock inside `enviarConfiguracao` would freeze the page on every API load. The broadcast card sits right below the API card (not at the bottom) for the same reason, and `#lista-jogos` is height-capped with its own scroll so the agenda doesn't push it off-screen.
 
 Note the two "zerar" are different and both must keep existing: `comando_placar`/`zerar_tudo` (from the table, preserves teams/roster/API link mid-match) vs. `zerar_configuracao_completa` (from the setup screen, resets everything and unlinks the API game).

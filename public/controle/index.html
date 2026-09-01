@@ -54,7 +54,10 @@
                     <input type="date" id="filtro-data-jogos" class="border rounded-lg p-2 text-sm">
                     <button type="button" onclick="buscarJogos()" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform">🔎 Buscar jogos</button>
                 </div>
-                <div id="lista-jogos" class="space-y-2 text-sm text-gray-500">Nenhuma busca feita ainda.</div>
+                <!-- Altura limitada com rolagem própria: a busca traz a agenda
+                     inteira do clube e, sem teto, a lista empurrava o botão de
+                     INICIAR TRANSMISSÃO para 1500px abaixo do topo. -->
+                <div id="lista-jogos" class="space-y-2 text-sm text-gray-500 max-h-[26rem] overflow-y-auto pr-1">Nenhuma busca feita ainda.</div>
             </div>
 
             <!-- Avulso: cria equipe/time (pelo nome, firstOrCreate no backend) + jogo na hora -->
@@ -76,6 +79,21 @@
                 </button>
                 <p class="text-xs text-gray-400 mt-2">Isso também acontece sozinho ao apertar ▶ PLAY no cronômetro — este botão é só para marcar como ao vivo antes de começar a contar o tempo.</p>
             </div>
+        </div>
+
+        <!-- Transmissão. Fica logo abaixo do bloco da API de propósito: no fluxo
+             normal (carregar um jogo da API) a configuração já foi salva sozinha
+             no carregamento, então daqui o operador vai direto para o telão sem
+             precisar descer a página toda. O que está abaixo — regras, elenco,
+             importação — é ajuste, não etapa obrigatória. -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-md border-t-4 border-gray-800 text-center mt-8">
+            <h2 class="text-xl font-black text-gray-700 mb-2">Transmissão do Telão</h2>
+            <p id="status-transmissao" class="text-gray-400 text-sm mb-5">Status: <span id="texto-status" class="font-bold text-red-500">Desligada</span></p>
+            <button id="btn-transmissao" onclick="toggleTransmissao()"
+                class="w-full md:w-auto bg-green-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-green-700 active:bg-green-800 transition shadow-xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
+                📡 INICIAR TRANSMISSÃO
+            </button>
+            <p class="text-xs text-gray-400 mt-3">Leva direto para a mesa de pontuação. No modo manual, salve a configuração antes (o botão fica no fim da página).</p>
         </div>
 
         <!-- Regras do Jogo -->
@@ -188,16 +206,6 @@ Ana Lima</pre>
         <div class="text-center mt-10">
             <button id="salvar" onclick="salvarConfig()" class="w-full md:w-auto bg-green-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-green-700 active:bg-green-800 transition shadow-xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
                 ✅ SALVAR CONFIGURAÇÃO
-            </button>
-        </div>
-
-        <!-- Transmissão -->
-        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-md border-t-4 border-gray-800 text-center mt-8">
-            <h2 class="text-xl font-black text-gray-700 mb-2">Transmissão do Telão</h2>
-            <p id="status-transmissao" class="text-gray-400 text-sm mb-5">Status: <span id="texto-status" class="font-bold text-red-500">Desligada</span></p>
-            <button id="btn-transmissao" onclick="toggleTransmissao()"
-                class="w-full md:w-auto bg-green-600 text-white px-12 py-5 rounded-2xl font-black text-xl hover:bg-green-700 active:bg-green-800 transition shadow-xl border-b-4 border-green-800 active:border-b-0 active:translate-y-1">
-                📡 INICIAR TRANSMISSÃO
             </button>
         </div>
 
@@ -419,7 +427,15 @@ Ana Lima</pre>
             renderElenco('timeA');
             renderElenco('timeB');
 
-            alert(`Jogo #${jogo.id} carregado. Ajuste o elenco/escalação se precisar e clique em "Iniciar jogo (API)" para começar a marcar ao vivo.`);
+            // Salva na hora: o jogo veio pronto da API (esporte, nomes, elenco),
+            // então pedir "agora clique em SALVAR" seria só um passo a mais para
+            // errar. Mexer no elenco depois exige SALVAR CONFIGURAÇÃO de novo —
+            // é o que o aviso abaixo diz.
+            enviarConfiguracao();
+
+            alert(`Jogo #${jogo.id} carregado e já salvo no telão.
+
+Se ajustar elenco ou escalação, clique em SALVAR CONFIGURAÇÃO antes de transmitir.`);
         }
 
         function mapearJogadorApi(j) {
@@ -495,6 +511,34 @@ Ana Lima</pre>
             socket.emit('comando_transmissao', { ativa: ligando });
         }
 
+        const limparElenco = (arr) => arr
+            .map(j => ({
+                numero: String(j.numero || '').trim(), nome: (j.nome || '').trim(), foto: j.foto || '',
+                // Preserva o vínculo com a API (se veio de lá) — sem isso os
+                // eventos de ponto/falta perderiam o jogador_id ao salvar.
+                ...(j.video ? { video: j.video } : {}),
+                ...(j.jogador_id ? { jogador_id: j.jogador_id } : {}),
+                ...(j.titular !== undefined ? { titular: !!j.titular } : {}),
+                ...(j.capitao !== undefined ? { capitao: !!j.capitao } : {})
+            }))
+            .filter(j => j.nome || j.numero);
+
+        // Manda para o servidor o que está na tela. Separado de salvarConfig()
+        // porque o carregamento pela API salva sozinho — e lá NÃO se trava o
+        // formulário, já que o operador costuma mexer no elenco logo depois.
+        function enviarConfiguracao() {
+            const esporteSelecionado = document.querySelector('input[name="esporte"]:checked');
+            socket.emit('configurar_jogo', {
+                // Sem esporte marcado o servidor mantém o que já estava (ver
+                // configurarJogo em gameLogic.js) — não vira 'undefined'.
+                ...(esporteSelecionado ? { esporte: esporteSelecionado.value } : {}),
+                timeA_nome: document.getElementById('nome_a').value,
+                timeB_nome: document.getElementById('nome_b').value,
+                timeA_elenco: limparElenco(elenco.timeA),
+                timeB_elenco: limparElenco(elenco.timeB)
+            });
+        }
+
         function salvarConfig(){
             const esporteSelecionado = document.querySelector('input[name="esporte"]:checked');
             const nomeA = document.getElementById('nome_a').value.trim();
@@ -505,36 +549,12 @@ Ana Lima</pre>
                 return;
             }
 
-            // Select all form controls
-            const elements = document.querySelectorAll(
-                'input, textarea, select, button'
-            );
+            enviarConfiguracao();
 
-            // Disable each one
-            elements.forEach(el => {
-                el.disabled = true;
-            });
-
-            const limparElenco = (arr) => arr
-                .map(j => ({
-                    numero: String(j.numero || '').trim(), nome: (j.nome || '').trim(), foto: j.foto || '',
-                    // Preserva o vínculo com a API (se veio de lá) — sem isso os
-                    // eventos de ponto/falta perderiam o jogador_id ao salvar.
-                    ...(j.video ? { video: j.video } : {}),
-                    ...(j.jogador_id ? { jogador_id: j.jogador_id } : {}),
-                    ...(j.titular !== undefined ? { titular: !!j.titular } : {}),
-                    ...(j.capitao !== undefined ? { capitao: !!j.capitao } : {})
-                }))
-                .filter(j => j.nome || j.numero);
-
-            socket.emit('configurar_jogo', {
-                esporte: esporteSelecionado.value,
-                timeA_nome: document.getElementById('nome_a').value,
-                timeB_nome: document.getElementById('nome_b').value,
-                timeA_elenco: limparElenco(elenco.timeA),
-                timeB_elenco: limparElenco(elenco.timeB)
-            });
-
+            // Trava o formulário: a configuração foi confirmada e o próximo
+            // passo é transmitir. (O carregamento pela API não trava — ver
+            // enviarConfiguracao.)
+            document.querySelectorAll('input, textarea, select, button').forEach(el => { el.disabled = true; });
             document.getElementById('zerar').disabled = false;
             document.getElementById('btn-transmissao').disabled = false;
         }

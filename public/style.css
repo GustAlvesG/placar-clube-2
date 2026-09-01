@@ -5,22 +5,100 @@
     box-sizing: border-box;
 }
 
+/* =========================
+   TELA CHEIA
+   =========================
+   A arte do telão (background.png + box.png) é 2:1 e TODO o placar é medido em
+   % / cqw do .placar-container. A única transformação que mantém os números
+   casados com a arte é uma ESCALA UNIFORME:
+     - esticar quebraria: as posições são % da altura, mas as fontes são cqw,
+       que só acompanha a largura;
+     - cortar (cover) comeria as logos do Clube e da CBC, que a arte põe nos
+       cantos de cima — e, em tela mais larga que 2:1, comeria a faixa dos
+       patrocinadores embaixo.
+
+   Então o placar cresce até o maior 2:1 que cabe na janela e a SOBRA é pintada
+   com a cor da própria borda da arte. Dá para fazer isso porque a arte é
+   constante na vertical nas primeiras/últimas dezenas de linhas: as faixas
+   abaixo repetem a linha da borda e a emenda não aparece. Resultado: nenhuma
+   borda "vazia" em qualquer proporção de tela, sem distorcer nem cortar nada.
+
+   Se a arte mudar, remeça as bordas (linhas 0 e 511 de base/background.png
+   escalado para 1024x512, e as colunas 0/1023 para as laterais) e atualize os
+   gradientes daqui. */
+:root {
+    /* Maior largura 2:1 que cabe inteira na janela. */
+    --placar-largura: min(100vw, 200vh);
+    /* Sobra acima e abaixo do placar; dá 0 em tela mais larga que 2:1. */
+    --sobra-vertical: calc((100vh - var(--placar-largura) / 2) / 2);
+
+    /* As bordas da arte, para pintar a sobra. O vídeo de standby
+       (base/waiting.mp4, também 2:1) tem as mesmas bordas, por isso os três
+       gradientes servem tanto ao placar quanto a ele. */
+    --borda-arte-topo: linear-gradient(to right, #3b0001 0%, #410010 10%, #47001f 20%, #50082a 30%, #5b1532 40%, #641f38 50%, #5f1934 60%, #560e2e 70%, #4a0126 80%, #420014 90%, #3b0001 100%);
+    --borda-arte-base: linear-gradient(to right, #130000 0%, #150008 10%, #170010 20%, #1a0215 30%, #1d0619 40%, #20091c 50%, #1f071a 60%, #1c0417 70%, #180013 80%, #15000a 90%, #130000 100%);
+    --borda-arte-lados: linear-gradient(to bottom, #3b0001 0%, #3b0001 12%, #6a0311 25%, #6a0311 72%, #3b0001 82%, #130000 90%, #130000 100%);
+}
+
+/* Pinta a sobra de quem mostra a arte 2:1 dentro de uma caixa da tela inteira:
+   faixa de cima, faixa de baixo e, quando a tela é mais larga que 2:1, as
+   laterais. Usada pelo vídeo de standby, que fica em object-fit:contain (o
+   fundo preto dele era a "borda vazia" mais visível, porque essa é a tela que
+   fica no ar antes do jogo). */
+.preenche-sobra {
+    background-image: var(--borda-arte-topo), var(--borda-arte-base), var(--borda-arte-lados);
+    background-size: 100% var(--sobra-vertical), 100% var(--sobra-vertical), 100% 100%;
+    background-position: top center, bottom center, center;
+    background-repeat: no-repeat;
+}
+
 body {
     background-color: #3c0002;
-    background:linear-gradient(to bottom,#490025 , #1D0518) ;
+    /* Sobra das LATERAIS (tela mais larga que 2:1): continua a coluna da borda
+       esquerda/direita da arte. As faixas de cima e de baixo vêm do
+       body::before / body::after. */
+    background-image: var(--borda-arte-lados);
     display: flex;
     justify-content: center;
     align-items: center;
+    width: 100vw;
     height: 100vh;
     font-family: 'Arial', sans-serif;
     overflow: hidden;
 }
 
+/* Sobra de CIMA e de BAIXO. */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    left: 0;
+    right: 0;
+    height: var(--sobra-vertical);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Linha do topo da arte. */
+body::before {
+    top: 0;
+    background-image: var(--borda-arte-topo);
+}
+
+/* Linha da base da arte (a faixa escura dos patrocinadores). */
+body::after {
+    bottom: 0;
+    background-image: var(--borda-arte-base);
+}
+
 .placar-container {
     position: relative;
+    /* Acima das faixas de sobra: o body::after vem depois no DOM e, sem isto,
+       seria pintado por cima do placar. */
+    z-index: 1;
 
-    /* Responsividade */
-    width: 1024px;
+    /* Responsividade: a maior área 2:1 que cabe na tela. */
+    width: var(--placar-largura);
     aspect-ratio: 16 / 8;
     background-color:#3c0002;
     background-image: url('./base/background.png');
@@ -344,6 +422,11 @@ body {
     align-items: center;
 }
 
+.logo .sigla {
+    font-size: 4.7cqw;
+    line-height: 1;
+}
+
 .logo img {
     max-width: 100%;
     max-height: 100%;
@@ -482,8 +565,8 @@ body {
 
    TUDO É MEDIDO EM cqw (largura do .placar-container), igual ao resto do
    placar. Medir em vh/vw amarraria a faixa ao tamanho da JANELA, enquanto o
-   placar tem largura fixa de 1024px: em telão com proporção diferente da do
-   monitor do operador a faixa saía desproporcional.
+   placar ocupa só a maior área 2:1 que cabe nela (ver "TELA CHEIA" no topo):
+   em tela com proporção diferente de 2:1 a faixa sairia desproporcional.
 
    Linha do tempo (5s, igual ao ANIM_DURACAO do telão):
      0,00–0,55s  a faixa se abre da esquerda para a direita

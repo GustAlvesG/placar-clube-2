@@ -22,7 +22,7 @@
          Com um vídeo em public/base/ ele toca em loop ocupando a tela toda; sem
          vídeo, cai no cartão antigo (#standby-texto). Ver aplicarStandby(). -->
     <div id="tela-inicial" style="position:fixed;inset:0;z-index:90;background:linear-gradient(to bottom,#490025 , #1D0518) ;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
-        <video id="video-standby" loop playsinline style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;"></video>
+        <video id="video-standby" class="preenche-sobra" loop playsinline style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;"></video>
         <div id="standby-texto" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;">
             <div id="icone-esporte" style="font-size:9rem;line-height:1;">⚽</div>
             <h1 style="color:#fff;font-size:2.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;font-family:sans-serif;">Clube dos Funcionários</h1>
@@ -67,11 +67,11 @@
         <div id="logos">
             <div class="logo logo-mandante flex items-center justify-center">
                 <img id="logo-mandante" alt="Logo Mandante">
-                <div id="sigla-mandante" class="hidden text-white font-bold text-5xl text-center w-full h-full flex items-center justify-center"></div>
+                <div id="sigla-mandante" class="hidden sigla text-white font-bold text-center w-full h-full flex items-center justify-center"></div>
             </div>
             <div class="logo logo-visitante flex items-center justify-center">
                 <img id="logo-visitante" alt="Logo Visitante">
-                <div id="sigla-visitante" class="hidden text-white font-bold text-5xl text-center w-full h-full flex items-center justify-center"></div>
+                <div id="sigla-visitante" class="hidden sigla text-white font-bold text-center w-full h-full flex items-center justify-center"></div>
             </div>
         </div>
 
@@ -226,6 +226,37 @@
 
         ['pointerdown', 'keydown', 'touchstart'].forEach(evento =>
             window.addEventListener(evento, liberarAudio, { passive: true }));
+
+        // ---- Tela cheia -----------------------------------------------------
+        // O layout já preenche toda a área disponível (ver "TELA CHEIA" no
+        // style.css), mas num navegador comum a barra de endereço/abas ainda
+        // come altura. Pedir fullscreen exige gesto do usuário: aproveitamos o
+        // PRIMEIRO gesto da sessão — o mesmo que libera o áudio — e paramos por
+        // aí, porque insistir a cada clique impediria o operador de sair. Do
+        // segundo gesto em diante quem liga/desliga é o duplo-clique (o Esc do
+        // navegador também sai). Em quiosque já sobe cheio e o pedido vira
+        // no-op.
+        let telaCheiaTentada = false;
+
+        function entrarTelaCheia() {
+            if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+            const pedido = document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+            if (pedido) pedido.catch(() => { /* negado: o layout já preenche o que existe */ });
+        }
+
+        function tentarTelaCheiaUmaVez() {
+            if (telaCheiaTentada) return;
+            telaCheiaTentada = true;
+            entrarTelaCheia();
+        }
+
+        ['pointerdown', 'keydown'].forEach(evento =>
+            window.addEventListener(evento, tentarTelaCheiaUmaVez, { passive: true }));
+
+        window.addEventListener('dblclick', () => {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else entrarTelaCheia();
+        });
 
         // Se o áudio já está autorizado (flag de quiosque, ou MEI alto por uso
         // recorrente), nem espera gesto.
@@ -767,6 +798,23 @@
                 span.classList.add('nome-cortado');
             }
         }
+
+        // O placar acompanha o tamanho da janela, então as medidas em px que o
+        // ajustarNome guarda (maxWidth do corte) envelhecem quando ela muda —
+        // inclusive ao entrar e sair da tela cheia. Remede com o texto em cena.
+        let remedirNomes = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(remedirNomes);
+            remedirNomes = setTimeout(() => {
+                ['nomeA', 'nomeB'].forEach(id => {
+                    const el = document.getElementById(id);
+                    const texto = el.dataset.nome;
+                    if (texto === undefined) return;
+                    delete el.dataset.nome;   // sem isto o ajustarNome sai na 1ª linha
+                    ajustarNome(el, texto);
+                });
+            }, 150);
+        });
 
         // SET POINT — a animação de entrada só roda quando o estado MUDA
         // (apareceu, sumiu ou trocou de time). Sem essa guarda ela recomeçaria a

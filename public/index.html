@@ -18,6 +18,11 @@
         <video id="anim-video" style="width:100%;height:100%;object-fit:contain;background:#000;" playsinline></video>
     </div>
 
+    <!-- Cronômetro flutuante: no basquete o tempo tem que continuar na tela
+         mesmo quando o vídeo do jogador (acima) cobre tudo. Ver
+         manterTempoVisivel() e o bloco "CRONÔMETRO SEMPRE À VISTA" no CSS. -->
+    <div id="tempo-flutuante"></div>
+
     <!-- Tela inicial / standby (visível até a transmissão ser iniciada).
          Com um vídeo em public/base/ ele toca em loop ocupando a tela toda; sem
          vídeo, cai no cartão antigo (#standby-texto). Ver aplicarStandby(). -->
@@ -659,7 +664,39 @@
 
             const tempoEl = document.getElementById('tempo');
             if (tempoEl && display) tempoEl.innerText = display;
+            manterTempoVisivel(display, esporte);
         }, 50);
+
+        // No basquete o cronômetro não pode ser ocultado em momento algum. Como
+        // as faixas de ponto/falta e de fechamento de quarto e o vídeo do
+        // jogador cobrem o lugar dele no placar, enquanto qualquer um deles
+        // está em cena o relógio se muda para o #tempo-flutuante, na faixa do
+        // topo da arte, e o #tempo do placar fica oculto — nunca dois relógios.
+        // O porquê da mudança de lugar (em vez de só subir o #tempo por cima da
+        // faixa) está no bloco "CRONÔMETRO SEMPRE À VISTA" do CSS.
+        //
+        // Mora no próprio laço do cronômetro de propósito: assim vale para toda
+        // entrada e saída de animação (inclusive as cortadas no meio por um
+        // lance novo) sem instrumentar uma por uma.
+        function manterTempoVisivel(display, esporte) {
+            const tempoEl = document.getElementById('tempo');
+            const flutuante = document.getElementById('tempo-flutuante');
+            if (!tempoEl || !flutuante) return;
+
+            const faixaEmCena =
+                document.getElementById('anim-overlay').classList.contains('ativo') ||
+                document.getElementById('set-overlay').classList.contains('ativo');
+            // O vídeo do jogador é irmão do .placar-container, que tem z-index
+            // próprio: é um stacking context fechado, e nada de dentro do placar
+            // alcança aquela camada.
+            const videoEmCena =
+                document.getElementById('anim-video-overlay').style.display !== 'none';
+
+            const mudarDeLugar = esporte === 'basquete' && (faixaEmCena || videoEmCena);
+            flutuante.classList.toggle('ativo', mudarDeLugar);
+            tempoEl.classList.toggle('tempo-em-flutuante', mudarDeLugar);
+            if (display) flutuante.innerText = display;
+        }
 
         // Carrossel de patrocinadores: o estado traz os nomes dos arquivos de
         // imagem em public/patrocinadores/ (gerenciados pela aba Anúncios).

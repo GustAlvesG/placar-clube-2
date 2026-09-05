@@ -102,6 +102,22 @@ after that double-click toggles it. And a debounced `resize` handler re-runs
 `ajustarNome()`, whose fitting math caches px values that go stale when the window
 (or fullscreen state) changes.
 
+### Cronômetro sempre à vista (basquete)
+
+No basquete o tempo não pode sumir do telão em momento nenhum. As faixas de
+animação (`#anim-overlay` z 40, `#set-overlay` z 41) e o vídeo de apresentação
+do jogador (`#anim-video-overlay` z 88, irmão do `.placar-container` — que tem
+z-index próprio e por isso é um stacking context fechado) cobrem o lugar do
+`#tempo`. Enquanto qualquer um deles está em cena, `manterTempoVisivel()`
+(dentro do próprio laço de 50ms do cronômetro em public/index.html) muda o
+relógio para `#tempo-flutuante`, uma placa `fixed` na faixa do topo da arte —
+a única área que nenhuma faixa ocupa — e oculta o `#tempo` do placar, para não
+haver dois relógios. Subir o `#tempo` por cima da faixa não serve: ela cresce
+com a foto do jogador e com os patrocinadores, e o relógio cairia em cima da
+etiqueta ("CESTA!", "2º QUARTO"). Comerciais, slides e standby continuam
+cobrindo tudo — ali a transmissão saiu do jogo de propósito. Nada disso vale
+para futsal e vôlei.
+
 ### Sponsor carousel
 
 The telão footer scrolls sponsor logos (`.sponsor-*` in style.css). Source of truth is the files in `public/patrocinadores/`: at startup (and after each upload/delete) the server reads the dir into `gameState.patrocinadores` as an array of filenames, and the telão builds the track as `<img src="patrocinadores/<name>">`. Empty list hides the carousel container. The telão caches a signature of the list to avoid rebuilding the DOM (and restarting the CSS animation) on every broadcast.

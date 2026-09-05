@@ -1271,3 +1271,60 @@ body::after {
 		transform: translateX(-100%);
 	}
 }
+
+/* ================= CRONÔMETRO SEMPRE À VISTA (BASQUETE) =================
+   No basquete o tempo não pode sair da tela em momento nenhum — nem na faixa
+   de ponto/falta, nem no fechamento de quarto, nem durante o vídeo de
+   apresentação do jogador. Nos outros esportes nada muda.
+
+   Os três cobrem o lugar do #tempo: as faixas por z-index (40 e 41, contra os
+   4 do placar) e o vídeo por ser IRMÃO do .placar-container, que tem z-index
+   próprio e portanto é um stacking context fechado — nenhum z-index de dentro
+   do placar alcança aquela camada. Subir o #tempo por cima da faixa resolveria
+   a visibilidade e criaria outro problema: a faixa cresce com a foto do
+   jogador e com os patrocinadores, e o relógio cairia em cima da etiqueta
+   ("CESTA!", "2º QUARTO"). Então, enquanto durar a animação, o relógio se muda
+   para esta placa na faixa do topo da arte — a única área que nenhuma faixa
+   ocupa — e o #tempo do placar fica oculto, para nunca haver dois relógios.
+   Quem liga e desliga é manterTempoVisivel() no telão.
+
+   Comerciais (z 100), slides (95) e standby (90) continuam cobrindo tudo: ali
+   a transmissão saiu do jogo de propósito, o placar inteiro sai junto.
+
+   Medidas em fração de --placar-largura, que é o mesmo que cqw vale dentro do
+   placar: sendo `fixed`, a placa não herda o container de consulta dele, mas a
+   régua tem que continuar sendo o placar, não a janela (ver "TELA CHEIA"). */
+#tempo-flutuante {
+    display: none;
+    position: fixed;
+    /* Abaixo da borda de cima da arte e acima de onde qualquer faixa começa. */
+    top: calc(var(--sobra-vertical) + 0.015 * var(--placar-largura));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 89; /* acima do vídeo do jogador (88) */
+
+    font-family: 'Arial', sans-serif;
+    font-size: calc(0.04 * var(--placar-largura)); /* o mesmo 4cqw do #tempo */
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+
+    /* Mesma linguagem das faixas: grená quase preto com fio dourado. */
+    background: rgba(15, 4, 12, 0.82);
+    border: calc(0.002 * var(--placar-largura)) solid rgba(255, 215, 106, 0.6);
+    border-radius: calc(0.012 * var(--placar-largura));
+    padding: calc(0.002 * var(--placar-largura)) calc(0.012 * var(--placar-largura));
+    box-shadow: 0 0 calc(0.02 * var(--placar-largura)) rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+#tempo-flutuante.ativo {
+    display: block;
+}
+
+/* `visibility` (e não `display`) de propósito: o #tempo continua ocupando o
+   lugar dele no placar, e volta a aparecer no instante em que a faixa sai. */
+.tempo.tempo-em-flutuante {
+    visibility: hidden;
+}

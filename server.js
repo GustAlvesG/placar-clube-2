@@ -14,7 +14,23 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static('public'));
+// Estáticos.
+//
+// `__dirname` e não 'public': o caminho relativo depende do diretório de onde o
+// processo foi iniciado, e num serviço (pm2/systemd) isso nem sempre é a raiz
+// do projeto — daria 404 ou, pior, uma cópia velha do public/.
+//
+// `no-cache` em html/css/js: o telão passa dias com a mesma aba aberta e o
+// deploy troca esses arquivos sem trocar o nome deles; com o cache padrão do
+// navegador a TV continua exibindo a versão anterior depois de subir uma
+// correção. `no-cache` não desliga o cache — obriga a revalidar pelo ETag, que
+// responde 304 (poucos bytes) quando nada mudou. Imagens, vídeos e logos ficam
+// de fora: são pesados, mudam de nome quando mudam, e não têm esse problema.
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders(res, arquivo) {
+        if (/\.(html|css|js)$/i.test(arquivo)) res.setHeader('Cache-Control', 'no-cache');
+    }
+}));
 
 // ---- Integração com a API do Placar Clube (Laravel) ----
 // Este bloco é bookkeeping de TRANSPORTE (ids do lado Laravel, fila de

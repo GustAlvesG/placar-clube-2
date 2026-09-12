@@ -18,10 +18,24 @@
         <video id="anim-video" style="width:100%;height:100%;object-fit:contain;background:#000;" playsinline></video>
     </div>
 
-    <!-- Cronômetro flutuante: no basquete o tempo tem que continuar na tela
-         mesmo quando o vídeo do jogador (acima) cobre tudo. Ver
-         manterTempoVisivel() e o bloco "CRONÔMETRO SEMPRE À VISTA" no CSS. -->
+    <!-- Cronômetro e placar flutuantes: no basquete o tempo e o placar têm que
+         continuar na tela mesmo quando o vídeo do jogador (acima) cobre tudo —
+         o tempo no topo da arte, o placar na base. Ver manterJogoVisivel() e o
+         bloco "CRONÔMETRO E PLACAR SEMPRE À VISTA" no CSS. -->
     <div id="tempo-flutuante"></div>
+    <div id="placar-flutuante">
+        <span class="pf-time">
+            <img id="pf-logo-a" alt="">
+            <span id="pf-sigla-a" class="pf-sigla"></span>
+        </span>
+        <span id="pf-pontos-a" class="pf-pontos"></span>
+        <span class="pf-separador">×</span>
+        <span id="pf-pontos-b" class="pf-pontos"></span>
+        <span class="pf-time">
+            <img id="pf-logo-b" alt="">
+            <span id="pf-sigla-b" class="pf-sigla"></span>
+        </span>
+    </div>
 
     <!-- Tela inicial / standby (visível até a transmissão ser iniciada).
          Com um vídeo em public/base/ ele toca em loop ocupando a tela toda; sem
@@ -664,24 +678,29 @@
 
             const tempoEl = document.getElementById('tempo');
             if (tempoEl && display) tempoEl.innerText = display;
-            manterTempoVisivel(display, esporte);
+            manterJogoVisivel(display, esporte);
         }, 50);
 
-        // No basquete o cronômetro não pode ser ocultado em momento algum. Como
-        // as faixas de ponto/falta e de fechamento de quarto e o vídeo do
-        // jogador cobrem o lugar dele no placar, enquanto qualquer um deles
-        // está em cena o relógio se muda para o #tempo-flutuante, na faixa do
-        // topo da arte, e o #tempo do placar fica oculto — nunca dois relógios.
-        // O porquê da mudança de lugar (em vez de só subir o #tempo por cima da
-        // faixa) está no bloco "CRONÔMETRO SEMPRE À VISTA" do CSS.
+        // No basquete nem o cronômetro nem o placar podem ser ocultados em
+        // momento algum. Como as faixas de ponto/falta e de fechamento de
+        // quarto e o vídeo do jogador cobrem o lugar deles no placar, enquanto
+        // qualquer um deles está em cena o relógio se muda para o
+        // #tempo-flutuante, na faixa do topo da arte, e o placar para o
+        // #placar-flutuante, na faixa da base; os originais ficam ocultos —
+        // nunca dois relógios nem dois placares. O porquê da mudança de lugar
+        // (em vez de só subir os originais por cima da faixa) está no bloco
+        // "CRONÔMETRO E PLACAR SEMPRE À VISTA" do CSS.
         //
         // Mora no próprio laço do cronômetro de propósito: assim vale para toda
         // entrada e saída de animação (inclusive as cortadas no meio por um
-        // lance novo) sem instrumentar uma por uma.
-        function manterTempoVisivel(display, esporte) {
+        // lance novo) sem instrumentar uma por uma. O CONTEÚDO do placar
+        // flutuante não vem daqui: é escrito a cada `atualizar_tela`
+        // (atualizarPlacarFlutuante), junto com o placar de verdade.
+        function manterJogoVisivel(display, esporte) {
             const tempoEl = document.getElementById('tempo');
             const flutuante = document.getElementById('tempo-flutuante');
-            if (!tempoEl || !flutuante) return;
+            const placarFlutuante = document.getElementById('placar-flutuante');
+            if (!tempoEl || !flutuante || !placarFlutuante) return;
 
             const faixaEmCena =
                 document.getElementById('anim-overlay').classList.contains('ativo') ||
@@ -696,6 +715,36 @@
             flutuante.classList.toggle('ativo', mudarDeLugar);
             tempoEl.classList.toggle('tempo-em-flutuante', mudarDeLugar);
             if (display) flutuante.innerText = display;
+
+            placarFlutuante.classList.toggle('ativo', mudarDeLugar);
+            ['placarA', 'placarB'].forEach(id =>
+                document.getElementById(id).classList.toggle('pontos-em-flutuante', mudarDeLugar));
+        }
+
+        // Conteúdo do #placar-flutuante: os mesmos números do placar grande e,
+        // no lugar do nome (comprido e imprevisível demais para uma placa de
+        // uma linha), a logo do time — ou a sigla, igual ao placar quando não
+        // há logo. Atualiza mesmo com a placa oculta: quando ela aparece, já
+        // está certa, inclusive com o ponto que acabou de disparar a faixa.
+        function atualizarPlacarFlutuante(dados, formatarPlacar, getSigla) {
+            [['a', dados.timeA], ['b', dados.timeB]].forEach(([lado, time]) => {
+                document.getElementById('pf-pontos-' + lado).innerText = formatarPlacar(time.placar);
+
+                const logo = document.getElementById('pf-logo-' + lado);
+                const sigla = document.getElementById('pf-sigla-' + lado);
+                if (time.logo) {
+                    // A logo é um data URI de base64: só troca quando mudou,
+                    // e `atualizar_tela` chega a cada ponto.
+                    if (logo.getAttribute('src') !== time.logo) logo.src = time.logo;
+                    logo.hidden = false;
+                    sigla.hidden = true;
+                } else {
+                    logo.removeAttribute('src');
+                    logo.hidden = true;
+                    sigla.innerText = getSigla(time.nome);
+                    sigla.hidden = false;
+                }
+            });
         }
 
         // Carrossel de patrocinadores: o estado traz os nomes dos arquivos de
@@ -931,6 +980,10 @@
                 document.getElementById('sigla-visitante').innerText = getSigla(dados.timeB.nome);
                 document.getElementById('sigla-visitante').classList.remove('hidden');
             }
+
+            // Placar da base da arte, que só aparece durante as animações do
+            // basquete (ver manterJogoVisivel)
+            atualizarPlacarFlutuante(dados, formatarPlacar, getSigla);
 
             // Set point (null fora do vôlei, e também quando a pontuação já
             // fecha a parcial — aí o que vale é o botão de fechar na mesa)

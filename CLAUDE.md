@@ -102,21 +102,24 @@ after that double-click toggles it. And a debounced `resize` handler re-runs
 `ajustarNome()`, whose fitting math caches px values that go stale when the window
 (or fullscreen state) changes.
 
-### Cronômetro sempre à vista (basquete)
+### Cronômetro e placar sempre à vista (basquete)
 
-No basquete o tempo não pode sumir do telão em momento nenhum. As faixas de
-animação (`#anim-overlay` z 40, `#set-overlay` z 41) e o vídeo de apresentação
-do jogador (`#anim-video-overlay` z 88, irmão do `.placar-container` — que tem
-z-index próprio e por isso é um stacking context fechado) cobrem o lugar do
-`#tempo`. Enquanto qualquer um deles está em cena, `manterTempoVisivel()`
-(dentro do próprio laço de 50ms do cronômetro em public/index.html) muda o
-relógio para `#tempo-flutuante`, uma placa `fixed` na faixa do topo da arte —
-a única área que nenhuma faixa ocupa — e oculta o `#tempo` do placar, para não
-haver dois relógios. Subir o `#tempo` por cima da faixa não serve: ela cresce
-com a foto do jogador e com os patrocinadores, e o relógio cairia em cima da
-etiqueta ("CESTA!", "2º QUARTO"). Comerciais, slides e standby continuam
-cobrindo tudo — ali a transmissão saiu do jogo de propósito. Nada disso vale
-para futsal e vôlei.
+No basquete nem o tempo nem o placar podem sumir do telão em momento nenhum.
+As faixas de animação (`#anim-overlay` z 40, `#set-overlay` z 41) e o vídeo de
+apresentação do jogador (`#anim-video-overlay` z 88, irmão do
+`.placar-container` — que tem z-index próprio e por isso é um stacking context
+fechado) cobrem o lugar do `#tempo` e dos pontos. Enquanto qualquer um deles
+está em cena, `manterJogoVisivel()` (dentro do próprio laço de 50ms do
+cronômetro em public/index.html) muda o relógio para `#tempo-flutuante`, uma
+placa `fixed` na faixa do topo da arte, e o placar para `#placar-flutuante`, a
+placa espelho na faixa da base (logo ou sigla + pontos de cada time) — as
+únicas áreas que nenhuma faixa ocupa — e oculta os originais, para não haver
+dois relógios nem dois placares. O conteúdo do placar flutuante é escrito a
+cada `atualizar_tela` (`atualizarPlacarFlutuante`), não no laço. Subir os
+originais por cima da faixa não serve: ela cresce com a foto do jogador e com
+os patrocinadores, e eles cairiam em cima da etiqueta ("CESTA!", "2º QUARTO").
+Comerciais, slides e standby continuam cobrindo tudo — ali a transmissão saiu
+do jogo de propósito. Nada disso vale para futsal e vôlei.
 
 ### Sponsor carousel
 

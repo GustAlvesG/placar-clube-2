@@ -1272,21 +1272,28 @@ body::after {
 	}
 }
 
-/* ================= CRONÔMETRO SEMPRE À VISTA (BASQUETE) =================
-   No basquete o tempo não pode sair da tela em momento nenhum — nem na faixa
-   de ponto/falta, nem no fechamento de quarto, nem durante o vídeo de
-   apresentação do jogador. Nos outros esportes nada muda.
+/* ============ CRONÔMETRO E PLACAR SEMPRE À VISTA (BASQUETE) ============
+   No basquete o tempo e o placar não podem sair da tela em momento nenhum —
+   nem na faixa de ponto/falta, nem no fechamento de quarto, nem durante o
+   vídeo de apresentação do jogador. Nos outros esportes nada muda.
 
-   Os três cobrem o lugar do #tempo: as faixas por z-index (40 e 41, contra os
-   4 do placar) e o vídeo por ser IRMÃO do .placar-container, que tem z-index
-   próprio e portanto é um stacking context fechado — nenhum z-index de dentro
-   do placar alcança aquela camada. Subir o #tempo por cima da faixa resolveria
-   a visibilidade e criaria outro problema: a faixa cresce com a foto do
-   jogador e com os patrocinadores, e o relógio cairia em cima da etiqueta
-   ("CESTA!", "2º QUARTO"). Então, enquanto durar a animação, o relógio se muda
-   para esta placa na faixa do topo da arte — a única área que nenhuma faixa
-   ocupa — e o #tempo do placar fica oculto, para nunca haver dois relógios.
-   Quem liga e desliga é manterTempoVisivel() no telão.
+   Os três cobrem o lugar do #tempo e dos pontos: as faixas por z-index (40 e
+   41, contra os 4 do placar) e o vídeo por ser IRMÃO do .placar-container, que
+   tem z-index próprio e portanto é um stacking context fechado — nenhum
+   z-index de dentro do placar alcança aquela camada. Subir os originais por
+   cima da faixa resolveria a visibilidade e criaria outro problema: a faixa
+   cresce com a foto do jogador e com os patrocinadores, e o relógio e os
+   números cairiam em cima dela ("CESTA!", "2º QUARTO", o nome do jogador).
+   Então, enquanto durar a animação, o relógio se muda para uma placa na faixa
+   do topo da arte e o placar para outra na faixa da base — as únicas áreas que
+   nenhuma faixa ocupa (a mais alta, o fechamento de quarto, fica em ~31cqw dos
+   50 do placar, centrada: sobram ~9cqw em cima e embaixo) — e os originais
+   ficam ocultos, para nunca haver dois relógios nem dois placares. Quem liga e
+   desliga é manterJogoVisivel() no telão.
+
+   Embaixo, a placa fica por cima do carrossel de patrocinadores enquanto está
+   em cena; é de propósito: é justamente quando a faixa de ponto os mostra
+   grandes (#anim-patrocinadores).
 
    Comerciais (z 100), slides (95) e standby (90) continuam cobrindo tudo: ali
    a transmissão saiu do jogo de propósito, o placar inteiro sai junto.
@@ -1323,8 +1330,85 @@ body::after {
     display: block;
 }
 
-/* `visibility` (e não `display`) de propósito: o #tempo continua ocupando o
-   lugar dele no placar, e volta a aparecer no instante em que a faixa sai. */
-.tempo.tempo-em-flutuante {
+/* Placar flutuante: espelho da placa do tempo, presa à base da arte em vez do
+   topo — mesma fonte, mesma moldura, para as duas se lerem como um par. Logo
+   (ou sigla) de cada time nas pontas, porque o nome não caberia numa placa de
+   uma linha.
+
+   Mais colada à borda que a do tempo (0,8cqw contra 1,5cqw) e com line-height
+   próprio de propósito: assim ela cabe praticamente inteira na faixa escura
+   dos patrocinadores (os últimos 5,56cqw da arte) e sobra folga para a faixa
+   de fechamento de quarto, que desce até ~42cqw dos 50. */
+#placar-flutuante {
+    display: none;
+    position: fixed;
+    bottom: calc(var(--sobra-vertical) + 0.008 * var(--placar-largura));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 89; /* acima do vídeo do jogador (88) */
+
+    align-items: center;
+    gap: calc(0.012 * var(--placar-largura));
+
+    font-family: 'Arial', sans-serif;
+    font-size: calc(0.04 * var(--placar-largura)); /* o mesmo do #tempo-flutuante */
+    font-weight: bold;
+    line-height: 1.15;
+    color: #ffffff;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+
+    background: rgba(15, 4, 12, 0.82);
+    border: calc(0.002 * var(--placar-largura)) solid rgba(255, 215, 106, 0.6);
+    border-radius: calc(0.012 * var(--placar-largura));
+    padding: calc(0.002 * var(--placar-largura)) calc(0.012 * var(--placar-largura));
+    box-shadow: 0 0 calc(0.02 * var(--placar-largura)) rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+#placar-flutuante.ativo {
+    display: flex;
+}
+
+/* Caixa fixa para a logo: escudos vêm em proporções variadas e a placa não
+   pode mudar de largura de um time para o outro. */
+.pf-time {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(0.05 * var(--placar-largura));
+    height: calc(0.04 * var(--placar-largura));
+}
+
+.pf-time img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 calc(0.0015 * var(--placar-largura)) calc(0.004 * var(--placar-largura)) rgba(0, 0, 0, 0.6));
+}
+
+.pf-sigla {
+    font-size: calc(0.022 * var(--placar-largura));
+    letter-spacing: 0.04em;
+}
+
+/* Largura mínima de dois dígitos: o número que muda no ponto não empurra o
+   resto da placa. */
+.pf-pontos {
+    min-width: 1.2em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.pf-separador {
+    color: rgba(255, 215, 106, 0.85);
+    font-size: 0.7em;
+}
+
+/* `visibility` (e não `display`) de propósito: o #tempo e os pontos continuam
+   ocupando o lugar deles no placar, e voltam a aparecer no instante em que a
+   faixa sai. */
+.tempo.tempo-em-flutuante,
+.pontos.pontos-em-flutuante {
     visibility: hidden;
 }

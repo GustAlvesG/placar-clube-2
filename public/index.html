@@ -20,8 +20,8 @@
 
     <!-- Cronômetro e placar flutuantes: no basquete o tempo e o placar têm que
          continuar na tela mesmo quando o vídeo do jogador (acima) cobre tudo —
-         o tempo no topo da arte, o placar na base. Ver manterJogoVisivel() e o
-         bloco "CRONÔMETRO E PLACAR SEMPRE À VISTA" no CSS. -->
+         o tempo no topo da arte e também na base, no meio do placar. Ver
+         manterJogoVisivel() e o bloco "CRONÔMETRO E PLACAR SEMPRE À VISTA" no CSS. -->
     <div id="tempo-flutuante"></div>
     <div id="placar-flutuante">
         <span class="pf-time">
@@ -29,7 +29,7 @@
             <span id="pf-sigla-a" class="pf-sigla"></span>
         </span>
         <span id="pf-pontos-a" class="pf-pontos"></span>
-        <span class="pf-separador">×</span>
+        <span id="pf-tempo" class="pf-tempo"></span>
         <span id="pf-pontos-b" class="pf-pontos"></span>
         <span class="pf-time">
             <img id="pf-logo-b" alt="">
@@ -686,8 +686,9 @@
         // quarto e o vídeo do jogador cobrem o lugar deles no placar, enquanto
         // qualquer um deles está em cena o relógio se muda para o
         // #tempo-flutuante, na faixa do topo da arte, e o placar para o
-        // #placar-flutuante, na faixa da base; os originais ficam ocultos —
-        // nunca dois relógios nem dois placares. O porquê da mudança de lugar
+        // #placar-flutuante, na faixa da base — que repete o relógio no meio
+        // (#pf-tempo), entre os pontos dos dois times, para quem olha a parte
+        // de baixo da tela também ver o tempo. Os originais ficam ocultos. O porquê da mudança de lugar
         // (em vez de só subir os originais por cima da faixa) está no bloco
         // "CRONÔMETRO E PLACAR SEMPRE À VISTA" do CSS.
         //
@@ -714,7 +715,10 @@
             const mudarDeLugar = esporte === 'basquete' && (faixaEmCena || videoEmCena);
             flutuante.classList.toggle('ativo', mudarDeLugar);
             tempoEl.classList.toggle('tempo-em-flutuante', mudarDeLugar);
-            if (display) flutuante.innerText = display;
+            if (display) {
+                flutuante.innerText = display;
+                document.getElementById('pf-tempo').innerText = display;
+            }
 
             placarFlutuante.classList.toggle('ativo', mudarDeLugar);
             ['placarA', 'placarB'].forEach(id =>

@@ -1,142 +1,207 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guia para agentes Claude (Claude Code) trabalhando neste repositório. Escrito em
+português, como o código, os comentários e a interface. **Responda ao usuário em
+português.**
 
-## Project Overview
+Documentação completa:
+- [docs/documentacao-tecnica.md](docs/documentacao-tecnica.md) — arquitetura, contratos, módulos, telão
+- [docs/manual-do-usuario.md](docs/manual-do-usuario.md) — como os operadores usam o sistema
+- [docs/prompt-api-parciais.md](docs/prompt-api-parciais.md) — pedido pendente ao time Laravel
 
-Placar Clube is a real-time scoreboard system for sports events (futsal, basquete, vôlei) broadcast to multiple screens via WebSocket. Backend: Node.js + Express + Socket.IO. Frontend: plain HTML/CSS/JS served as static files (no build step, no framework, no bundler).
+Este arquivo resume o que um agente precisa saber **antes** de mexer no código:
+o mapa, as invariantes e as armadilhas. Ao mudar comportamento, atualize também
+a documentação em `docs/` (e este arquivo, se a mudança afetar algo listado aqui).
 
-## Commands
+---
+
+## Visão geral
+
+Placar eletrônico em tempo real para **futsal, basquete e vôlei**, transmitido a
+várias telas via WebSocket na rede local do ginásio.
+
+- Backend: Node.js 22+ (`fetch`/`FormData`/`crypto.randomUUID` nativos) + Express 5 + Socket.IO 4.
+- Frontend: HTML/CSS/JS puro servido de `public/`. **Sem build, sem framework, sem bundler.**
+- Integração opcional com uma API Laravel externa ("Placar Clube") — fonte de
+  verdade de times/jogadores/jogos e da súmula.
+
+## Comandos
 
 ```bash
-npm start          # Production server (node server.js)
-npm run dev        # Development with nodemon (auto-reload on server.js / gameLogic.js changes)
-npm test           # Run test suite (node:test, native — zero test-runner dependencies)
-npm run test:watch # Run tests in watch mode
+npm start              # produção (node server.js) — porta 4000
+npm run dev            # nodemon (recarrega só em server.js / gameLogic.js)
+npm test               # node --test — 3 arquivos em test/, 128 testes
+npm run test:watch
+node --test test/gameLogic.test.js   # um arquivo só
 ```
 
-Run a single test file: `node --test test/gameLogic.test.js`. There is no separate lint command configured.
+Não há lint configurado. A porta é **4000**, fixa em `server.listen(4000, '0.0.0.0')`.
 
-Note: `server.js` listens on port `4000` (`server.listen(4000, '0.0.0.0', ...)`) — the README's examples reference port 3000, which is stale.
+Para verificar de ponta a ponta use a skill **`verify`**
+(`.claude/skills/verify/SKILL.md`): sobe uma instância isolada na porta 4100
+(`node -e "const {server}=require('./server.js'); server.listen(4100,...)"`) e
+dirige as páginas com Playwright (devDependency; não há specs Playwright no repo).
+A porta 4000 costuma estar ocupada pelo servidor de dev do usuário.
 
-`playwright` and `socket.io-client` are devDependencies but there are no Playwright specs/config or e2e tests in the repo yet — only the `node:test` suite in `test/gameLogic.test.js` exists.
+## Mapa do código
 
-## Architecture
+| Arquivo | Papel |
+|---|---|
+| [gameLogic.js](gameLogic.js) | **Toda** regra de jogo. Funções puras: recebem `state` mutável + payload, mutam no lugar, devolvem `{ animacoes }` quando há efeito para clientes. Zero dependência de rede/`fs`/`path`. |
+| [server.js](server.js) | Transporte fino: `gameState` global, handlers `socket.on`, `broadcast()`, upload/exclusão HTTP, bookkeeping da integração. |
+| [placarApi.js](placarApi.js) | Cliente HTTP da API Laravel. Sem estado; toda função recebe `config = { baseUrl, token, fetchImpl? }`. |
+| [placarEventos.js](placarEventos.js) | Fila de eventos para a API: uuid/sequência no momento da ação, estorno, envio em lote. |
+| [env.js](env.js) | Carregador mínimo de `.env` (sem `dotenv`); nunca sobrescreve variáveis do ambiente. |
+| `public/index.html` + `style.css` | **Telão**. |
+| `public/controle/index.html` | Configuração (esporte, times, elenco, API, transmissão). |
+| `public/controle/controle.html` | Mesa de controle — **uma tela para os três esportes**. |
+| `public/controle/controle_anuncios.html` | Vídeos, slides (inclui PDF→PNG), patrocinadores. |
+| `public/controle/controle_{futsal,basquete,volei}.html` | Só redirecionam para `controle.html` (atalhos antigos nos tablets). **Não apagar.** |
+| `public/static.html` | Placar minimalista (só números). |
+| `public/base/` | Arte do telão, **versionada**. Sem endpoint de upload. |
+| `public/videos/`, `slides/`, `patrocinadores/` | Mídia enviada pelo operador — gitignored, criadas no boot. |
 
-### Core split: pure logic vs. transport
+**Onde mexer:** regra de jogo → `gameLogic.js` + teste em `test/gameLogic.test.js`.
+O que dispara a regra ou como o estado chega aos clientes → `server.js`. Valores
+derivados de que a mesa/telão precisam → calcule em `gameLogic` e exponha em
+`payloadEstado()`; **não reimplemente regra no HTML**.
 
-The entire game-rules layer lives in [gameLogic.js](gameLogic.js) as framework-free functions that take a mutable `state` object and a payload, mutate `state` in place, and (for actions with client-facing side effects) return `{ animacoes }` to emit. This module has zero Socket.IO/Express dependency, which is why it's fully unit-testable via `node:test` without spinning up a server. [server.js](server.js) is a thin transport layer: it holds the single in-memory `gameState`, wires each `socket.on(...)` handler to the matching `gameLogic` function, and calls `broadcast()` afterward.
+## Fluxo de dados
 
-When changing game rules (scoring, sets, timer, fouls), edit `gameLogic.js` and add/adjust tests in `test/gameLogic.test.js`. When changing what triggers those rules or how state reaches clients, edit `server.js`.
+Tela de controle → evento Socket.IO → handler em `server.js` → função de
+`gameLogic` muta `gameState` → servidor emite animações → `broadcast()` envia
+`atualizar_tela` (estado completo + `serverTime` + derivados) para **todos** os
+clientes. Sem filtragem por cliente. Só depois disso, se houver jogo da API
+carregado, a ação vira evento na fila (atualização **otimista**).
 
-### State shape
+Um único `gameState` por processo, **só em memória** (reiniciar zera tudo,
+inclusive a fila de eventos pendentes da API).
 
-There is one global `gameState` object per server process (not per-room/per-match). Shape (see `criarEstadoInicial()` in gameLogic.js):
+Formato do estado: ver `criarEstadoInicial()` e a seção 5 da documentação técnica.
+Campos derivados em `atualizar_tela`: `parcialFechavel`, `parcialAtual`,
+`totalParciais`, `parcialEmAndamento`, `setPoint`.
 
-```
-{ esporte, sacando, periodo, transmissaoAtiva,
-  patrocinadores: [filename],   // imagens em public/patrocinadores/, sincronizado pelo servidor
-  videoStandby: filename|null,  // vídeo de espera em public/base/, sincronizado pelo servidor
-  timeA: { nome, logo, placar, sets, faltas, elenco: [{numero, nome, foto}] },
-  timeB: { ...same },
-  cronometro: { rodando, tempoAcumulado, inicioTimestamp, duracaoConfigurada } }
-```
+## Invariantes e decisões que NÃO devem ser desfeitas
 
-Photos/logos are stored inline as base64 data URIs directly in `gameState` (no file uploads/storage layer).
+### Regras de jogo
+- **Fechar set/quarto é sempre manual** (ação `fechar_set`). Atingir 25 com 2 de
+  vantagem (15 no 5º set) só torna `parcialFechavel` verdadeiro, habilitando o
+  botão na mesa. Nada fecha sozinho; `fechar_set` também não valida a regra (WO,
+  jogo interrompido). `reabrir_set` desfaz o último fechamento.
+- Parciais: `REGRAS_PARCIAL` em `gameLogic.js` (vôlei = set, melhor de 5; basquete
+  = quarto, fecha pelo cronômetro, sem teto). Futsal não tem parciais.
+- Set point (`pontoDeParcial`) simula +1 ponto e pergunta a `parcialFechavel` —
+  não duplique a regra.
+- `add_ponto` sempre emite `animacao_ponto` (`tipo: 'ponto'` com jogador,
+  `'ponto_time'` sem). `add_falta` só emite com jogador (`tipo: 'falta'`).
+- Textos: futsal `GOL!`, basquete `CESTA!`, vôlei `PONTO!`.
+- Cronômetro: futsal regressivo MM:SS; basquete regressivo MM:SS.cc; vôlei
+  crescente. Funções que dependem de tempo recebem `now` injetável (testes).
 
-### Data flow
+### Dois "zerar", ambos necessários
+- `comando_placar` / `zerar_tudo` (mesa): zera números e cronômetro, **preserva**
+  times, elenco, transmissão e vínculo com a API.
+- `zerar_configuracao_completa` (configuração): estado inicial + desvincula a API;
+  preserva só `patrocinadores` e `videoStandby` (vêm de pasta).
 
-Operator UI (`public/controle/*.html`) → Socket.IO event → `server.js` handler → `gameLogic.js` function mutates `gameState` → `server.js` emits any animation events → `broadcast()` sends `atualizar_tela` (full state + `serverTime`) to **all** connected clients (scoreboard screens and control panels alike). There's no per-client filtering — every client gets the entire state on every change.
+### Sincronização do relógio
+Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
+`cronometro.inicioTimestamp`. Bloco duplicado em `public/index.html` e
+`public/controle/controle.html` — mude nos dois.
 
-Key Socket.IO events: `configurar_jogo`, `comando_placar`, `comando_cronometro`, `comando_transmissao`, `comando_video`, `solicitar_videos` (client→server); `atualizar_tela`, `animacao_ponto`, `executar_video`, `lista_videos` (server→client). Full payload shapes are documented in README.md.
+### Integração com a API Laravel
+- Configurada por `LARAVEL_BASE_URL` (sem `/api/placar`) e `LARAVEL_API_TOKEN` no
+  `.env`. Sem elas: modo manual, nada quebra.
+- Bookkeeping (`integracao`: ids, fila, status) fica **fora** do `gameState`.
+- Log da API é **append-only**: correção = evento `estorno` referenciando o uuid
+  original, nunca update/delete. `zerar_tudo` não é sincronizado.
+- `cronometro_ms` é **obrigatório** em `ponto`/`falta`: use
+  `logic.tempoDecorrido(cronometro)`, nunca `tempoAcumulado` sozinho.
+- uuid/sequência gerados no momento da ação (retry reenvia o mesmo uuid). Envio
+  em lote, retry a cada 5 s, `tentarEnviarPendentes` nunca lança.
+- O **primeiro PLAY** do cronômetro marca o jogo como ao vivo (`iniciarJogoNaApi`,
+  `integracao.iniciado`) — decisão explícita do usuário.
+- O fluxo **pela API é o principal**; o manual é fallback. A configuração abre em
+  "Selecionar jogo existente".
+- `GET /scout/artilharia` foi removido da API. Parciais ainda não voltam da API
+  (ver `docs/prompt-api-parciais.md`). Comentários citam
+  `docs/placar-clube-api.md`, que **não está neste repo** (é do time Laravel).
 
-### Clock synchronization across screens
+### Tela de configuração (`public/controle/index.html`)
+- `enviarConfiguracao()` = só emite. `salvarConfig()` = emite + valida + **trava**
+  o formulário. `aplicarRespostaJogoNaTela` (Carregar e avulso) chama
+  `enviarConfiguracao()` e **não trava** — editar elenco logo após carregar é
+  normal. Não coloque a trava dentro de `enviarConfiguracao`.
+- O cartão de transmissão fica logo abaixo do cartão da API; `#lista-jogos` tem
+  altura limitada com rolagem própria.
 
-Each `atualizar_tela` broadcast includes `serverTime: Date.now()`. Clients compute `clockOffset = Date.now() - serverTime` and add it to `cronometro.inicioTimestamp` so the countdown/count-up timer renders in sync across multiple screens regardless of network latency or local clock drift. This logic is duplicated in each HTML page that displays a timer — see the `clockOffset` block in `public/index.html` and `public/controle/controle.html`.
+### Mesa (`public/controle/controle.html`)
+- O que muda por esporte vive no objeto `ESPORTES` no topo do script
+  (`botoes`, `textoPonto`, `faltas`, `periodo`, `sets`, `parciais`, `crono`).
+  Para um esporte novo ou regra de UI por esporte, edite ali — **não** duplique a página.
+- Layout por frequência de uso: relógio no topo (toque = play/pause), botão de
+  ponto ocupando o painel, −1 (com `confirm()`) e ação contextual no rodapé,
+  o resto (tempo, período, inverter, fechar jogo, parar transmissão, zerar) atrás
+  de `⚙ MAIS`.
+- Cores dos times são **variáveis CSS** (`.tema-azul`/`.tema-vermelho`, via
+  `aplicarTemas()` em `[data-lado]`), para a cor seguir o time ao inverter lados.
+  Não use classes Tailwind de cor fixas nos painéis.
+- Inverter lados é só do aparelho (`localStorage`), nunca do servidor/telão.
+- Modal de jogador: "Sem jogador específico" marca sem creditar; "✕ Cancelar"/Esc
+  não envia nada e limpa `pendingAcao`.
 
-### Per-sport rule differences (encoded in gameLogic.js, not config)
+### Telão (`public/index.html` + `public/style.css`)
+- **Escala uniforme 2:1**: `.placar-container` com `width: min(100vw, 200vh)`;
+  tudo dentro em `%`/`cqw`. Não estique nem use `cover`. Sobra pintada com
+  `--borda-arte-topo/-base/-lados` (topo do `style.css`); o vídeo de espera usa
+  `.preenche-sobra`. **Se a arte mudar, remeça essas bordas.**
+- Qualquer coisa sobre o placar mede em `cqw`; `vh`/`vw` só para tela cheia real
+  (standby, slides, comerciais, vídeo do jogador).
+- Carrossel de patrocinadores: faixa escura da arte começa em **88,87 %** (y=455/512,
+  igual nos 3 esportes) — é o `top` de `.sponsor-carousel-container`. Não suba.
+  Medidas em `cqw`. Assinatura da lista evita reconstruir o DOM a cada broadcast.
+- Faixa de ponto (`#anim-overlay`, z 40) mostra **todos** os patrocinadores
+  (`montarPatrocinadoresAnim`); um único keyframe de 5 s. Faixa de parcial
+  (`#set-overlay`, z 41), 9 s. Vídeo do jogador (`#anim-video-overlay`, z 88) só
+  em ponto, nunca em falta.
+- **Basquete: tempo e placar nunca somem.** Com faixa/vídeo em cena,
+  `manterJogoVisivel()` (laço de 50 ms) troca para `#tempo-flutuante` e
+  `#placar-flutuante` (que repete o relógio no centro, `#pf-tempo` — o tempo fica
+  em cima **e** embaixo); `atualizarPlacarFlutuante()` roda a cada `atualizar_tela`.
+  Não vale para futsal/vôlei; comerciais/slides/standby cobrem tudo de propósito.
+- Vídeo de espera: `escolherVideoBase()` = 1º vídeo em ordem alfabética de
+  `public/base/` (estável entre telões); `sincronizarVideoStandby()` roda no boot e
+  a cada conexão. `aplicarStandby()` só troca `src` quando o nome muda e pausa
+  durante a transmissão. Sem vídeo → cartão `#standby-texto`.
+- Tela cheia pedida no primeiro gesto (uma vez); depois duplo-clique alterna.
+  `resize` com debounce re-roda `ajustarNome()`.
+- Autoplay: vídeos começam mudos se preciso (`tocarSemGesto`), som liga quando
+  permitido; aviso "🔇 Som bloqueado" até um clique.
+- Basquete ainda não exibe parciais: para ligar, `extraAreas: [areaFault, areaParciais]`
+  em `sportConfig.basquete` (index.html) e `parciais: true` em `ESPORTES` (controle.html).
 
-- **Vôlei**: reaching ≥25 points with a ≥2-point lead auto-wins the set (`comandoPlacar`'s `add_ponto` branch) — resets both scores to 0 and clears `sacando`. Futsal/basquete never trigger this.
-- **Basquete**: countdown timer with centiseconds (`duracaoConfigurada`); **futsal** also counts down but displays MM:SS only; vôlei counts up.
-- Point-animation text varies by sport (`TEXTOS_PONTO`: futsal → "GOL!", basquete → "CESTA!", volei → "PONTO!").
+### Arquivos e uploads
+- `POST /api/upload/:tipo?nome=` (corpo direto em disco, sem multer) e
+  `DELETE /api/:tipo/:nome`, com `tipo` ∈ `video | patrocinador | slide`.
+  Nome passa por `sanitizarNomeArquivo()`; extensão validada por tipo.
+- `public/base/` fica **fora** de `TIPOS_ARQUIVO` de propósito.
+- Estáticos `.html/.css/.js` saem com `Cache-Control: no-cache` (telão fica dias
+  aberto e precisa pegar deploys).
+- `comando_video` (com `loop`) é repasse puro para `executar_video`; slides têm
+  estado no `gameState` (telão que reconecta sincroniza).
 
-### Video/ad playback
+## Limitações conhecidas (não "consertar" sem combinar com o usuário)
 
-Videos live in `public/videos/` (gitignored, created at server startup if missing). `filtrarVideos()` in gameLogic.js filters by extension (`.mp4 .webm .mov .avi .mkv`, case-insensitive) — this is the only part of that flow with logic worth testing; the rest (`comando_video`, `solicitar_videos`) in server.js is a direct passthrough/broadcast with no state mutation. `comando_video` accepts `loop: true` on `playlist`/`play`: the telão refills the queue from the original playlist when it empties (guarded so a playlist where every video fails doesn't loop forever) until a `stop` arrives.
+Estado só em memória; um jogo por processo; sem autenticação nos sockets nem nos
+uploads; sem limite de tamanho de upload; handlers síncronos sem `try/catch`;
+fotos base64 em todo broadcast; telas de controle dependem de CDN (Tailwind,
+SheetJS, pdf.js); sem testes de `server.js`/frontend. O roadmap dessas melhorias
+foi discutido com o usuário — pergunte antes de iniciar uma delas.
 
-### File uploads (videos and sponsor logos)
+## Convenções
 
-`server.js` exposes streaming HTTP endpoints (no multer/body-parser — the request body is piped straight to disk): `POST /api/upload/:tipo?nome=<filename>` and `DELETE /api/:tipo/:nome`, where `tipo` is `video` (→ `public/videos/`) or `patrocinador` (→ `public/patrocinadores/`, gitignored). Filenames pass through `sanitizarNomeArquivo()` in gameLogic.js (strips paths, replaces unsafe chars) and must have a valid extension for the type (`EXTENSOES_VIDEO` / `EXTENSOES_IMAGEM`). After any change the server re-syncs: video changes broadcast `lista_videos` to everyone; sponsor changes reload `gameState.patrocinadores` and `broadcast()`. Upload/delete UI lives in `public/controle/controle_anuncios.html`.
-
-### Standby video
-
-The telão's waiting screen (`#tela-inicial`, shown until `transmissaoAtiva`) plays a video from **`public/base/`** on loop, muted, filling the screen. `escolherVideoBase()` in gameLogic.js picks the first video file there in alphabetical order (stability matters: two telões must never pick differently); `sincronizarVideoStandby()` in server.js writes it to `gameState.videoStandby` at boot **and on every socket connection**, so dropping a new file in the folder and reloading the telão is enough — no restart. With no video in `public/base/`, the page falls back to the old card (`#standby-texto`: sport icon + club name + "Aguardando transmissão...").
-
-`public/base/` is the art folder (backgrounds, per-sport elements) and is **git-tracked** — unlike `videos/`, `slides/` and `patrocinadores/` there is no upload endpoint or UI for it, and it is deliberately absent from `TIPOS_ARQUIVO`.
-
-`aplicarStandby()` in public/index.html only touches `video.src` when the filename actually changes (assigning it restarts playback, and `atualizar_tela` arrives on every clock tick) and pauses the video while transmission is on so it isn't decoded behind the scoreboard.
-
-### Telão sizing (full screen)
-
-The artwork (`base/background.png` + each sport's `box.png`) is **2:1**, and every
-element inside the scoreboard is positioned in % / `cqw` of `.placar-container` —
-so the only transformation that keeps the numbers aligned with the art is a
-**uniform scale**. The container therefore grows to the largest 2:1 box that fits
-the window (`width: min(100vw, 200vh)`); it used to be a fixed `1024px`, which on a
-1080p TV left the scoreboard at a quarter of the screen. Don't "fix" the leftover
-by stretching (positions are % of height, fonts are `cqw` = width only) or by
-`cover`-cropping (it eats the club and CBC logos in the art's top corners, and the
-sponsor band on screens wider than 2:1).
-
-The leftover is painted with the artwork's own **edge colors** — `--borda-arte-topo`
-/ `--borda-arte-base` / `--borda-arte-lados` at the top of style.css, applied via
-`body::before`/`body::after` (top/bottom) and the body background (sides). The art
-is vertically constant in its first/last few dozen rows, so the strip continues it
-seamlessly. The standby video (`base/waiting.mp4`, 1920×960, same edges) reuses them
-through the `.preenche-sobra` class instead of its old `background:#000`. **If the
-art changes, re-measure those edges** and update the three variables.
-
-The telão also requests browser fullscreen on the session's first click/keypress
-(the same gesture that unlocks audio) — once only, so the operator can still leave;
-after that double-click toggles it. And a debounced `resize` handler re-runs
-`ajustarNome()`, whose fitting math caches px values that go stale when the window
-(or fullscreen state) changes.
-
-### Cronômetro e placar sempre à vista (basquete)
-
-No basquete nem o tempo nem o placar podem sumir do telão em momento nenhum.
-As faixas de animação (`#anim-overlay` z 40, `#set-overlay` z 41) e o vídeo de
-apresentação do jogador (`#anim-video-overlay` z 88, irmão do
-`.placar-container` — que tem z-index próprio e por isso é um stacking context
-fechado) cobrem o lugar do `#tempo` e dos pontos. Enquanto qualquer um deles
-está em cena, `manterJogoVisivel()` (dentro do próprio laço de 50ms do
-cronômetro em public/index.html) muda o relógio para `#tempo-flutuante`, uma
-placa `fixed` na faixa do topo da arte, e o placar para `#placar-flutuante`, a
-placa espelho na faixa da base (logo ou sigla + pontos de cada time) — as
-únicas áreas que nenhuma faixa ocupa — e oculta os originais, para não haver
-dois relógios nem dois placares. O conteúdo do placar flutuante é escrito a
-cada `atualizar_tela` (`atualizarPlacarFlutuante`), não no laço. Subir os
-originais por cima da faixa não serve: ela cresce com a foto do jogador e com
-os patrocinadores, e eles cairiam em cima da etiqueta ("CESTA!", "2º QUARTO").
-Comerciais, slides e standby continuam cobrindo tudo — ali a transmissão saiu
-do jogo de propósito. Nada disso vale para futsal e vôlei.
-
-### Sponsor carousel
-
-The telão footer scrolls sponsor logos (`.sponsor-*` in style.css). Source of truth is the files in `public/patrocinadores/`: at startup (and after each upload/delete) the server reads the dir into `gameState.patrocinadores` as an array of filenames, and the telão builds the track as `<img src="patrocinadores/<name>">`. Empty list hides the carousel container. The telão caches a signature of the list to avoid rebuilding the DOM (and restarting the CSS animation) on every broadcast.
-
-The footer strip is **not free real estate**: the artwork reserves a dark band for it that starts at y=455 of the scoreboard's 512px height (**88.87%**, identical in all three sports — measured by compositing `base/background.png` with each sport's `box.png` and finding the first row, contiguous to the bottom, where no pixel exceeds luminance 20). `.sponsor-carousel-container`'s `top` is that number; raising it spills the logos onto the team-names strip above. Inside the band, logos render at ~52px. Size everything in that footer in `cqw`, never `px` — the strip used fixed `150x60px` and shrank relative to the rest of the telão, which is what made the logos look tiny.
-
-Because the band is inherently short, the same list also feeds the **point-animation banner** (`#anim-patrocinadores`, filled by `montarPatrocinadoresAnim`), where **all** sponsors appear at once, much larger, for the 5s the banner is on screen.
-
-### Frontend structure (no build step)
-
-`public/index.html` is the scoreboard display (the "telão"). `public/controle/` holds the operator-facing pages: `index.html` (setup: sport, team names/logos, roster), `controle.html` (the scoring table — **one screen for all three sports**), `controle_anuncios.html` (video queue manager). All are static HTML with inline/linked vanilla JS and Tailwind-style CSS — edit them directly, there's no compilation step and nodemon explicitly ignores `public/` for reloads.
-
-`controle_futsal.html`/`controle_basquete.html`/`controle_volei.html` are **not** separate screens any more — they are one-line redirects to `controle.html`, kept only so bookmarks saved on the operators' tablets keep working. Everything that differs per sport (number of point buttons, faltas vs. sets, período, timer direction, set-closing bar) lives in the `ESPORTES` object at the top of `controle.html`'s script; add a sport or change a per-sport rule there, not by forking the page. The layout is ordered by how often the operator touches each control: clock in the top bar (tapping it toggles play/pause), a full-height scoring button per team in the middle, correction (−1, behind a `confirm()`) plus the contextual action in the bottom bar, and everything used once per game or destructive (definir tempo, período, inverter lados, fechar jogo, parar transmissão, zerar) behind the `⚙ MAIS` overlay.
-
-Team colors are **CSS custom properties** (`.tema-azul`/`.tema-vermelho` in the page's `<style>`), applied to `[data-lado]` elements by `aplicarTemas()` — not Tailwind color classes. This is what lets "inverter lados" repaint both panels so the color follows the *team* rather than the screen position. When restyling a panel, extend the variables; a hardcoded `bg-blue-600` there would stop swapping on invert.
-
-In the setup screen, `enviarConfiguracao()` is the emit and `salvarConfig()` is emit + validate + lock the form. Loading a game from the API (`aplicarRespostaJogoNaTela`, shared by "Carregar" and by the avulso creation) calls `enviarConfiguracao()` directly, so the API flow never needs an explicit save — and deliberately does **not** lock the form, because editing the roster right after is normal. Keep that split: putting the lock inside `enviarConfiguracao` would freeze the page on every API load. The broadcast card sits right below the API card (not at the bottom) for the same reason, and `#lista-jogos` is height-capped with its own scroll so the agenda doesn't push it off-screen.
-
-Note the two "zerar" are different and both must keep existing: `comando_placar`/`zerar_tudo` (from the table, preserves teams/roster/API link mid-match) vs. `zerar_configuracao_completa` (from the setup screen, resets everything and unlinks the API game).
+- Código, comentários, mensagens de commit e UI em **português**.
+- Comentários explicam o **porquê** (há muitos — leia-os antes de alterar um trecho).
+- Testes com `node:test` + `node:assert/strict`, sem dependências; injete `now`
+  e `fetchImpl` em vez de mockar módulos.
+- Depois de mudar comportamento visível, rode `npm test` e, para telas, a skill `verify`.

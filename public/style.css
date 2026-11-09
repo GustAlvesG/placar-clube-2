@@ -1288,8 +1288,9 @@ body::after {
    do topo da arte e o placar para outra na faixa da base — as únicas áreas que
    nenhuma faixa ocupa (a mais alta, o fechamento de quarto, fica em ~31cqw dos
    50 do placar, centrada: sobram ~9cqw em cima e embaixo) — e os originais
-   ficam ocultos, para nunca haver dois relógios nem dois placares. Quem liga e
-   desliga é manterJogoVisivel() no telão.
+   ficam ocultos. A placa de baixo repete o relógio no centro (.pf-tempo), para
+   o tempo ficar à vista em cima e embaixo. Quem liga e desliga é
+   manterJogoVisivel() no telão.
 
    Embaixo, a placa fica por cima do carrossel de patrocinadores enquanto está
    em cena; é de propósito: é justamente quando a faixa de ponto os mostra
@@ -1400,9 +1401,18 @@ body::after {
     font-variant-numeric: tabular-nums;
 }
 
-.pf-separador {
-    color: rgba(255, 215, 106, 0.85);
-    font-size: 0.7em;
+/* Relógio repetido no meio da placa de baixo: o tempo aparece em cima
+   (#tempo-flutuante) e embaixo, entre os pontos dos dois times. Fios dourados
+   dos lados fazem o papel do antigo "×" e separam o tempo dos placares.
+   Algarismos tabulares: os centésimos do basquete mudam a cada 50ms e não
+   podem fazer a placa tremer de largura. */
+.pf-tempo {
+    font-size: 0.8em;
+    font-variant-numeric: tabular-nums;
+    color: #ffd76a;
+    padding: 0 calc(0.01 * var(--placar-largura));
+    border-left: calc(0.002 * var(--placar-largura)) solid rgba(255, 215, 106, 0.6);
+    border-right: calc(0.002 * var(--placar-largura)) solid rgba(255, 215, 106, 0.6);
 }
 
 /* `visibility` (e não `display`) de propósito: o #tempo e os pontos continuam

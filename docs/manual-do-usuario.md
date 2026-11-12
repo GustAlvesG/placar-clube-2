@@ -12,10 +12,10 @@ quem cuida do telão e quem cuida dos anúncios. Não é preciso saber programar
 3. [As telas do sistema](#3-as-telas-do-sistema)
 4. [Preparar o telão](#4-preparar-o-telão)
 5. [Configurar o jogo](#5-configurar-o-jogo)
-6. [Durante o jogo: a mesa de controle](#6-durante-o-jogo-a-mesa-de-controle)
+6. [Durante o jogo: o Controle](#6-durante-o-jogo-o-controle)
 7. [Regras por esporte](#7-regras-por-esporte)
 8. [Fim de jogo](#8-fim-de-jogo)
-9. [Anúncios: vídeos, slides e patrocinadores](#9-anúncios-vídeos-slides-e-patrocinadores)
+9. [Mídia: comerciais, slides e patrocinadores](#9-mídia-comerciais-slides-e-patrocinadores)
 10. [O que aparece no telão](#10-o-que-aparece-no-telão)
 11. [Problemas comuns](#11-problemas-comuns)
 12. [Roteiro rápido (cola para a mesa)](#12-roteiro-rápido-cola-para-a-mesa)
@@ -32,7 +32,7 @@ a ele pelo navegador:
 - o **tablet da mesa** marca pontos, faltas, sets e controla o cronômetro;
 - um computador ou tablet pode cuidar dos **anúncios** (vídeos e slides).
 
-Tudo que a mesa faz aparece **na hora** em todos os telões.
+Tudo que o Controle faz aparece **na hora** em todos os telões.
 
 Quando o jogo está cadastrado no sistema do clube (a "API"), cada ponto e falta
 também vai para a **súmula oficial**, automaticamente.
@@ -56,13 +56,14 @@ também vai para a **súmula oficial**, automaticamente.
 | Tela | Endereço | Quem usa |
 |---|---|---|
 | **Telão** | `http://192.168.1.50:4000` | a TV/projetor |
-| **Configuração** | `http://192.168.1.50:4000/controle/` | antes do jogo |
-| **Mesa de controle** | `http://192.168.1.50:4000/controle/controle.html` | durante o jogo |
-| **Anúncios** | `http://192.168.1.50:4000/controle/controle_anuncios.html` | intervalos |
+| **Controle (entrada)** | `http://192.168.1.50:4000/controle/` | abre o Controle na aba Preparar |
+| **Configuração** | `http://192.168.1.50:4000/controle/configuracao.html` | editar elenco e logos, jogo avulso ou manual |
+| **Controle** | `http://192.168.1.50:4000/controle/controle.html` | no tablet: preparar, marcar e controlar o telão |
+| **Mídia** | `http://192.168.1.50:4000/controle/controle_anuncios.html` | enviar e organizar comerciais, slides e patrocinadores |
 
 > Dica: salve esses endereços como favoritos (ou atalho na tela inicial) em cada
 > aparelho. Atalhos antigos como `controle_futsal.html`, `controle_basquete.html` e
-> `controle_volei.html` continuam funcionando — eles levam para a mesa única.
+> `controle_volei.html` continuam funcionando — eles levam para o Controle.
 
 Você pode abrir várias telas ao mesmo tempo, em vários aparelhos. Todas ficam
 sincronizadas.
@@ -95,61 +96,68 @@ som até o clique.
 
 ## 5. Configurar o jogo
 
-Abra a tela de **Configuração** (`/controle/`). No topo fica o painel
-**Integração com o Placar Clube**, com três formas de preparar o jogo.
+> No dia a dia, carregue o jogo pela aba **Preparar** do Controle (seção 6.1). Esta
+> tela é para o que o Controle não faz: editar elenco e logos, criar jogo avulso,
+> montar um jogo manual.
 
-### 5.1 📋 Selecionar jogo existente (recomendado)
+Abra a tela de **Configuração** (`/controle/configuracao.html`, ou **Configuração** no topo do
+Controle e da Mídia). Ela segue a ordem em que o jogo é montado: **1 Jogo**, **2
+Transmissão**, **3 Esporte** e os dois times.
+
+### 5.1 Selecionar jogo (recomendado)
 
 Use quando o jogo **já está cadastrado** no sistema do clube. É o caminho
 preferido: tudo o que for marcado vai para a súmula oficial.
 
-1. Escolha o **status** (Agendado, Ao vivo, Encerrado ou todos) e, se quiser, a
-   data.
-2. Clique em **🔎 Buscar jogos**.
-3. Na lista, clique em **Carregar** no jogo desejado.
+1. Em **1 Jogo**, toque em **Selecionar jogo**. Com o sistema do clube ligado, a
+   tela já abre assim e já busca.
+2. Se quiser, escolha o **status** (Agendado, Ao vivo, Encerrado ou todos) e a
+   data, e toque em **Buscar jogos**.
+3. Na lista, toque em **Carregar** no jogo desejado.
 4. Pronto: esporte, nomes, logos e elencos são preenchidos **e já enviados ao
-   telão**. Uma mensagem confirma o número do jogo.
+   telão**. Uma faixa verde confirma o número do jogo.
 
-Não é preciso clicar em "Salvar". **Mas**, se você alterar algo depois de
-carregar (elenco, nomes, fotos), clique em **✅ SALVAR CONFIGURAÇÃO** para o telão
-receber a mudança.
+Não é preciso salvar. **Mas**, se você alterar algo depois de carregar (elenco,
+nomes, fotos), toque em **Salvar configuração** para o telão receber a mudança.
 
 Opcional, ainda nessa tela:
 
-- **Titular / capitão**: marque nos jogadores e clique em **💾 Salvar escalação
-  (API)** de cada time. Isso substitui a escalação salva antes.
-- **🚦 Iniciar jogo (marcar ao vivo na API)**: marca a partida como "ao vivo". Não
-  é obrigatório — **o primeiro ▶ PLAY do cronômetro já faz isso sozinho**.
+- **Titular / capitão**: com jogo do sistema carregado, cada jogador ganha os
+  botões **T** e **C**. Marque e toque em **Salvar escalação na API** do time.
+  Isso substitui a escalação salva antes.
+- **Marcar ao vivo agora**: marca a partida como "ao vivo". Não é obrigatório,
+  **o primeiro ▶ PLAY do cronômetro já faz isso sozinho**.
 
-### 5.2 ➕ Criar jogo agora (avulso)
+### 5.2 Criar jogo agora (avulso)
 
 Use quando o jogo **não está cadastrado**, mas você quer que ele entre no sistema
 do clube.
 
-1. Escolha o **esporte** e preencha os nomes do **TIME A** e do **TIME B**.
-2. Informe **categoria** (padrão: Adulto) e **local** (opcionais).
-3. Clique em **➕ Criar times e jogo agora**. O sistema reaproveita os times que já existirem com o mesmo
-   nome, cria o jogo e o carrega no telão.
+1. Escolha o **esporte** e preencha os nomes do **Time A** e do **Time B**.
+2. Em **1 Jogo → Criar jogo agora**, informe **categoria** (padrão: Adulto) e
+   **local** (opcionais).
+3. Toque em **Criar times e jogo agora**. O sistema reaproveita os times que já
+   existirem com o mesmo nome, cria o jogo e o carrega no telão.
 
-### 5.3 ✋ Manual (sem API)
+### 5.3 Manual (sem API)
 
 Use só quando não há sistema do clube disponível (sem internet, jogo amistoso
 etc.). **Nada vai para a súmula oficial.**
 
-1. Em **Regras do Jogo**, escolha o esporte.
-2. Preencha **🏠 TIME A (Local)** e **✈️ TIME B (Visitante)**: nome e, se quiser,
-   logo.
+1. Em **3 Esporte**, escolha o esporte.
+2. Preencha **Time A · casa** e **Time B · visitante**: nome e, se quiser, logo
+   (**Escolher**; **Remover** tira a logo).
 3. Monte o **elenco** de cada time (ver 5.4).
-4. Clique em **✅ SALVAR CONFIGURAÇÃO**. O formulário fica travado para evitar
-   alterações acidentais.
+4. Toque em **Salvar configuração**. O formulário fica travado para evitar
+   alterações acidentais (para editar de novo, recarregue a página).
 
 ### 5.4 Elenco
 
 Para cada time:
 
-- **+ Adicionar Jogador**: número, nome e foto (📷, opcional).
-- **📄 Importar (.txt/.xlsx)**: carrega o elenco inteiro de um arquivo. Ele
-  **substitui** o elenco atual (o sistema pede confirmação).
+- **+ Jogador**: número, nome e foto (ícone de câmera, opcional). O **×** remove.
+- **Importar**: carrega o elenco inteiro de um arquivo. Ele **substitui** o
+  elenco atual (a tela pergunta antes).
   - Arquivo de texto (`.txt` ou `.csv`): **uma linha por jogador**, número e nome
     separados por `;`, `,`, TAB ou espaço. O número é opcional.
     ```
@@ -160,85 +168,144 @@ Para cada time:
   - Planilha (`.xlsx` ou `.xls`): colunas **Número** e **Nome** (o cabeçalho é
     opcional).
   - As fotos são adicionadas depois, uma a uma.
-- Jogadores com 🎬 têm **vídeo de apresentação** cadastrado no sistema do clube: no
-  telão, ao marcar ponto, o vídeo toca antes da faixa.
+- Jogadores com o ícone de **câmera de vídeo** têm vídeo de apresentação
+  cadastrado no sistema do clube: no telão, ao marcar ponto, o vídeo toca antes
+  da faixa.
 
-> Cadastrar o elenco é o que permite escolher **quem marcou** na mesa. Sem elenco,
+> Cadastrar o elenco é o que permite escolher **quem marcou** no Controle. Sem elenco,
 > o ponto vai para o time e o telão anuncia o time.
 
 ### 5.5 Ligar a transmissão
 
-No cartão **Transmissão do Telão**, clique em **📡 INICIAR TRANSMISSÃO**. O telão
-sai da tela de espera e mostra o placar. O mesmo botão encerra a transmissão.
+No cartão **2 Transmissão do telão**, toque em **Iniciar transmissão**. O telão
+sai da tela de espera, mostra o placar, e você vai direto para o Controle. O mesmo
+botão encerra a transmissão. (No Controle, a aba **Telão** faz o mesmo.)
 
-### 5.6 ⚠️ ZERAR PLACAR E DADOS
+### 5.6 Zerar tudo
 
 No fim da tela de Configuração. **Apaga tudo**: esporte, nomes, logos, elenco,
 placar, cronômetro e o vínculo com o jogo do sistema do clube. Use **só ao
-terminar um jogo e antes de preparar o próximo**. O sistema pede confirmação.
+terminar um jogo e antes de preparar o próximo**. Para evitar acidente, é preciso
+**segurar o botão** até a barra encher (pouco mais de 1 segundo).
 
-Não confunda com o "Zerar" da mesa (ver 6.6), que só zera os números.
+Não confunda com o "Zerar placar" do Controle (ver 6.8), que só zera os números.
 
 ---
 
-## 6. Durante o jogo: a mesa de controle
+## 6. Durante o jogo: o Controle
 
-Abra a **Mesa de controle** (`/controle/controle.html`) no tablet. Ela se adapta
-sozinha ao esporte configurado.
+Abra o **Controle** (`/controle/` ou `/controle/controle.html`) no **tablet**, de
+preferência deitado. Ela se adapta sozinha ao esporte configurado e tem três
+abas no topo, na ordem do dia de jogo:
+
+| Aba | Para quê |
+|---|---|
+| **Preparar** | escolher o jogo do dia e conferir se está tudo pronto |
+| **Controle** | marcar o jogo |
+| **Telão** | decidir o que vai ao ar: placar, slides, espera ou comerciais |
+
+Ao lado das abas ficam sempre visíveis o esporte, se o **telão está no ar** e o
+estado do envio ao sistema do clube.
+
+### 6.1 Preparar
+
+- **Jogos**: os jogos do dia vindos do sistema do clube. Use **‹ ›** para ver
+  outros dias e **⟳** para atualizar. Toque em **Carregar** no jogo certo. Se já
+  houver outro jogo carregado, a própria linha pergunta se você quer trocar (trocar
+  zera o placar do Controle).
+- **Antes de começar**: um checklist. **Verde** está pronto; **âmbar** ainda
+  precisa de você.
+  - *Jogo* carregado.
+  - *Elencos*: quantos atletas e titulares. **Editar** leva à Configuração.
+  - *Relógio*: o tempo de cada período. **Alterar** abre o ajuste.
+  - *Telão*: **Pôr no ar** liga a transmissão.
+- **Ir para o controle** quando estiver tudo verde. Se o telão ainda estiver na
+  espera, a tela pergunta *"Deseja colocar o jogo … no telão agora?"*: **Sim, pôr
+  no ar** liga o placar no telão; **Agora não** só abre o Controle.
+
+Jogo fora da lista ou sem internet? Monte-o à mão na **Configuração** (seção 5.3).
+
+### 6.2 O Controle
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  ⚽ FUTSAL   🔗 #123 · ok        [ 10:00 ]        ⚙ MAIS  │  ← topo
-├───────────────────────────┬──────────────────────────────┤
-│  CASA                     │  VISITANTE                   │
-│                           │                              │
-│        +1 GOL             │        +1 GOL                │  ← meio
-│                           │                              │
-├───────────────────────────┴──────────────────────────────┤
-│  −1   + FALTA     [ação do momento]    + FALTA   −1      │  ← rodapé
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ FUTSAL · TELÃO NO AR   [Preparar|Controle|Telão]   Lances  Mais  │  ← topo
+│ [− 2º +]          [ ▶ 12:47 ]                     Ajustar    │  ← relógio
+├──────────────────────────────┬───────────────────────────────┤
+│ LEÕES DO SUL            3    │ TIGRES FC                2    │
+│          +1 GOL              │          +1 GOL               │  ← meio
+│ Faltas ●●●●○      + FALTA    │ Faltas ●●○○○      + FALTA     │
+├──────────────────────────────┴───────────────────────────────┤
+│ Último lance: Gol · Leões · #10 Rafael   [↩ DESFAZER] [ação] │  ← rodapé
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### 6.1 Cronômetro (topo)
+### 6.3 Cronômetro
 
 - **Toque no relógio** para iniciar ou pausar.
-  - **Verde** = parado. **Âmbar** = correndo.
+  - **Verde** = parado. **Âmbar** = correndo. **Vermelho** = tempo esgotado.
 - O primeiro PLAY de um jogo carregado da API já marca o jogo como **ao vivo** no
   sistema do clube.
-- Para **definir o tempo** (ex.: 20:00) ou **reiniciar**, use o **⚙ MAIS**.
+- **− / +** ao lado do relógio corrigem o período (tempo/quarto). Não mexem nas
+  faltas.
+- **Ajustar** abre o ajuste do relógio: digite minutos e segundos (ou toque num
+  tempo pronto, como 20:00) e toque em **Definir relógio**. **Recomeçar o
+  período** volta o relógio ao tempo definido.
+- Quando o tempo **acaba**, aparece no rodapé **Ir para o 3º quarto** (ou o
+  período seguinte): um toque avança o período, **zera as faltas** e recarrega o
+  relógio. No último período aparece **Fim do período · encerrar**.
 
-### 6.2 Marcar ponto (meio)
+### 6.4 Marcar ponto
 
-1. Toque no **botão grande** do time (no basquete há **+1**, **+2** e **+3**).
-2. Se o time tem elenco, abre a lista de jogadores, **ordenada por número**.
-   Toque em quem marcou.
-3. Opções no rodapé da lista:
-   - **Sem jogador específico** — marca o ponto para o time, sem creditar
-     ninguém. O telão anuncia o time.
-   - **✕ Cancelar** (ou **Esc**) — desiste: **nada** é marcado. Use quando tocou
-     no botão errado.
+1. Toque no **botão grande** do time (no basquete: **+1 lance livre**, **+2
+   cesta**, **+3 três**).
+2. Se o time tem elenco, sobe a lista de jogadores na cor do time: **Em quadra**
+   (titulares) primeiro, **Banco** depois, cada um pelo número. Toque em quem
+   marcou.
+3. Embaixo da lista:
+   - **Marcar sem jogador** — marca o ponto para o time, sem creditar ninguém. O
+     telão anuncia o time.
+   - **Cancelar** (ou **Esc**, ou tocar fora da lista) — desiste: **nada** é
+     marcado.
 
-### 6.3 Corrigir (rodapé)
+**Modo rápido** (em **Mais**): marca ponto e falta direto, sem perguntar o
+jogador. Vale só para este tablet.
 
-- **−1** tira um ponto do time. O sistema pergunta antes, mostrando o time e como
-  o placar vai ficar. Com placar 0, o botão fica apagado.
-- Faltas têm **−** e **+** próprios.
-- Correções também vão para a súmula, como **estorno** do lance anterior.
+### 6.5 Corrigir: Desfazer e Lances
 
-### 6.4 Faltas (futsal e basquete)
+- O rodapé mostra sempre o **último lance** (o que foi, de qual time, quem e em
+  que minuto). **↩ Desfazer** desfaz exatamente esse lance, **sem prazo**: o
+  botão continua lá até o próximo lance. Depois de desfazer, o rodapé passa a
+  mostrar o lance anterior.
+- Para corrigir um lance mais antigo, abra **Lances** (topo). Cada linha tem
+  **Estornar**; a linha pergunta de novo antes de confirmar.
+- Corrigir **não apaga**: no sistema do clube vira um **estorno** do lance, e na
+  lista ele fica riscado.
+- Alguns lances não podem mais ser corrigidos por aqui: ponto de um set que já
+  fechou e falta de um período que já passou. Nesses casos o botão não aparece.
 
-Toque em **+ FALTA** do time e escolha o jogador (ou "Sem jogador específico").
-Com jogador escolhido, o telão mostra a faixa de **FALTA!**.
+### 6.6 Faltas (futsal e basquete)
 
-### 6.5 Badge de sincronização
+Toque em **+ Falta** do time e escolha o jogador (ou **Marcar sem jogador**). Com
+jogador escolhido, o telão mostra a faixa de **FALTA!**.
 
-Quando o jogo veio da API, aparece no topo `🔗 #número`:
+Os pontinhos mostram as faltas do período. Ao chegar no limite, eles ficam
+**âmbar** e aparece um aviso:
 
-| Badge | Significado |
+- **Futsal**, 5ª falta: *próxima falta: tiro livre*.
+- **Basquete**, 4ª falta: *bônus: lances livres*.
+
+É só um aviso; o Controle não bloqueia nada.
+
+### 6.7 Envio ao sistema do clube
+
+Quando o jogo veio da API, aparece no topo `#número`:
+
+| Indicador | Significado |
 |---|---|
-| verde `· ok` | tudo enviado ao sistema do clube |
-| amarelo | enviando agora |
-| vermelho / `· N pend.` | há lances esperando envio (sem conexão, por exemplo) |
+| `· em dia` | tudo enviado ao sistema do clube |
+| âmbar `· N enviando` | há lances a caminho |
+| vermelho `· erro` | não está conseguindo enviar (sem conexão, por exemplo) |
 
 Lances pendentes são reenviados **automaticamente** a cada poucos segundos. O
 placar do telão nunca espera a internet. Se o sistema do clube **recusar** algum
@@ -246,22 +313,37 @@ lance, aparece um aviso explicando o motivo.
 
 > Atenção: **não reinicie o servidor** com lances pendentes — eles se perdem.
 
-### 6.6 ⚙ MAIS
+### 6.8 Mais
 
-Controles usados uma vez por jogo ou que apagam coisas ficam aqui, para não serem
-tocados por engano:
+Controles usados uma vez por jogo, ou que apagam coisas, ficam aqui. Os que
+apagam pedem para você **segurar o botão** até a barra encher (pouco mais de 1
+segundo); soltar antes cancela.
 
 | Controle | Para quê |
 |---|---|
-| **Cronômetro → DEFINIR** | define minutos e segundos do período |
-| **↺ Reiniciar cronômetro** | volta ao tempo definido |
-| **− Período / + Período** | muda o período/tempo/quarto (futsal e basquete) |
-| **🔁 Inverter lados** | troca qual time fica à esquerda **só neste tablet** (o telão não muda). As cores acompanham o time. Útil quando a mesa fica do outro lado da quadra |
-| **🏁 Fechar jogo** | encerra o jogo no sistema do clube (ver seção 8) |
-| **⏹ Parar transmissão do telão** | volta o telão para a tela de espera |
-| **⚠ Zerar placar, faltas e cronômetro** | zera os números, **mantendo** times, elenco e o vínculo com a API |
+| **Cronômetro** | definir minutos e segundos; recomeçar o período |
+| **Inverter lados** | troca qual time fica à esquerda **só neste tablet** (o telão não muda). As cores acompanham o time |
+| **Modo rápido** | marcar sem perguntar o jogador (só neste tablet) |
+| **Encerrar jogo na API** *(segure)* | encerra o jogo no sistema do clube (ver seção 8) |
+| **Parar a transmissão / Pôr o telão no ar** | liga ou desliga o placar no telão |
+| **Reabrir o último set** | vôlei: desfaz o último fechamento |
+| **Zerar faltas** *(segure)* | zera as faltas dos dois times |
+| **Zerar placar e relógio** *(segure)* | zera os números, **mantendo** times, elenco e o vínculo com a API |
+| **Configuração completa / Arquivos de mídia** | atalhos para as outras telas |
 
 **Esc** fecha o painel.
+
+### 6.9 Telão
+
+- **Placar / Slides / Espera**: toque no que deve ir ao ar. O cartão marcado
+  **● NO AR** é o que o telão mostra agora. *Slides* começa a apresentação com
+  todos os slides da pasta.
+- **Comerciais**: toque nos vídeos na ordem em que devem tocar (o número aparece
+  ao lado) e em **Tocar escolhidos**. Sem escolher nenhum, **Tocar todos**.
+  **Parar vídeo** volta ao que estava no ar.
+- **Slides**: com a apresentação no ar, **Anterior** / **Avançar** / **Parar
+  apresentação**.
+- Enviar ou excluir arquivos fica em **Arquivos de mídia** (tela Mídia, seção 9).
 
 ---
 
@@ -271,13 +353,13 @@ tocados por engano:
 
 - Botão **+1 GOL**. Telão anuncia **GOL!**.
 - Cronômetro **regressivo** (MM:SS).
-- Faltas e período controlados pela mesa.
+- Faltas e período controlados pelo Controle.
 
 ### 🏀 Basquete
 
 - Botões **+1**, **+2**, **+3**. Telão anuncia **CESTA!**.
 - Cronômetro **regressivo com centésimos** (MM:SS.cc).
-- Faltas e quarto (período) controlados pela mesa.
+- Faltas e quarto (período) controlados pelo Controle.
 - Placar e tempo **nunca somem** do telão: durante as animações o tempo aparece
   numa placa no topo e também no meio da placa da base, entre os pontos dos dois
   times.
@@ -290,13 +372,14 @@ tocados por engano:
 - **SET POINT**: quando um time está a um ponto de fechar o set, o telão mostra
   um selo dourado sobre o placar dele.
 - **Fechar o set é sempre manual.** Ao chegar a **25 pontos com 2 de vantagem**
-  (**15** no 5º set, o tie-break), aparece no rodapé o botão **✔ FECHAR SET**.
+  (**15** no 5º set, o tie-break), aparece no rodapé o botão **✔ Fechar Nº set**.
+  O Controle também mostra o selo **Set point** sobre o time que está a um ponto.
   Tocando nele:
   - o placar do set vai para o histórico,
   - o set é creditado ao vencedor,
   - o placar volta a 0 × 0,
   - o telão mostra a faixa do set (ou **FIM DE JOGO**, ao terceiro set vencido).
-- Fechou por engano? **↩ REABRIR** desfaz o último fechamento.
+- Fechou por engano? **↩ Desfazer** no rodapé (ou **Reabrir** em Lances / Mais) desfaz o último fechamento.
 - O jogo é **melhor de 5 sets**.
 
 ---
@@ -304,52 +387,57 @@ tocados por engano:
 ## 8. Fim de jogo
 
 1. Confira o placar final.
-2. Se o jogo veio da API: **⚙ MAIS → 🏁 Fechar jogo**. Confirme. O sistema envia
+2. Se o jogo veio da API: **Mais → Encerrar jogo na API** (segure o botão). O sistema envia
    tudo que estiver pendente e registra o resultado (placar, sets e períodos). Se
-   houver diferença entre o que a mesa marcou e o que o sistema contou, aparece um
+   houver diferença entre o que o Controle marcou e o que o sistema contou, aparece um
    aviso para conferência.
-3. **⚙ MAIS → ⏹ Parar transmissão** (ou pela tela de Configuração).
-4. Antes do próximo jogo, na Configuração: **⚠️ ZERAR PLACAR E DADOS** e prepare o
+3. **Mais → Parar a transmissão** (ou aba **Telão → Espera**).
+4. Antes do próximo jogo, na Configuração: **Zerar tudo** (segure) e prepare o
    novo jogo.
 
 ---
 
-## 9. Anúncios: vídeos, slides e patrocinadores
+## 9. Mídia: comerciais, slides e patrocinadores
 
-Abra **Anúncios** (`/controle/controle_anuncios.html`).
+Abra **Mídia** (`/controle/controle_anuncios.html`, ou **Mídia** no topo da
+configuração, ou **Arquivos de mídia** no Controle). Ela tem três abas.
 
-### 9.1 🎬 Vídeos (comerciais)
+> Durante o jogo, para só pôr no ar o que já está no servidor, a aba **Telão** da
+> Controle é mais rápida (seção 6.9). Esta tela é para enviar, excluir e montar a
+> ordem com calma.
 
-1. **⬆ Enviar vídeo** para subir um arquivo ao servidor (fica salvo para os
-   próximos jogos). Formatos: `.mp4` (recomendado), `.webm`, `.mov`, `.avi`,
-   `.mkv`.
-2. Na lista **Vídeos disponíveis**, clique em **+ Adicionar** (ou **☑ Selecionar
-   tudo**) para montar a **Fila de reprodução**.
-3. Marque **🔁 LOOP** se quiser que a fila repita até você parar.
-4. **▶ REPRODUZIR FILA** — o telão exibe os vídeos em tela cheia, em sequência.
-5. Ao terminar (sem loop), o telão volta sozinho ao placar. **⏹ PARAR**
+### 9.1 Comerciais (vídeos)
+
+1. **Enviar** sobe um ou mais vídeos ao servidor (ficam salvos para os próximos
+   jogos). Formatos: `.mp4` (recomendado), `.webm`, `.mov`, `.avi`, `.mkv`.
+2. Na lista **Vídeos no servidor**, toque em **+ Fila** (ou **Todos na fila**)
+   para montar a **Fila de reprodução**. O **×** tira da fila; **Limpar** esvazia.
+3. Ligue **Repetir** se quiser que a fila recomece até você parar.
+4. **Tocar fila no telão**: o telão exibe os vídeos em tela cheia, em sequência.
+5. Ao terminar (sem repetir), o telão volta sozinho ao placar. **Parar**
    interrompe a qualquer momento.
-6. **🗑** ao lado de um vídeo o apaga do servidor (pede confirmação).
+6. A **lixeira** ao lado de um vídeo o apaga do servidor (a tela pergunta antes).
 
-### 9.2 🖼️ Slides
+### 9.2 Slides
 
 Apresentação de imagens (ou vídeos curtos) em tela cheia, avançada à mão.
 
-1. **⬆ Enviar imagens/vídeos** ou **📄 Enviar PDF** — cada página do PDF vira um
-   slide. Apresentações PowerPoint: exporte antes como PDF ou imagens.
-2. Monte a **Fila da apresentação** na ordem desejada.
-3. **▶ INICIAR APRESENTAÇÃO**, depois **◀ ANTERIOR** / **AVANÇAR ▶**.
-4. **⏹ PARAR** volta ao placar.
+1. **Imagens ou vídeos** ou **PDF**: cada página do PDF vira um slide.
+   Apresentações PowerPoint: exporte antes como PDF ou imagens.
+2. Toque em **+ Ordem** nos slides, na sequência da apresentação (ou **Todos**).
+3. **Começar apresentação no telão**; depois **Anterior** / **Avançar**. O número
+   do slide atual aparece entre os dois.
+4. **Parar** volta ao placar.
 
 Um slide em vídeo fica tocando em loop até você avançar. O telão mostra
 discretamente "slide atual / total".
 
-### 9.3 📣 Patrocinadores
+### 9.3 Patrocinadores
 
-- **⬆ Enviar logo** adiciona a logo ao **carrossel** do rodapé do telão. Formatos:
+- **Enviar logo** adiciona a logo ao **carrossel** do rodapé do telão. Formatos:
   `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg` (PNG com fundo transparente fica
-  melhor).
-- **×** remove a logo.
+  melhor). A prévia usa fundo escuro, como a faixa do telão.
+- A **lixeira** remove a logo (a tela pergunta antes).
 - Todos os telões atualizam na hora.
 - As mesmas logos aparecem **em tamanho maior** na faixa de cada ponto marcado.
 - Sem nenhuma logo, o carrossel some.
@@ -382,11 +470,12 @@ Confira se o telão e o tablet estão no mesmo endereço de servidor e na mesma 
 Recarregue as duas páginas (F5).
 
 **O telão continua na tela de espera.**
-A transmissão está desligada: **📡 INICIAR TRANSMISSÃO** na Configuração.
+A transmissão está desligada: no Controle, aba **Telão → Placar** (ou **Iniciar
+transmissão** na Configuração).
 
 **Não aparece a lista de jogadores ao marcar ponto.**
-O time está sem elenco. Cadastre o elenco na Configuração e clique em **✅ SALVAR
-CONFIGURAÇÃO**.
+O time está sem elenco. Cadastre o elenco na Configuração e toque em **Salvar
+configuração**.
 
 **Os vídeos tocam sem som.**
 Clique uma vez no telão. Para resolver de vez, o técnico pode abrir o navegador do
@@ -401,16 +490,16 @@ Prefira `.mp4` (H.264). Arquivos `.mkv` geralmente não tocam no navegador; peç
 para convertê-los para `.mp4`.
 
 **O vídeo novo não aparece na lista.**
-Clique em **🔄 Recarregar** na tela de Anúncios.
+Toque no botão de recarregar (setas em círculo) na tela Mídia.
 
 **As opções de API estão desabilitadas.**
 O servidor não está configurado para o sistema do clube. Use o modo **Manual** e
 avise o responsável técnico.
 
-**O badge mostra lances pendentes há muito tempo.**
+**O indicador `#número` mostra lances enviando há muito tempo.**
 Provavelmente a internet do servidor caiu. O placar segue funcionando; os lances
 serão enviados quando a conexão voltar. **Não reinicie o servidor** enquanto houver
-pendências. Se o badge ficar vermelho mesmo com internet, avise o técnico (pode ser
+pendências. Se o indicador ficar vermelho mesmo com internet, avise o técnico (pode ser
 problema de credencial).
 
 **Importar PDF/planilha não funciona.**
@@ -418,7 +507,7 @@ Essas funções precisam de internet no aparelho de controle.
 
 **O servidor foi reiniciado no meio do jogo.**
 O placar volta zerado. Recarregue o jogo (Configuração → Carregar), acerte o placar
-pela mesa e siga. Lances que ainda não tinham sido enviados ao sistema do clube
+pelo Controle e siga. Lances que ainda não tinham sido enviados ao sistema do clube
 precisam ser conferidos na súmula.
 
 ---
@@ -427,19 +516,18 @@ precisam ser conferidos na súmula.
 
 **Antes**
 1. Telão: abrir o endereço, clicar uma vez.
-2. Configuração: 📋 Selecionar jogo → 🔎 Buscar → **Carregar**.
-3. (Se mudar elenco: ✅ SALVAR CONFIGURAÇÃO.)
-4. 📡 **INICIAR TRANSMISSÃO**.
-5. Mesa: ⚙ MAIS → definir o tempo.
+2. Controle → aba **Preparar** → **Carregar** o jogo.
+3. Checklist todo verde (relógio em **Alterar**, telão em **Pôr no ar**).
+4. **Ir para o controle** → **Sim, pôr no ar**.
 
 **Durante**
 - Relógio: toque = play/pausa.
-- Ponto: botão grande → jogador (ou "Sem jogador específico"; "✕ Cancelar" se errou).
-- Errou o ponto: **−1**.
-- Vôlei: **FECHAR SET** quando aparecer; ↩ REABRIR se fechou por engano.
-- Basquete/futsal: ⚙ MAIS → + Período no intervalo.
+- Ponto: botão grande → jogador (ou **Marcar sem jogador**; **Cancelar** se errou o botão).
+- Errou o lance: **↩ Desfazer** no rodapé (sem prazo). Lance antigo: **Lances → Estornar**.
+- Vôlei: **Fechar set** quando aparecer; **Desfazer** se fechou por engano.
+- Basquete/futsal: tempo zerou → **Ir para o próximo período** no rodapé.
 
 **Depois**
-1. ⚙ MAIS → 🏁 **Fechar jogo**.
-2. ⏹ Parar transmissão.
-3. Configuração → ⚠️ ZERAR PLACAR E DADOS (antes do próximo jogo).
+1. **Mais → Encerrar jogo na API** (segure).
+2. **Mais → Parar a transmissão**.
+3. Configuração → **Zerar tudo** (segure), antes do próximo jogo.

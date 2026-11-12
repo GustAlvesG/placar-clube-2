@@ -41,9 +41,30 @@ const REGRAS_PARCIAL = {
     }
 };
 
+// Falta coletiva a partir da qual a mesa avisa o operador de que a PRÓXIMA
+// falta muda a cobrança. Futsal: da 6ª falta acumulada no tempo em diante é
+// tiro livre direto sem barreira, então o aviso acende na 5ª. Basquete
+// (FIBA): a partir da 5ª falta coletiva no quarto o time adversário cobra
+// lances livres, então o aviso acende na 4ª. Vôlei não tem falta coletiva.
+// É só aviso: nada aqui bloqueia ou cobra coisa alguma.
+const REGRAS_FALTA = {
+    futsal: { limite: 5 },
+    basquete: { limite: 4 }
+};
+
 function criarEstadoInicial() {
     return {
         esporte: 'futsal',
+        // Lance a lance do jogo (ponto, falta, fechamento de set), na ordem em
+        // que aconteceram. É o que a mesa mostra na gaveta "Lances" e o que
+        // permite corrigir um lance ESPECÍFICO (`estornar_lance`) em vez de só
+        // "tirar 1 do placar". Corrigir não apaga: marca `estornado`, como o
+        // log append-only da API.
+        lances: [],
+        // Contador de ids de lance. Não volta a zero no `zerar_tudo` de
+        // propósito: o server.js guarda lanceId → uuid do evento na API, e um
+        // id reaproveitado apontaria para o evento de outro lance.
+        seqLance: 0,
         sacando: null,
         periodo: 1,
         transmissaoAtiva: false,
@@ -156,11 +177,96 @@ function pontoDeParcial(state) {
     return null;
 }
 
-function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
+// Só o que a gaveta de lances precisa do jogador: o elenco pode trazer foto em
+// base64, e o lance vai em todo broadcast.
+function jogadorDoLance(jogador) {
+    if (!jogador) return null;
+    return { numero: jogador.numero ?? '', nome: jogador.nome || '' };
+}
+
+function registrarLance(state, campos, now) {
+    if (!Array.isArray(state.lances)) state.lances = [];
+    state.seqLance = (state.seqLance || 0) + 1;
+    const decorrido = tempoDecorrido(state.cronometro, now);
+    const lance = {
+        id: state.seqLance,
+        tipo: campos.tipo,
+        time: campos.time || null,
+        valor: campos.valor ?? null,
+        jogador: jogadorDoLance(campos.jogador),
+        periodo: state.periodo,
+        parcial: numeroParcialAtual(state),
+        // O que o relógio da mesa mostrava no lance: decorrido (cronômetro
+        // crescente) e restante (regressivo). A mesa escolhe qual exibir.
+        cronometroMs: decorrido,
+        restanteMs: Math.max(0, state.cronometro.duracaoConfigurada - decorrido),
+        estornado: false,
+        ...(campos.extra || {})
+    };
+    state.lances.push(lance);
+    return lance;
+}
+
+// Um lance pode ser corrigido se desfazê-lo ainda faz sentido no placar ATUAL:
+//  - ponto: só da parcial em disputa — depois que o set fecha, o placar dele
+//    foi para o histórico e tirar ponto do placar novo seria errado;
+//  - falta: só do período atual — as faltas são zeradas na troca de período;
+//  - set: só o ÚLTIMO fechamento (é o que `reabrir_set` sabe desfazer).
+function lanceEstornavel(state, lance) {
+    if (!lance || lance.estornado) return false;
+    if (lance.tipo === 'ponto') return lance.parcial === numeroParcialAtual(state);
+    if (lance.tipo === 'falta') return lance.periodo === state.periodo && state[lance.time].faltas > 0;
+    if (lance.tipo === 'set') {
+        const ultimoSet = ultimoLanceDeSet(state);
+        return ultimoSet === lance && Array.isArray(state.parciais) && state.parciais.length === lance.parcial;
+    }
+    return false;
+}
+
+function ultimoLanceDeSet(state) {
+    const lances = Array.isArray(state.lances) ? state.lances : [];
+    for (let i = lances.length - 1; i >= 0; i--) {
+        if (lances[i].tipo === 'set' && !lances[i].estornado) return lances[i];
+    }
+    return null;
+}
+
+// Lances como a mesa precisa: cada um com `estornavel` já calculado, para a
+// regra acima não ser reimplementada no HTML.
+function lancesParaTela(state) {
+    const lances = Array.isArray(state.lances) ? state.lances : [];
+    return lances.map(l => ({ ...l, estornavel: lanceEstornavel(state, l) }));
+}
+
+// Limite de faltas do esporte atual (null onde não há falta coletiva).
+function limiteFaltas(state) {
+    const regra = REGRAS_FALTA[state.esporte];
+    return regra ? regra.limite : null;
+}
+
+// Quais times já estão no limite (a próxima falta muda a cobrança).
+function alertaFaltas(state) {
+    const limite = limiteFaltas(state);
+    return {
+        timeA: limite != null && state.timeA.faltas >= limite,
+        timeB: limite != null && state.timeB.faltas >= limite
+    };
+}
+
+// `now` injetável pelo mesmo motivo de comandoCronometro: o lance guarda o
+// tempo do cronômetro no instante em que aconteceu.
+//
+// Além de `animacoes`, devolve `lance` (o lance criado por esta ação, se
+// houver) e `estornado` (o lance desfeito por `estornar_lance`) — o server.js
+// usa os dois para ligar o lance ao evento correspondente na API.
+function comandoPlacar(state, { time, acao, valor, jogador, lanceId } = {}, now = Date.now()) {
     const animacoes = [];
+    let lance = null, estornado = null;
     if (!Array.isArray(state.parciais)) state.parciais = []; // estado antigo, sem histórico
+    if (!Array.isArray(state.lances)) state.lances = [];
 
     if (acao === 'add_ponto') {
+        lance = registrarLance(state, { tipo: 'ponto', time, valor, jogador }, now);
         state[time].placar += valor;
         state.sacando = time;
         const texto = TEXTOS_PONTO[state.esporte] || 'PONTO!';
@@ -185,6 +291,7 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     if (acao === 'add_set') state[time].sets += 1;
     if (acao === 'sub_set' && state[time].sets > 0) state[time].sets -= 1;
     if (acao === 'add_falta') {
+        lance = registrarLance(state, { tipo: 'falta', time, valor: 1, jogador }, now);
         state[time].faltas += 1;
         // `tipo: 'falta'` faz o telão usar sempre a foto (nunca o vídeo),
         // mesmo que o jogador tenha um vídeo cadastrado.
@@ -203,6 +310,7 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
         const vencedor = vencedorParcial(state);
         const placar = { a: state.timeA.placar, b: state.timeB.placar };
 
+        lance = registrarLance(state, { tipo: 'set', time: vencedor, extra: { placar: { ...placar } } }, now);
         state.parciais.push({ ...placar });
         if (vencedor) state[vencedor].sets += 1;
         state.timeA.placar = 0;
@@ -230,11 +338,36 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
     // Desfaz o último fechamento (operador clicou por engano): devolve o placar
     // daquela parcial e retira o set de quem havia vencido.
     if (acao === 'reabrir_set' && state.parciais.length > 0) {
+        const lanceSet = ultimoLanceDeSet(state);
+        if (lanceSet && lanceSet.parcial === state.parciais.length) lanceSet.estornado = true;
         const ultima = state.parciais.pop();
         state.timeA.placar = ultima.a;
         state.timeB.placar = ultima.b;
         const vencedor = vencedorParcial(state);
         if (vencedor && state[vencedor].sets > 0) state[vencedor].sets -= 1;
+    }
+
+    // Corrige UM lance específico (o "Desfazer" e o "Estornar" da mesa): tira
+    // do placar exatamente o que aquele lance pôs, e marca o lance como
+    // estornado em vez de apagá-lo. Fechamento de set não passa por aqui — é
+    // `reabrir_set`. Lance que já não pode ser desfeito (ver lanceEstornavel)
+    // é ignorado em silêncio.
+    if (acao === 'estornar_lance') {
+        const alvo = state.lances.find(l => l.id === lanceId);
+        if (alvo && alvo.tipo !== 'set' && lanceEstornavel(state, alvo)) {
+            if (alvo.tipo === 'ponto') state[alvo.time].placar = Math.max(0, state[alvo.time].placar - (alvo.valor || 0));
+            if (alvo.tipo === 'falta') state[alvo.time].faltas = Math.max(0, state[alvo.time].faltas - 1);
+            alvo.estornado = true;
+            estornado = alvo;
+        }
+    }
+
+    // Troca de período/quarto: falta coletiva recomeça do zero. Ação separada
+    // de `add_periodo` porque o +/− período da mesa também serve para corrigir
+    // um período marcado errado — e aí as faltas não podem sumir.
+    if (acao === 'zerar_faltas') {
+        state.timeA.faltas = 0;
+        state.timeB.faltas = 0;
     }
     if (acao === 'add_periodo') state.periodo += 1;
     if (acao === 'sub_periodo' && state.periodo > 1) state.periodo -= 1;
@@ -244,6 +377,7 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
         state.timeA.placar = 0; state.timeA.sets = 0; state.timeA.faltas = 0;
         state.timeB.placar = 0; state.timeB.sets = 0; state.timeB.faltas = 0;
         state.parciais = [];
+        state.lances = []; // `seqLance` continua contando (ver criarEstadoInicial)
         state.sacando = null;
         state.periodo = 1;
         state.cronometro.rodando = false;
@@ -251,7 +385,7 @@ function comandoPlacar(state, { time, acao, valor, jogador } = {}) {
         state.cronometro.inicioTimestamp = 0;
     }
 
-    return { animacoes };
+    return { animacoes, lance, estornado };
 }
 
 function comandoCronometro(state, { acao, valor, segundos } = {}, now = Date.now()) {
@@ -351,9 +485,14 @@ module.exports = {
     EXTENSOES_IMAGEM,
     EXTENSOES_SLIDE,
     REGRAS_PARCIAL,
+    REGRAS_FALTA,
     criarEstadoInicial,
     configurarJogo,
     comandoPlacar,
+    lanceEstornavel,
+    lancesParaTela,
+    limiteFaltas,
+    alertaFaltas,
     numeroParcialAtual,
     parcialEmAndamento,
     quantidadeParciais,

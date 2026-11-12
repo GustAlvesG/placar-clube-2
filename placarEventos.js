@@ -70,7 +70,18 @@ function registrarEvento(fila, campos, agora = new Date()) {
 function criarEstorno(fila, chaveEstorno, motivo, agora = new Date()) {
     const uuidOriginal = fila.ultimosPorChave[chaveEstorno];
     if (!uuidOriginal) return null;
-    delete fila.ultimosPorChave[chaveEstorno]; // não deixa um 2º desfazer referenciar o mesmo evento
+    return estornarEvento(fila, uuidOriginal, motivo, agora);
+}
+
+// Estorno de um evento conhecido pelo uuid — o caminho da mesa quando o
+// operador corrige um lance específico da lista (não necessariamente o último
+// daquele time). Qualquer chave que ainda aponte para esse uuid é esquecida,
+// para que um `sub_ponto` posterior não estorne o mesmo evento duas vezes.
+function estornarEvento(fila, uuidOriginal, motivo, agora = new Date()) {
+    if (!uuidOriginal) return null;
+    for (const [chave, uuid] of Object.entries(fila.ultimosPorChave)) {
+        if (uuid === uuidOriginal) delete fila.ultimosPorChave[chave];
+    }
     return registrarEvento(fila, { tipo: 'estorno', payload: { evento_uuid: uuidOriginal, motivo } }, agora);
 }
 
@@ -189,6 +200,7 @@ module.exports = {
     criarEstadoFila,
     registrarEvento,
     criarEstorno,
+    estornarEvento,
     traduzirAcaoPlacar,
     traduzirAcaoCronometro,
     enviarPendentes

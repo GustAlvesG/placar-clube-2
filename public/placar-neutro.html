@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Placar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<!--
+    PLACAR NEUTRO — placar paralelo, só leitura, acessível apenas pela URL
+    (/placar-neutro.html). Nenhuma tela linka para cá de propósito: é para
+    monitor de mesa, transmissão por stream, TV secundária etc., onde a arte do
+    telão não cabe.
+
+    Não emite nada: só escuta `atualizar_tela`. Não segue a transmissão do
+    telão (aparece sempre) nem mostra animações, vídeos ou patrocinadores.
+
+    Tema: claro ou escuro. Ordem de decisão: ?tema=claro|escuro na URL (e fica
+    salvo neste navegador) → escolha salva → tema do sistema. O botão no canto
+    (aparece ao mexer o mouse/tocar) e a tecla T alternam.
+
+    Tudo é medido em `--u`, 1% da largura de um quadro 16:9 que cabe na tela:
+    o placar escala inteiro sem distorcer em qualquer monitor.
+-->
+<style>
+:root {
+  --bg: #f3f4f6; --painel: #ffffff; --linha: #e2e5ea; --fg: #111418; --suave: #5b6472; --fraco: #9aa2ae;
+  --casa: #2f6fe4; --visitante: #d93a3a; --destaque: #b7791f; --destaque-fundo: #fdf3e1; --sombra: 0 1px 2px rgba(17,20,24,.04), 0 8px 30px rgba(17,20,24,.06);
+  color-scheme: light;
+}
+:root[data-tema="escuro"] {
+  --bg: #0d0f12; --painel: #16191e; --linha: #252a31; --fg: #eef1f5; --suave: #9aa3b0; --fraco: #5f6875;
+  --casa: #5b8ff0; --visitante: #ef6262; --destaque: #f2b544; --destaque-fundo: #2c2410; --sombra: 0 1px 2px rgba(0,0,0,.3), 0 10px 40px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--fg); transition: background-color .3s, color .3s; }
+body {
+  --u: min(1vw, 1.7778vh);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; display: grid; place-items: center;
+  -webkit-font-smoothing: antialiased;
+}
+body.ocioso { cursor: none; }
+
+.quadro { width: calc(var(--u) * 100); height: calc(var(--u) * 56.25); display: grid; grid-template-rows: auto 1fr auto; gap: calc(var(--u) * 2.2); padding: calc(var(--u) * 3.2) calc(var(--u) * 3.6); }
+
+/* Topo: esporte e período */
+.topo { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--u) * 2); }
+.rotulo { font-size: calc(var(--u) * 1.35); font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--suave); white-space: nowrap; }
+.periodo { font-size: calc(var(--u) * 1.35); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg); padding: calc(var(--u) * .55) calc(var(--u) * 1.2); border: 1px solid var(--linha); border-radius: 999px; background: var(--painel); white-space: nowrap; }
+.periodo:empty { visibility: hidden; }
+
+/* Centro: time A | relógio | time B */
+.jogo { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: calc(var(--u) * 2); min-height: 0; }
+.time { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: calc(var(--u) * 1.5); padding: calc(var(--u) * 2.4); background: var(--painel); border: 1px solid var(--linha); border-radius: calc(var(--u) * 1.8); box-shadow: var(--sombra); min-width: 0; overflow: hidden; }
+.time::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u) * .45); background: var(--cor); }
+.time.casa { --cor: var(--casa); }
+.time.visitante { --cor: var(--visitante); }
+.time.visitante .cab { flex-direction: row-reverse; text-align: right; }
+.time.visitante .placar-time { text-align: right; }
+.cab { display: flex; align-items: center; gap: calc(var(--u) * 1.4); min-width: 0; }
+.escudo { width: calc(var(--u) * 6); height: calc(var(--u) * 6); border-radius: calc(var(--u) * 1.2); flex: none; display: grid; place-items: center; overflow: hidden; background: var(--bg); border: 1px solid var(--linha); font-weight: 800; font-size: calc(var(--u) * 1.9); letter-spacing: .02em; color: var(--cor); }
+.escudo img { width: 100%; height: 100%; object-fit: contain; padding: calc(var(--u) * .5); }
+.nome { min-width: 0; }
+.nome b { display: block; font-size: calc(var(--u) * 2.6); font-weight: 700; letter-spacing: -.01em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nome small { display: flex; align-items: center; gap: calc(var(--u) * .6); margin-top: calc(var(--u) * .4); font-size: calc(var(--u) * 1.1); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--suave); }
+.time.visitante .nome small { justify-content: flex-end; }
+.saque { width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: var(--cor); }
+.placar-time { font-size: calc(var(--u) * 17); font-weight: 800; letter-spacing: -.06em; line-height: .82; }
+.placar-time.muda { animation: muda .6s ease-out; }
+@keyframes muda { from { color: var(--cor); } }
+.selo { font-size: calc(var(--u) * 1); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--destaque); background: var(--destaque-fundo); padding: calc(var(--u) * .3) calc(var(--u) * .8); border-radius: 999px; white-space: nowrap; }
+
+/* Rodapé do time: faltas (pontos) ou sets vencidos (bolas) */
+.extra { display: flex; align-items: center; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.1); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--suave); min-height: calc(var(--u) * 2.4); }
+.time.visitante .extra { flex-direction: row-reverse; }
+.extra .n { font-size: calc(var(--u) * 2.2); font-weight: 800; letter-spacing: -.02em; color: var(--fg); }
+.marcas { display: flex; gap: calc(var(--u) * .5); }
+.marca { width: calc(var(--u) * 1.1); height: calc(var(--u) * 1.1); border-radius: 50%; border: calc(var(--u) * .16) solid var(--linha); }
+.marca.on { background: var(--cor); border-color: var(--cor); }
+.extra.alerta .marca.on { background: var(--destaque); border-color: var(--destaque); }
+.extra .aviso { color: var(--destaque); }
+.sets .marca { width: calc(var(--u) * 1.6); height: calc(var(--u) * 1.6); }
+
+.centro { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 1.2); min-width: calc(var(--u) * 22); }
+.relogio { font-size: calc(var(--u) * 7.4); font-weight: 700; letter-spacing: -.04em; line-height: 1; white-space: nowrap; }
+.relogio small { font-size: .5em; color: var(--suave); letter-spacing: -.02em; }
+.relogio.parado { color: var(--suave); }
+.estado-relogio { font-size: calc(var(--u) * 1.05); font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--fraco); }
+.x { font-size: calc(var(--u) * 2.4); font-weight: 300; color: var(--fraco); }
+
+/* Rodapé: parciais (vôlei) */
+.parciais { display: flex; justify-content: center; gap: calc(var(--u) * .8); min-height: calc(var(--u) * 5.6); align-items: stretch; }
+.parciais:empty { visibility: hidden; }
+.parcial { display: grid; grid-template-rows: auto 1fr 1fr; align-items: center; text-align: center; min-width: calc(var(--u) * 6.4); padding: calc(var(--u) * .5) calc(var(--u) * .8); border: 1px solid var(--linha); border-radius: calc(var(--u) * .9); background: var(--painel); font-size: calc(var(--u) * 1.5); font-weight: 600; color: var(--suave); }
+.parcial small { font-size: calc(var(--u) * .85); letter-spacing: .14em; text-transform: uppercase; color: var(--fraco); font-weight: 600; }
+.parcial .v { color: var(--fg); font-weight: 800; }
+.parcial.atual { border-color: var(--fg); }
+.parcial.vazia { opacity: .45; }
+
+/* Botão de tema: só aparece ao mexer o mouse ou tocar a tela */
+.tema { position: fixed; bottom: max(16px, env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--linha); background: var(--painel); color: var(--fg); display: grid; place-items: center; cursor: pointer; box-shadow: var(--sombra); transition: opacity .3s; }
+.tema svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tema:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+body.ocioso .tema { opacity: 0; pointer-events: none; }
+
+.conectando { position: fixed; inset: auto 0 max(20px, env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 14px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--fraco); }
+
+/* Tela em pé: times um sobre o outro, relógio no meio */
+@media (max-aspect-ratio: 1/1) {
+  body { --u: min(1.6vw, 1vh); }
+  .quadro { width: 100vw; height: 100vh; height: 100dvh; padding: calc(var(--u) * 4); }
+  .jogo { grid-template-columns: 1fr; grid-template-rows: 1fr auto 1fr; }
+  .centro { flex-direction: row; gap: calc(var(--u) * 3); }
+  .x { display: none; }
+  .time.visitante .cab { flex-direction: row; text-align: left; }
+  .time.visitante .placar-time { text-align: left; }
+  .time.visitante .nome small { justify-content: flex-start; }
+  .time.visitante .extra { flex-direction: row; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="quadro" aria-live="polite">
+  <header class="topo">
+    <span class="rotulo" id="esporte">Placar</span>
+    <span class="periodo" id="periodo"></span>
+  </header>
+
+  <section class="jogo">
+    <article class="time casa" id="time-a">
+      <div class="cab">
+        <span class="escudo" id="escudo-a"></span>
+        <div class="nome"><b id="nome-a">Casa</b><small id="sub-a">Casa</small></div>
+      </div>
+      <div class="placar-time" id="placar-a">0</div>
+      <div class="extra" id="extra-a"></div>
+    </article>
+
+    <div class="centro">
+      <div class="relogio parado" id="relogio">00:00</div>
+      <div class="estado-relogio" id="estado-relogio"></div>
+      <div class="x" aria-hidden="true">×</div>
+    </div>
+
+    <article class="time visitante" id="time-b">
+      <div class="cab">
+        <span class="escudo" id="escudo-b"></span>
+        <div class="nome"><b id="nome-b">Visitante</b><small id="sub-b">Visitante</small></div>
+      </div>
+      <div class="placar-time" id="placar-b">0</div>
+      <div class="extra" id="extra-b"></div>
+    </article>
+  </section>
+
+  <footer class="parciais" id="parciais"></footer>
+</main>
+
+<button class="tema" id="btn-tema" type="button" aria-label="Alternar tema claro e escuro"><svg viewBox="0 0 24 24" aria-hidden="true"><use id="ico-tema" href="#i-lua"/></svg></button>
+<p class="conectando" id="conectando">Conectando…</p>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-lua" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+</svg>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Só o que muda na APRESENTAÇÃO por esporte. Regras (set point, limite de
+// faltas, parcial em andamento) chegam prontas do servidor.
+const ESPORTES = {
+    futsal:   { nome: 'Futsal',   periodo: 'tempo',  faltas: true,  sets: false, crono: 'regressivo',    avisoFalta: 'tiro livre' },
+    basquete: { nome: 'Basquete', periodo: 'quarto', faltas: true,  sets: false, crono: 'regressivo_cs', avisoFalta: 'bônus' },
+    volei:    { nome: 'Vôlei',    periodo: null,     faltas: false, sets: true,  crono: 'crescente' }
+};
+const SETS_PARA_VENCER = 3;
+let estado = null;
+let ultimoPlacar = { a: null, b: null };
+
+// ---- Tema ----
+function lerTemaSalvo() { try { return localStorage.getItem('placar_neutro_tema'); } catch (e) { return null; } }
+function salvarTema(t) { try { localStorage.setItem('placar_neutro_tema', t); } catch (e) {} }
+const midiaEscura = window.matchMedia('(prefers-color-scheme: dark)');
+function aplicarTema(tema) {
+    document.documentElement.dataset.tema = tema;
+    $('ico-tema').setAttribute('href', tema === 'escuro' ? '#i-sol' : '#i-lua');
+    $('btn-tema').setAttribute('aria-label', tema === 'escuro' ? 'Usar tema claro' : 'Usar tema escuro');
+}
+function temaInicial() {
+    const daUrl = new URLSearchParams(location.search).get('tema');
+    if (daUrl === 'claro' || daUrl === 'escuro') { salvarTema(daUrl); return daUrl; }
+    const salvo = lerTemaSalvo();
+    if (salvo === 'claro' || salvo === 'escuro') return salvo;
+    return midiaEscura.matches ? 'escuro' : 'claro';
+}
+function alternarTema() {
+    const novo = document.documentElement.dataset.tema === 'escuro' ? 'claro' : 'escuro';
+    salvarTema(novo);
+    aplicarTema(novo);
+}
+aplicarTema(temaInicial());
+// Sem escolha salva, acompanha o sistema (ex.: modo noturno automático).
+midiaEscura.addEventListener?.('change', () => { if (!lerTemaSalvo()) aplicarTema(midiaEscura.matches ? 'escuro' : 'claro'); });
+$('btn-tema').addEventListener('click', alternarTema);
+document.addEventListener('keydown', (ev) => { if (ev.key === 't' || ev.key === 'T') alternarTema(); });
+
+// Cursor e botão somem depois de 3 s parados: em monitor dedicado nada fica
+// por cima do placar.
+let ociosoTimer = null;
+function acordar() {
+    document.body.classList.remove('ocioso');
+    clearTimeout(ociosoTimer);
+    ociosoTimer = setTimeout(() => document.body.classList.add('ocioso'), 3000);
+}
+['pointermove', 'pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, acordar));
+acordar();
+
+// ---- Estado ----
+socket.on('connect', () => { $('conectando').hidden = true; });
+socket.on('disconnect', () => { $('conectando').hidden = false; $('conectando').textContent = 'Sem conexão com o servidor…'; });
+
+socket.on('atualizar_tela', (dados) => {
+    // Mesmo ajuste de relógio do telão e da mesa: compensa a diferença entre o
+    // relógio deste aparelho e o do servidor.
+    if (dados.serverTime && dados.cronometro) {
+        const clockOffset = Date.now() - dados.serverTime;
+        dados.cronometro.inicioTimestamp += clockOffset;
+    }
+    estado = dados;
+    renderizar();
+});
+
+function siglaDe(nome) {
+    const palavras = String(nome || '').trim().split(/\s+/).filter(p => p.length > 2 || /^\d/.test(p));
+    if (palavras.length === 0) return '—';
+    if (palavras.length === 1) return palavras[0].slice(0, 3).toUpperCase();
+    return palavras.slice(0, 3).map(p => p[0]).join('').toUpperCase();
+}
+
+function renderizar() {
+    const c = ESPORTES[estado.esporte] || ESPORTES.futsal;
+    $('esporte').textContent = c.nome;
+    document.title = `${estado.timeA.nome} ${estado.timeA.placar} × ${estado.timeB.placar} ${estado.timeB.nome}`;
+
+    if (c.periodo) $('periodo').textContent = `${estado.periodo || 1}º ${c.periodo}`;
+    else $('periodo').textContent = estado.parcialEmAndamento ? `${estado.parcialEmAndamento}º set` : 'Fim de jogo';
+
+    for (const [lado, chave, padrao] of [['a', 'timeA', 'Casa'], ['b', 'timeB', 'Visitante']]) {
+        const time = estado[chave];
+        const nome = time.nome || padrao;
+        $('nome-' + lado).textContent = nome;
+
+        const escudo = $('escudo-' + lado);
+        const conteudo = time.logo ? `<img src="${esc(time.logo)}" alt="">` : esc(siglaDe(nome));
+        if (escudo.dataset.c !== conteudo) { escudo.innerHTML = conteudo; escudo.dataset.c = conteudo; }
+
+        // Linha de baixo do nome: casa/visitante, ou quem saca e o set point.
+        const sacando = c.sets && estado.sacando === chave;
+        const setPoint = estado.setPoint === chave;
+        $('sub-' + lado).innerHTML = (sacando ? '<span class="saque"></span>Sacando' : padrao)
+            + (setPoint ? '<span class="selo">Set point</span>' : '');
+
+        const placarEl = $('placar-' + lado);
+        const valor = estado.esporte === 'basquete' ? pad(time.placar) : String(time.placar);
+        if (ultimoPlacar[lado] !== null && ultimoPlacar[lado] !== valor) {
+            placarEl.classList.remove('muda'); void placarEl.offsetWidth; placarEl.classList.add('muda');
+        }
+        placarEl.textContent = valor;
+        ultimoPlacar[lado] = valor;
+
+        const extra = $('extra-' + lado);
+        if (c.faltas) {
+            const f = time.faltas || 0;
+            const limite = estado.limiteFaltas || 5;
+            const alerta = !!(estado.alertaFaltas && estado.alertaFaltas[chave]);
+            extra.className = 'extra' + (alerta ? ' alerta' : '');
+            extra.innerHTML = `<span>Faltas</span><span class="n">${f}</span><span class="marcas">${
+                Array.from({ length: limite }, (_, i) => `<span class="marca ${i < f ? 'on' : ''}"></span>`).join('')}</span>${
+                alerta ? `<span class="aviso">${c.avisoFalta}</span>` : ''}`;
+        } else if (c.sets) {
+            extra.className = 'extra sets';
+            extra.innerHTML = `<span>Sets</span><span class="n">${time.sets || 0}</span><span class="marcas">${
+                Array.from({ length: SETS_PARA_VENCER }, (_, i) => `<span class="marca ${i < (time.sets || 0) ? 'on' : ''}"></span>`).join('')}</span>`;
+        } else {
+            extra.innerHTML = '';
+        }
+    }
+
+    renderParciais(c);
+    tick();
+}
+
+// Grade de sets do vôlei: as fechadas com placar, a em andamento destacada e
+// as que faltam em branco (`totalParciais` vem do servidor).
+function renderParciais(c) {
+    const el = $('parciais');
+    if (!c.sets) { el.innerHTML = ''; return; }
+    const parciais = Array.isArray(estado.parciais) ? estado.parciais : [];
+    const total = estado.totalParciais || parciais.length;
+    const atual = estado.parcialEmAndamento;
+    let html = '';
+    for (let i = 0; i < total; i++) {
+        const p = parciais[i];
+        if (p) html += `<div class="parcial"><small>${i + 1}º set</small><span class="${p.a > p.b ? 'v' : ''}">${p.a}</span><span class="${p.b > p.a ? 'v' : ''}">${p.b}</span></div>`;
+        else if (atual === i + 1) html += `<div class="parcial atual"><small>${i + 1}º set</small><span>${estado.timeA.placar}</span><span>${estado.timeB.placar}</span></div>`;
+        else html += `<div class="parcial vazia"><small>${i + 1}º set</small><span>–</span><span>–</span></div>`;
+    }
+    el.innerHTML = html;
+}
+
+// ---- Relógio ----
+function tick() {
+    if (!estado) return;
+    const c = ESPORTES[estado.esporte] || ESPORTES.futsal;
+    const cr = estado.cronometro;
+    const decorrido = cr.tempoAcumulado + (cr.rodando ? Date.now() - cr.inicioTimestamp : 0);
+    let texto, esgotado = false;
+    if (c.crono === 'crescente') {
+        const t = Math.floor(decorrido / 1000);
+        texto = `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
+    } else {
+        const r = Math.max(0, cr.duracaoConfigurada - decorrido);
+        esgotado = r === 0 && cr.duracaoConfigurada > 0;
+        texto = `${pad(Math.floor(r / 60000))}:${pad(Math.floor((r % 60000) / 1000))}`;
+        // Centésimos só no último minuto, como nos placares de basquete.
+        if (c.crono === 'regressivo_cs' && r < 60000) texto += `<small>.${pad(Math.floor((r % 1000) / 10))}</small>`;
+    }
+    const el = $('relogio');
+    if (el.innerHTML !== texto) el.innerHTML = texto;
+    el.classList.toggle('parado', !cr.rodando);
+    $('estado-relogio').textContent = esgotado ? 'Fim do tempo' : cr.rodando ? '' : 'Parado';
+}
+setInterval(tick, 50);
+</script>
+</body>
+</html>

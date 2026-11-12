@@ -1,506 +1,407 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Anúncios - Controle</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { user-select: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#111822">
+<title>Mídia — Placar Clube</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="ui.css">
+<style>
+/* Tela de altura fixa: biblioteca e fila rolam por dentro, a barra de ação
+   fica sempre à mão no rodapé. */
+html, body { height: 100%; }
+body { display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
+.subabas { display: flex; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--bg); overflow-x: auto; }
+.painel { min-height: 0; display: grid; grid-template-rows: 1fr auto; }
+.colunas { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
+.coluna { min-height: 0; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 14px; }
+.coluna-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.coluna-cab h2 { margin: 0; font-family: var(--f-rot); font-weight: 800; font-size: 22px; letter-spacing: .03em; text-transform: uppercase; }
+.coluna .lista { overflow-y: auto; min-height: 0; flex: 1; padding-right: 4px; }
+.status-upload { font-size: 14px; color: var(--info); min-height: 20px; }
+.barra-acao { display: flex; gap: 10px; align-items: stretch; padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: var(--surface); }
+.barra-acao .btn.grande { flex: 1; }
+.contador { display: grid; place-items: center; min-width: 120px; font-family: var(--f-num); font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }
+.contador small { display: block; font-family: var(--f-rot); font-size: 12px; letter-spacing: .14em; color: var(--muted); }
+.loop { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); font-family: var(--f-rot); font-weight: 700; font-size: 17px; letter-spacing: .06em; text-transform: uppercase; }
+.patros { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; overflow-y: auto; padding: 12px; align-content: start; }
+.patro { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); min-width: 0; }
+/* Fundo escuro como a faixa do carrossel no telão: logo branca vazada some
+   num fundo branco, e é assim que ela vai aparecer de verdade. */
+.patro img { width: 100%; height: 90px; object-fit: contain; background: #0b0f15; border: 1px solid var(--line); border-radius: 10px; padding: 6px; }
+.patro .linha { flex-wrap: nowrap; }
+.patro span { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 900px) { .colunas { grid-template-columns: 1fr; overflow-y: auto; } .coluna { min-height: 340px; } }
+</style>
 </head>
-<body class="bg-gray-950 text-white flex flex-col h-screen overflow-hidden">
+<body>
 
-    <nav class="bg-gray-900 shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-700 text-sm">
-        <a href="index.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">⚙️ CONFIG</a>
-        <a href="controle.html" class="text-gray-400 hover:text-yellow-400 font-bold transition">▶️ JOGO</a>
-        <span class="text-purple-400 font-black tracking-wider">📺 ANÚNCIOS</span>
-    </nav>
+<header class="topo">
+  <div class="topo-esq"><span class="titulo">Placar Clube</span></div>
+  <nav class="abas" aria-label="Telas de operação">
+    <a class="aba" href="controle.html#telao">Controle</a>
+    <a class="aba" href="configuracao.html">Configuração</a>
+    <a class="aba" href="controle_anuncios.html" aria-current="page">Mídia</a>
+  </nav>
+  <div class="topo-dir"><span class="chip" id="chip-telao"><span class="ponto"></span><span class="rotulo-longo" id="chip-telao-txt">Telão</span></span></div>
+</header>
 
-    <!-- Sub-abas: Vídeos / Slides -->
-    <div class="bg-gray-900/60 shrink-0 flex gap-2 px-4 py-2 border-b border-gray-800">
-        <button id="tab-videos-btn" onclick="mostrarPainel('videos')" class="text-xs font-black px-4 py-2 rounded-lg transition">🎬 Vídeos</button>
-        <button id="tab-slides-btn" onclick="mostrarPainel('slides')" class="text-xs font-black px-4 py-2 rounded-lg transition">🖼️ Slides</button>
+<div class="subabas segmentos" role="tablist" aria-label="Tipo de mídia" style="display:flex;border-radius:0;border:0;border-bottom:1px solid var(--line)">
+  <button class="segmento" role="tab" data-acao="painel" data-v="videos" style="flex:1">Comerciais</button>
+  <button class="segmento" role="tab" data-acao="painel" data-v="slides" style="flex:1">Slides</button>
+  <button class="segmento" role="tab" data-acao="painel" data-v="patrocinadores" style="flex:1">Patrocinadores</button>
+</div>
+
+<!-- ================= COMERCIAIS (vídeos) ================= -->
+<section class="painel" id="painel-videos">
+  <div class="colunas">
+    <div class="coluna">
+      <div class="coluna-cab">
+        <h2>Vídeos no servidor</h2>
+        <div class="linha">
+          <label class="btn claro"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Enviar<input type="file" accept=".mp4,.webm,.mov,.avi,.mkv" multiple onchange="enviarArquivos('video', this)"></label>
+          <button class="btn" data-acao="tudo-videos"><svg class="i" aria-hidden="true"><use href="#i-listplus"/></svg>Todos na fila</button>
+          <button class="btn icone" data-acao="recarregar-videos" aria-label="Recarregar lista"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+        </div>
+      </div>
+      <div class="status-upload" id="status-upload-video"></div>
+      <div class="lista" id="lista-videos"><p class="vazio">Carregando…</p></div>
     </div>
-
-    <!-- ================= PAINEL: VÍDEOS ================= -->
-    <div id="painel-videos" class="flex-1 flex flex-col overflow-hidden">
-        <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-
-            <!-- Coluna esquerda: vídeos disponíveis -->
-            <div class="flex-1 flex flex-col border-r border-gray-700 overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 gap-2">
-                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Vídeos disponíveis</h2>
-                    <div class="flex items-center gap-2">
-                        <span id="status-upload-video" class="text-xs text-purple-300"></span>
-                        <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
-                            ⬆ Enviar vídeo
-                            <input type="file" accept=".mp4,.webm,.mov,.avi,.mkv" multiple class="hidden" onchange="enviarArquivos('video', this)">
-                        </label>
-                        <button onclick="selecionarTudoVideos()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">☑ Selecionar tudo</button>
-                        <button onclick="carregarVideos()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
-                    </div>
-                </div>
-
-                <div id="lista-videos" class="flex-1 overflow-y-auto p-3 space-y-2">
-                    <p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>
-                </div>
-            </div>
-
-            <!-- Coluna direita: fila de reprodução -->
-            <div class="flex-1 flex flex-col overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Fila de reprodução</h2>
-                    <button onclick="limparFila()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-400 px-3 py-1.5 rounded-lg transition-transform font-bold">🗑 Limpar</button>
-                </div>
-
-                <div id="fila-reprodução" class="flex-1 overflow-y-auto p-3 space-y-2">
-                    <p id="fila-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum vídeo na fila.<br>Adicione vídeos da lista ao lado.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex gap-3">
-            <label class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 active:scale-95 px-5 rounded-xl cursor-pointer transition-transform select-none border border-gray-700">
-                <input type="checkbox" id="loop-fila" class="w-5 h-5 accent-purple-600">
-                <span class="text-gray-300 font-black text-sm">🔁 LOOP</span>
-            </label>
-            <button onclick="reproduzirFila()" class="flex-1 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">▶ REPRODUZIR FILA</button>
-            <button onclick="pararVideo()" class="bg-red-800 hover:bg-red-700 active:scale-95 text-white font-black py-4 px-6 rounded-xl text-lg shadow-lg transition-transform">⏹ PARAR</button>
-        </div>
+    <div class="coluna">
+      <div class="coluna-cab">
+        <h2>Fila de reprodução</h2>
+        <button class="btn leve" data-acao="limpar-fila"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Limpar</button>
+      </div>
+      <div class="lista" id="fila-reproducao"></div>
     </div>
+  </div>
+  <div class="barra-acao">
+    <button class="loop" data-acao="loop" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-repeat"/></svg>Repetir<span class="chave" id="chave-loop"></span></button>
+    <button class="btn grande ok" data-acao="tocar-fila"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>Tocar fila no telão</button>
+    <button class="btn grande" data-acao="parar-video"><svg class="i" aria-hidden="true"><use href="#i-stop"/></svg>Parar</button>
+  </div>
+</section>
 
-    <!-- ================= PAINEL: SLIDES ================= -->
-    <div id="painel-slides" class="hidden flex-1 flex-col overflow-hidden">
-        <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-
-            <!-- Coluna esquerda: slides disponíveis -->
-            <div class="flex-1 flex flex-col border-r border-gray-700 overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 gap-2 flex-wrap">
-                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Slides disponíveis</h2>
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span id="status-upload-slide" class="text-xs text-purple-300"></span>
-                        <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
-                            ⬆ Enviar imagens/vídeos
-                            <input type="file" accept="image/*,.mp4,.webm,.mov,.avi,.mkv" multiple class="hidden" onchange="enviarArquivos('slide', this)">
-                        </label>
-                        <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
-                            📄 Enviar PDF
-                            <input type="file" accept="application/pdf" class="hidden" onchange="enviarPdfComoSlides(this)">
-                        </label>
-                        <button onclick="selecionarTudoSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">☑ Selecionar tudo</button>
-                        <button onclick="carregarSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-300 px-3 py-1.5 rounded-lg transition-transform font-bold">🔄 Recarregar</button>
-                    </div>
-                </div>
-                <p class="text-[11px] text-gray-500 px-4 pt-2">Um slide pode ser imagem ou vídeo (toca em loop até avançar). PPTX: exporte como PDF ou imagens no PowerPoint antes de enviar.</p>
-
-                <div id="lista-slides" class="flex-1 overflow-y-auto p-3 space-y-2">
-                    <p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>
-                </div>
-            </div>
-
-            <!-- Coluna direita: fila da apresentação -->
-            <div class="flex-1 flex flex-col overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-                    <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">Fila da apresentação</h2>
-                    <button onclick="limparFilaSlides()" class="text-xs bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-400 px-3 py-1.5 rounded-lg transition-transform font-bold">🗑 Limpar</button>
-                </div>
-
-                <div id="fila-slides" class="flex-1 overflow-y-auto p-3 space-y-2">
-                    <p id="fila-slides-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum slide na fila.<br>Adicione imagens da lista ao lado, na ordem de exibição.</p>
-                </div>
-            </div>
+<!-- ================= SLIDES ================= -->
+<section class="painel" id="painel-slides" hidden>
+  <div class="colunas">
+    <div class="coluna">
+      <div class="coluna-cab">
+        <h2>Slides no servidor</h2>
+        <div class="linha">
+          <label class="btn claro"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Imagens ou vídeos<input type="file" accept="image/*,.mp4,.webm,.mov,.avi,.mkv" multiple onchange="enviarArquivos('slide', this)"></label>
+          <label class="btn"><svg class="i" aria-hidden="true"><use href="#i-file"/></svg>PDF<input type="file" accept="application/pdf" onchange="enviarPdfComoSlides(this)"></label>
+          <button class="btn" data-acao="tudo-slides"><svg class="i" aria-hidden="true"><use href="#i-listplus"/></svg>Todos</button>
+          <button class="btn icone" data-acao="recarregar-slides" aria-label="Recarregar lista"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg></button>
         </div>
-
-        <!-- Controles: apresentação parada -->
-        <div id="controles-slides-parado" class="shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex gap-3">
-            <button onclick="iniciarApresentacao()" class="flex-1 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">▶ INICIAR APRESENTAÇÃO</button>
-        </div>
-
-        <!-- Controles: apresentação ativa -->
-        <div id="controles-slides-ativo" class="hidden shrink-0 bg-gray-900 border-t border-gray-700 p-4 flex items-center gap-3">
-            <button onclick="slideAnterior()" class="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">◀ ANTERIOR</button>
-            <span id="slide-contador" class="shrink-0 text-purple-300 font-black font-mono text-lg px-2">— / —</span>
-            <button onclick="slideProximo()" class="flex-1 bg-gray-800 hover:bg-gray-700 active:scale-95 text-white font-black py-4 rounded-xl text-lg shadow-lg transition-transform">AVANÇAR ▶</button>
-            <button onclick="pararApresentacao()" class="bg-red-800 hover:bg-red-700 active:scale-95 text-white font-black py-4 px-6 rounded-xl text-lg shadow-lg transition-transform">⏹ PARAR</button>
-        </div>
+      </div>
+      <p class="ajuda">Um slide pode ser imagem ou vídeo (o vídeo fica em loop até avançar). PowerPoint: exporte como PDF ou imagens antes de enviar.</p>
+      <div class="status-upload" id="status-upload-slide"></div>
+      <div class="lista" id="lista-slides"><p class="vazio">Carregando…</p></div>
     </div>
-
-    <!-- Patrocinadores do carrossel do telão -->
-    <div class="shrink-0 bg-gray-900/60 border-t border-gray-700 px-4 py-3" style="padding-bottom:100px;">
-        <div class="flex items-center justify-between mb-2 gap-2">
-            <h2 class="font-black text-gray-300 uppercase tracking-wider text-sm">📣 Patrocinadores (carrossel do telão)</h2>
-            <div class="flex items-center gap-2">
-                <span id="status-upload-patrocinador" class="text-xs text-purple-300"></span>
-                <label class="text-xs bg-purple-800 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-lg transition-transform font-bold cursor-pointer">
-                    ⬆ Enviar logo
-                    <input type="file" accept="image/*" multiple class="hidden" onchange="enviarArquivos('patrocinador', this)">
-                </label>
-            </div>
-        </div>
-        <div id="lista-patrocinadores" class="flex gap-3 overflow-x-auto pb-1">
-            <p class="text-gray-600 text-sm">Carregando...</p>
-        </div>
+    <div class="coluna">
+      <div class="coluna-cab">
+        <h2>Ordem da apresentação</h2>
+        <button class="btn leve" data-acao="limpar-fila-slides"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Limpar</button>
+      </div>
+      <div class="lista" id="fila-slides"></div>
     </div>
+  </div>
+  <!-- Apresentação parada -->
+  <div class="barra-acao" id="controles-slides-parado">
+    <button class="btn grande ok" data-acao="iniciar-apresentacao"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>Começar apresentação no telão</button>
+  </div>
+  <!-- Apresentação no ar -->
+  <div class="barra-acao" id="controles-slides-ativo" hidden>
+    <button class="btn grande" data-acao="slide" data-v="anterior"><svg class="i" aria-hidden="true"><use href="#i-left"/></svg>Anterior</button>
+    <div class="contador" id="slide-contador">—<small>SLIDE</small></div>
+    <button class="btn grande claro" data-acao="slide" data-v="proximo">Avançar<svg class="i" aria-hidden="true"><use href="#i-right"/></svg></button>
+    <button class="btn grande" data-acao="slide" data-v="parar" style="flex:0 0 auto"><svg class="i" aria-hidden="true"><use href="#i-stop"/></svg>Parar</button>
+  </div>
+</section>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        let fila = [];
-        let filaSlides = [];
-        let ultimosVideos = [];
-        let ultimosSlides = [];
+<!-- ================= PATROCINADORES (carrossel do telão) ================= -->
+<section class="painel" id="painel-patrocinadores" hidden style="grid-template-rows:auto 1fr">
+  <div class="coluna-cab" style="padding:12px 12px 0">
+    <div><h2 style="margin:0;font-family:var(--f-rot);font-weight:800;font-size:22px;text-transform:uppercase">Carrossel do telão</h2>
+      <p class="ajuda">Todas as logos daqui passam no rodapé do placar e na faixa de ponto. <span class="status-upload" id="status-upload-patrocinador"></span></p></div>
+    <label class="btn claro"><svg class="i" aria-hidden="true"><use href="#i-upload"/></svg>Enviar logo<input type="file" accept="image/*" multiple onchange="enviarArquivos('patrocinador', this)"></label>
+  </div>
+  <div class="patros" id="lista-patrocinadores"><p class="vazio">Carregando…</p></div>
+</section>
 
-        // O link ▶️ JOGO é fixo: a mesa é uma tela só (controle.html), que se
-        // adapta ao esporte do gameState.
-        socket.on('atualizar_tela', (dados) => {
-            renderPatrocinadores(dados.patrocinadores || []);
-            renderEstadoSlides(dados.slides);
-        });
+<script src="ui.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let fila = [];
+let filaSlides = [];
+let ultimosVideos = [];
+let ultimosSlides = [];
+let loop = false;
 
-        // ---- Sub-abas ----
-        function mostrarPainel(nome) {
-            const paineis = { videos: 'painel-videos', slides: 'painel-slides' };
-            for (const [chave, id] of Object.entries(paineis)) {
-                const painel = document.getElementById(id);
-                const ativo = chave === nome;
-                painel.classList.toggle('hidden', !ativo);
-                painel.classList.toggle('flex', ativo);
-                document.getElementById(`tab-${chave}-btn`).className = ativo
-                    ? 'text-xs font-black px-4 py-2 rounded-lg transition bg-purple-700 text-white'
-                    : 'text-xs font-black px-4 py-2 rounded-lg transition bg-gray-800 text-gray-400 hover:text-gray-200';
-            }
-            if (nome === 'slides' && !slidesCarregados) carregarSlides();
-        }
+socket.on('atualizar_tela', (dados) => {
+    renderPatrocinadores(dados.patrocinadores || []);
+    renderEstadoSlides(dados.slides);
+    const noAr = !!dados.transmissaoAtiva;
+    document.getElementById('chip-telao').className = 'chip ' + (noAr ? 'vivo' : '');
+    document.getElementById('chip-telao-txt').textContent = noAr ? 'Telão no ar' : 'Telão em espera';
+});
 
-        // ---- Upload de arquivos (vídeos, slides e logos de patrocinadores) ----
-        async function enviarArquivos(tipo, input) {
-            const files = Array.from(input.files || []);
-            input.value = '';
-            if (files.length === 0) return;
-            const status = document.getElementById('status-upload-' + tipo);
-            for (let i = 0; i < files.length; i++) {
-                const f = files[i];
-                status.textContent = `Enviando ${i + 1}/${files.length}: ${f.name}...`;
-                try {
-                    const resp = await fetch(`/api/upload/${tipo}?nome=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
-                    if (!resp.ok) {
-                        const erro = await resp.json().catch(() => ({}));
-                        alert(`Falha ao enviar "${f.name}": ${erro.erro || 'erro ' + resp.status}`);
-                    }
-                } catch (e) {
-                    alert(`Falha ao enviar "${f.name}": ${e.message}`);
-                }
-            }
-            status.textContent = '';
-            if (tipo === 'slide') carregarSlides();
-        }
+// ---- Sub-abas (o hash guarda a escolhida: #videos, #slides, #patrocinadores) ----
+const PAINEIS = ['videos', 'slides', 'patrocinadores'];
+function mostrarPainel(nome) {
+    if (!PAINEIS.includes(nome)) nome = 'videos';
+    for (const p of PAINEIS) document.getElementById('painel-' + p).hidden = p !== nome;
+    document.querySelectorAll('[data-acao="painel"]').forEach(b => b.setAttribute('aria-selected', b.dataset.v === nome));
+    if (location.hash !== '#' + nome) history.replaceState(null, '', '#' + nome);
+    if (nome === 'slides' && !slidesCarregados) carregarSlides();
+}
 
-        async function excluirArquivo(tipo, nome, rotulo) {
-            if (!confirm(`Excluir ${rotulo} "${nome}" do servidor? Essa ação não pode ser desfeita.`)) return;
-            const resp = await fetch(`/api/${tipo}/${encodeURIComponent(nome)}`, { method: 'DELETE' });
+// ---- Upload de arquivos (vídeos, slides e logos de patrocinadores) ----
+async function enviarArquivos(tipo, input) {
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (files.length === 0) return;
+    const status = document.getElementById('status-upload-' + tipo);
+    const falhas = [];
+    for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        status.textContent = `Enviando ${i + 1} de ${files.length}: ${f.name}…`;
+        try {
+            const resp = await fetch(`/api/upload/${tipo}?nome=${encodeURIComponent(f.name)}`, { method: 'POST', body: f });
             if (!resp.ok) {
                 const erro = await resp.json().catch(() => ({}));
-                alert(`Falha ao excluir: ${erro.erro || 'erro ' + resp.status}`);
-                return;
+                falhas.push(`${f.name}: ${erro.erro || 'erro ' + resp.status}`);
             }
-            if (tipo === 'video') {
-                fila = fila.filter(n => n !== nome); // tira da fila local também
-                renderizarFila();
-            }
-            if (tipo === 'slide') {
-                filaSlides = filaSlides.filter(n => n !== nome);
-                renderizarFilaSlides();
-            }
+        } catch (e) {
+            falhas.push(`${f.name}: ${e.message}`);
         }
+    }
+    status.textContent = '';
+    if (falhas.length) avisar('Alguns arquivos não foram enviados', falhas.join('\n'));
+    else toast(files.length === 1 ? 'Arquivo enviado' : `${files.length} arquivos enviados`);
+    if (tipo === 'slide') carregarSlides();
+}
 
-        // ---- Patrocinadores (renderizados a partir do estado broadcast) ----
-        let patrocinadoresAssinatura = null;
-        function renderPatrocinadores(lista) {
-            const assinatura = lista.join('|');
-            if (assinatura === patrocinadoresAssinatura) return;
-            patrocinadoresAssinatura = assinatura;
+async function excluirArquivo(tipo, nome, rotulo) {
+    const ok = await confirmar({ titulo: `Excluir ${rotulo}?`, texto: `"${nome}" será apagado do servidor. Não dá para desfazer.`, sim: 'Excluir', perigo: true });
+    if (!ok) return;
+    const resp = await fetch(`/api/${tipo}/${encodeURIComponent(nome)}`, { method: 'DELETE' });
+    if (!resp.ok) {
+        const erro = await resp.json().catch(() => ({}));
+        avisar('Não foi excluído', erro.erro || 'erro ' + resp.status);
+        return;
+    }
+    toast('Excluído');
+    if (tipo === 'video') { fila = fila.filter(n => n !== nome); renderizarFila(); }
+    if (tipo === 'slide') { filaSlides = filaSlides.filter(n => n !== nome); renderizarFilaSlides(); }
+}
 
-            const container = document.getElementById('lista-patrocinadores');
-            if (lista.length === 0) {
-                container.innerHTML = '<p class="text-gray-600 text-sm">Nenhuma logo no servidor — o carrossel fica oculto no telão.</p>';
-                return;
-            }
-            container.innerHTML = '';
-            lista.forEach(nome => {
-                const card = document.createElement('div');
-                card.className = 'relative shrink-0 bg-gray-800 border border-gray-700 rounded-xl p-2 w-28 flex flex-col items-center gap-1';
-                card.innerHTML = `
-                    <img src="/patrocinadores/${encodeURIComponent(nome)}" alt="" class="h-10 w-full object-contain bg-white/90 rounded">
-                    <span class="text-[10px] text-gray-400 truncate w-full text-center">${nome.replace(/</g, '&lt;')}</span>
-                    <button onclick="excluirArquivo('patrocinador', '${nome.replace(/'/g, "\\'")}', 'a logo')"
-                        class="absolute -top-1.5 -right-1.5 w-6 h-6 bg-red-600 hover:bg-red-500 text-white rounded-full font-bold leading-none text-sm shadow">×</button>`;
-                container.appendChild(card);
-            });
-        }
+// ---- Patrocinadores (a lista vem no estado; assinatura evita refazer o DOM) ----
+let patrocinadoresAssinatura = null;
+function renderPatrocinadores(lista) {
+    const assinatura = lista.join('|');
+    if (assinatura === patrocinadoresAssinatura) return;
+    patrocinadoresAssinatura = assinatura;
+    const container = document.getElementById('lista-patrocinadores');
+    container.innerHTML = lista.length ? lista.map(nome => `
+        <div class="patro">
+          <img src="/patrocinadores/${encodeURIComponent(nome)}" alt="">
+          <div class="linha"><span title="${esc(nome)}">${esc(nome)}</span>
+            <button class="btn icone leve" data-acao="excluir" data-tipo="patrocinador" data-rotulo="a logo" data-nome="${esc(nome)}" aria-label="Excluir ${esc(nome)}">${ic('trash')}</button></div>
+        </div>`).join('')
+        : '<p class="vazio">Nenhuma logo no servidor. Sem logos, o carrossel some do telão.</p>';
+}
 
-        // ---- Vídeos ----
-        function carregarVideos() {
-            document.getElementById('lista-videos').innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>';
-            socket.emit('solicitar_videos');
-        }
+// ---- Vídeos ----
+function carregarVideos() {
+    document.getElementById('lista-videos').innerHTML = '<p class="vazio">Carregando…</p>';
+    socket.emit('solicitar_videos');
+}
 
-        socket.on('lista_videos', (videos) => {
-            ultimosVideos = videos;
-            const lista = document.getElementById('lista-videos');
-            if (videos.length === 0) {
-                lista.innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Nenhum vídeo encontrado em <code class="text-gray-400">public/videos/</code></p>';
-                return;
-            }
-            lista.innerHTML = '';
-            videos.forEach(nome => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-xl px-4 py-3 gap-3 border border-gray-700';
-                div.innerHTML = `
-                    <span class="text-sm text-gray-200 truncate flex-1">📹 ${nome}</span>
-                    <button onclick="adicionarNaFila('${nome.replace(/'/g, "\\'")}')"
-                        class="shrink-0 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-bold px-3 py-1.5 rounded-lg text-sm transition-transform">
-                        + Adicionar
-                    </button>
-                    <button onclick="excluirArquivo('video', '${nome.replace(/'/g, "\\'")}', 'o vídeo')"
-                        class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1.5 rounded-lg text-sm transition-transform" title="Excluir do servidor">🗑</button>`;
-                lista.appendChild(div);
-            });
-        });
+socket.on('lista_videos', (videos) => {
+    ultimosVideos = videos;
+    const lista = document.getElementById('lista-videos');
+    lista.innerHTML = videos.length ? videos.map(nome => `
+        <div class="item">
+          <span class="miniatura">${ic('film')}</span>
+          <div class="txt"><b title="${esc(nome)}">${esc(nome)}</b></div>
+          <button class="btn" data-acao="add-fila" data-nome="${esc(nome)}">${ic('plus')}Fila</button>
+          <button class="btn icone leve" data-acao="excluir" data-tipo="video" data-rotulo="o vídeo" data-nome="${esc(nome)}" aria-label="Excluir ${esc(nome)}">${ic('trash')}</button>
+        </div>`).join('')
+        : '<p class="vazio">Nenhum vídeo no servidor. Toque em Enviar.</p>';
+});
 
-        function adicionarNaFila(nome) {
-            fila.push(nome);
-            renderizarFila();
-        }
+function renderizarFila() {
+    const container = document.getElementById('fila-reproducao');
+    container.innerHTML = fila.length ? fila.map((nome, i) => `
+        <div class="item sel">
+          <span class="n">${i + 1}</span>
+          <div class="txt"><b title="${esc(nome)}">${esc(nome)}</b></div>
+          <button class="btn icone leve" data-acao="tirar-fila" data-v="${i}" aria-label="Tirar da fila">${ic('x')}</button>
+        </div>`).join('')
+        : '<p class="vazio">Fila vazia. Toque em <b>Fila</b> nos vídeos ao lado, na ordem em que devem tocar.</p>';
+}
 
-        function removerDaFila(index) {
-            fila.splice(index, 1);
-            renderizarFila();
-        }
+// ---- Slides (imagem ou vídeo) ----
+let slidesCarregados = false;
+const EXTENSOES_VIDEO_SLIDE = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+function ehVideoSlide(nome) {
+    const i = nome.lastIndexOf('.');
+    return i >= 0 && EXTENSOES_VIDEO_SLIDE.includes(nome.slice(i).toLowerCase());
+}
+function thumbSlide(nome) {
+    return ehVideoSlide(nome)
+        ? `<span class="miniatura">${ic('video')}</span>`
+        : `<img class="miniatura" src="/slides/${encodeURIComponent(nome)}" alt="" loading="lazy">`;
+}
 
-        function limparFila() {
-            fila = [];
-            renderizarFila();
-        }
+function carregarSlides() {
+    document.getElementById('lista-slides').innerHTML = '<p class="vazio">Carregando…</p>';
+    socket.emit('solicitar_slides');
+}
 
-        function selecionarTudoVideos() {
-            if (ultimosVideos.length === 0) return;
-            ultimosVideos.forEach(nome => { if (!fila.includes(nome)) fila.push(nome); });
-            renderizarFila();
-        }
+socket.on('lista_slides', (slides) => {
+    slidesCarregados = true;
+    ultimosSlides = slides;
+    const lista = document.getElementById('lista-slides');
+    lista.innerHTML = slides.length ? slides.map(nome => `
+        <div class="item">
+          ${thumbSlide(nome)}
+          <div class="txt"><b title="${esc(nome)}">${esc(nome)}</b></div>
+          <button class="btn" data-acao="add-fila-slide" data-nome="${esc(nome)}">${ic('plus')}Ordem</button>
+          <button class="btn icone leve" data-acao="excluir" data-tipo="slide" data-rotulo="${ehVideoSlide(nome) ? 'o vídeo' : 'a imagem'}" data-nome="${esc(nome)}" aria-label="Excluir ${esc(nome)}">${ic('trash')}</button>
+        </div>`).join('')
+        : '<p class="vazio">Nenhum slide no servidor. Envie imagens, vídeos ou um PDF.</p>';
+});
 
-        function renderizarFila() {
-            const container = document.getElementById('fila-reprodução');
-            const placeholder = document.getElementById('fila-vazia');
+function renderizarFilaSlides() {
+    const container = document.getElementById('fila-slides');
+    container.innerHTML = filaSlides.length ? filaSlides.map((nome, i) => `
+        <div class="item sel">
+          <span class="n">${i + 1}</span>
+          ${thumbSlide(nome)}
+          <div class="txt"><b title="${esc(nome)}">${esc(nome)}</b></div>
+          <button class="btn icone leve" data-acao="tirar-fila-slide" data-v="${i}" aria-label="Tirar da apresentação">${ic('x')}</button>
+        </div>`).join('')
+        : '<p class="vazio">Nenhum slide escolhido. Toque em <b>Ordem</b> ao lado, na sequência da apresentação.</p>';
+}
 
-            if (fila.length === 0) {
-                container.innerHTML = '<p id="fila-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum vídeo na fila.<br>Adicione vídeos da lista ao lado.</p>';
-                return;
-            }
+// Sincroniza os controles (parado/no ar + contador) com o estado do servidor:
+// várias telas de controle abertas ao mesmo tempo não perdem a sincronia.
+function renderEstadoSlides(slides) {
+    const ativo = !!(slides && slides.ativo && slides.arquivos && slides.arquivos.length > 0);
+    document.getElementById('controles-slides-parado').hidden = ativo;
+    document.getElementById('controles-slides-ativo').hidden = !ativo;
+    if (ativo) document.getElementById('slide-contador').innerHTML = `${slides.indice + 1}/${slides.arquivos.length}<small>SLIDE</small>`;
+}
 
-            container.innerHTML = '';
-            fila.forEach((nome, i) => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-3 border border-gray-700';
-                div.innerHTML = `
-                    <span class="text-purple-400 font-black font-mono w-6 text-center shrink-0">${i + 1}</span>
-                    <span class="text-sm text-gray-200 truncate flex-1">📹 ${nome}</span>
-                    <button onclick="removerDaFila(${i})"
-                        class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1 rounded-lg text-lg transition-transform leading-none">×</button>`;
-                container.appendChild(div);
-            });
-        }
+// ---- Conversão de PDF em slides (no aparelho, via pdf.js de CDN) ----
+let pdfJsCarregado = null;
+function carregarPdfJs() {
+    if (pdfJsCarregado) return pdfJsCarregado;
+    pdfJsCarregado = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            resolve();
+        };
+        script.onerror = () => { pdfJsCarregado = null; reject(new Error('Não foi possível carregar o conversor de PDF (precisa de internet neste aparelho).')); };
+        document.head.appendChild(script);
+    });
+    return pdfJsCarregado;
+}
 
-        function reproduzirFila() {
-            if (fila.length === 0) {
-                alert('A fila está vazia. Adicione vídeos antes de reproduzir.');
-                return;
-            }
-            const loop = document.getElementById('loop-fila').checked;
-            socket.emit('comando_video', { acao: 'playlist', arquivos: [...fila], loop });
-        }
+async function enviarPdfComoSlides(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    const status = document.getElementById('status-upload-slide');
+    const falhas = [];
+    try {
+        status.textContent = 'Carregando conversor de PDF…';
+        await carregarPdfJs();
+        status.textContent = 'Lendo PDF…';
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+        const baseNome = file.name.replace(/\.pdf$/i, '').replace(/[^a-zA-Z0-9À-ÿ ._-]/g, '_') || 'slide';
 
-        function pararVideo() {
-            socket.emit('comando_video', { acao: 'stop' });
-        }
+        for (let i = 1; i <= pdf.numPages; i++) {
+            status.textContent = `Convertendo página ${i} de ${pdf.numPages}…`;
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 2 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 
-        carregarVideos();
-
-        // ---- Slides (imagem ou vídeo) ----
-        let slidesCarregados = false;
-        const EXTENSOES_VIDEO_SLIDE = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
-        function ehVideoSlide(nome) {
-            const i = nome.lastIndexOf('.');
-            return i >= 0 && EXTENSOES_VIDEO_SLIDE.includes(nome.slice(i).toLowerCase());
-        }
-        function thumbSlide(nome) {
-            if (ehVideoSlide(nome)) {
-                return '<div class="h-10 w-14 rounded bg-black/40 shrink-0 flex items-center justify-center text-lg">🎥</div>';
-            }
-            return `<img src="/slides/${encodeURIComponent(nome)}" alt="" class="h-10 w-14 object-cover rounded bg-black/40 shrink-0">`;
-        }
-
-        function carregarSlides() {
-            document.getElementById('lista-slides').innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Carregando...</p>';
-            socket.emit('solicitar_slides');
-        }
-
-        socket.on('lista_slides', (slides) => {
-            slidesCarregados = true;
-            ultimosSlides = slides;
-            const lista = document.getElementById('lista-slides');
-            if (slides.length === 0) {
-                lista.innerHTML = '<p class="text-gray-500 text-sm text-center mt-8">Nenhum slide encontrado em <code class="text-gray-400">public/slides/</code></p>';
-                return;
-            }
-            lista.innerHTML = '';
-            slides.forEach(nome => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center justify-between bg-gray-800 hover:bg-gray-750 rounded-xl px-3 py-2 gap-3 border border-gray-700';
-                div.innerHTML = `
-                    ${thumbSlide(nome)}
-                    <span class="text-sm text-gray-200 truncate flex-1">${nome}</span>
-                    <button onclick="adicionarNaFilaSlide('${nome.replace(/'/g, "\\'")}')"
-                        class="shrink-0 bg-purple-700 hover:bg-purple-600 active:scale-95 text-white font-bold px-3 py-1.5 rounded-lg text-sm transition-transform">
-                        + Adicionar
-                    </button>
-                    <button onclick="excluirArquivo('slide', '${nome.replace(/'/g, "\\'")}', ${ehVideoSlide(nome) ? "'o vídeo'" : "'a imagem'"})"
-                        class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1.5 rounded-lg text-sm transition-transform" title="Excluir do servidor">🗑</button>`;
-                lista.appendChild(div);
-            });
-        });
-
-        function adicionarNaFilaSlide(nome) {
-            filaSlides.push(nome);
-            renderizarFilaSlides();
-        }
-
-        function removerDaFilaSlide(index) {
-            filaSlides.splice(index, 1);
-            renderizarFilaSlides();
-        }
-
-        function limparFilaSlides() {
-            filaSlides = [];
-            renderizarFilaSlides();
-        }
-
-        function selecionarTudoSlides() {
-            if (ultimosSlides.length === 0) return;
-            ultimosSlides.forEach(nome => { if (!filaSlides.includes(nome)) filaSlides.push(nome); });
-            renderizarFilaSlides();
-        }
-
-        function renderizarFilaSlides() {
-            const container = document.getElementById('fila-slides');
-            if (filaSlides.length === 0) {
-                container.innerHTML = '<p id="fila-slides-vazia" class="text-gray-600 text-sm text-center mt-8">Nenhum slide na fila.<br>Adicione imagens da lista ao lado, na ordem de exibição.</p>';
-                return;
-            }
-            container.innerHTML = '';
-            filaSlides.forEach((nome, i) => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center gap-3 bg-gray-800 rounded-xl px-3 py-2 border border-gray-700';
-                div.innerHTML = `
-                    <span class="text-purple-400 font-black font-mono w-6 text-center shrink-0">${i + 1}</span>
-                    ${thumbSlide(nome)}
-                    <span class="text-sm text-gray-200 truncate flex-1">${nome}</span>
-                    <button onclick="removerDaFilaSlide(${i})"
-                        class="shrink-0 text-gray-500 hover:text-red-400 active:scale-95 font-bold px-2 py-1 rounded-lg text-lg transition-transform leading-none">×</button>`;
-                container.appendChild(div);
-            });
-        }
-
-        function iniciarApresentacao() {
-            if (filaSlides.length === 0) {
-                alert('A fila está vazia. Adicione slides antes de iniciar.');
-                return;
-            }
-            socket.emit('comando_slides', { acao: 'iniciar', arquivos: [...filaSlides] });
-        }
-
-        function slideProximo() {
-            socket.emit('comando_slides', { acao: 'proximo' });
-        }
-
-        function slideAnterior() {
-            socket.emit('comando_slides', { acao: 'anterior' });
-        }
-
-        function pararApresentacao() {
-            socket.emit('comando_slides', { acao: 'parar' });
-        }
-
-        // Sincroniza os controles (parado/ativo + contador) com o estado do servidor,
-        // assim múltiplos painéis de controle abertos ao mesmo tempo não perdem sincronia.
-        function renderEstadoSlides(slides) {
-            const ativo = !!(slides && slides.ativo && slides.arquivos && slides.arquivos.length > 0);
-            document.getElementById('controles-slides-parado').classList.toggle('hidden', ativo);
-            document.getElementById('controles-slides-ativo').classList.toggle('hidden', !ativo);
-            if (ativo) {
-                document.getElementById('slide-contador').innerText = `${slides.indice + 1} / ${slides.arquivos.length}`;
+            const nomeArquivo = `${baseNome}_${String(i).padStart(3, '0')}.png`;
+            status.textContent = `Enviando página ${i} de ${pdf.numPages}…`;
+            const resp = await fetch(`/api/upload/slide?nome=${encodeURIComponent(nomeArquivo)}`, { method: 'POST', body: blob });
+            if (!resp.ok) {
+                const erro = await resp.json().catch(() => ({}));
+                falhas.push(`Página ${i}: ${erro.erro || 'erro ' + resp.status}`);
             }
         }
+        status.textContent = '';
+        if (falhas.length) avisar('Algumas páginas não foram enviadas', falhas.join('\n'));
+        else toast(`PDF convertido: ${pdf.numPages} slide(s)`);
+        carregarSlides();
+    } catch (e) {
+        console.error(e);
+        status.textContent = '';
+        avisar('PDF não convertido', e.message);
+    }
+}
 
-        // ---- Conversão de PDF em slides (client-side, via pdf.js de CDN) ----
-        let pdfJsCarregado = null;
-        function carregarPdfJs() {
-            if (pdfJsCarregado) return pdfJsCarregado;
-            pdfJsCarregado = new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-                script.onload = () => {
-                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                    resolve();
-                };
-                script.onerror = () => reject(new Error('Não foi possível carregar o conversor de PDF (verifique a conexão com a internet).'));
-                document.head.appendChild(script);
-            });
-            return pdfJsCarregado;
-        }
+// ---- Toques (delegação) ----
+const ACOES = {
+    painel: (v) => mostrarPainel(v),
+    'recarregar-videos': () => carregarVideos(),
+    'recarregar-slides': () => carregarSlides(),
+    'tudo-videos': () => { ultimosVideos.forEach(n => { if (!fila.includes(n)) fila.push(n); }); renderizarFila(); },
+    'tudo-slides': () => { ultimosSlides.forEach(n => { if (!filaSlides.includes(n)) filaSlides.push(n); }); renderizarFilaSlides(); },
+    'add-fila': (v, el) => { fila.push(el.dataset.nome); renderizarFila(); },
+    'tirar-fila': (v) => { fila.splice(Number(v), 1); renderizarFila(); },
+    'limpar-fila': () => { fila = []; renderizarFila(); },
+    'add-fila-slide': (v, el) => { filaSlides.push(el.dataset.nome); renderizarFilaSlides(); },
+    'tirar-fila-slide': (v) => { filaSlides.splice(Number(v), 1); renderizarFilaSlides(); },
+    'limpar-fila-slides': () => { filaSlides = []; renderizarFilaSlides(); },
+    excluir: (v, el) => excluirArquivo(el.dataset.tipo, el.dataset.nome, el.dataset.rotulo),
+    loop: (v, el) => {
+        loop = !loop;
+        el.setAttribute('aria-pressed', loop);
+        document.getElementById('chave-loop').classList.toggle('on', loop);
+    },
+    'tocar-fila': () => {
+        if (fila.length === 0) { toast('A fila está vazia'); return; }
+        socket.emit('comando_video', { acao: 'playlist', arquivos: [...fila], loop });
+        toast(`Tocando ${fila.length} vídeo(s) no telão`);
+    },
+    'parar-video': () => { socket.emit('comando_video', { acao: 'stop' }); toast('Vídeo parado'); },
+    'iniciar-apresentacao': () => {
+        if (filaSlides.length === 0) { toast('Escolha os slides primeiro'); return; }
+        socket.emit('comando_slides', { acao: 'iniciar', arquivos: [...filaSlides] });
+    },
+    slide: (v) => socket.emit('comando_slides', { acao: v })
+};
+document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-acao]');
+    if (!el || el.disabled) return;
+    const fn = ACOES[el.dataset.acao];
+    if (fn) fn(el.dataset.v, el);
+});
+window.addEventListener('hashchange', () => mostrarPainel(location.hash.slice(1)));
 
-        async function enviarPdfComoSlides(input) {
-            const file = input.files && input.files[0];
-            input.value = '';
-            if (!file) return;
-            const status = document.getElementById('status-upload-slide');
-            try {
-                status.textContent = 'Carregando conversor de PDF...';
-                await carregarPdfJs();
-
-                status.textContent = 'Lendo PDF...';
-                const buffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-                const baseNome = file.name.replace(/\.pdf$/i, '').replace(/[^a-zA-Z0-9À-ÿ ._-]/g, '_') || 'slide';
-
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    status.textContent = `Convertendo página ${i}/${pdf.numPages}...`;
-                    const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 2 });
-                    const canvas = document.createElement('canvas');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-
-                    const nomeArquivo = `${baseNome}_${String(i).padStart(3, '0')}.png`;
-                    status.textContent = `Enviando página ${i}/${pdf.numPages}...`;
-                    const resp = await fetch(`/api/upload/slide?nome=${encodeURIComponent(nomeArquivo)}`, { method: 'POST', body: blob });
-                    if (!resp.ok) {
-                        const erro = await resp.json().catch(() => ({}));
-                        alert(`Falha ao enviar a página ${i}: ${erro.erro || 'erro ' + resp.status}`);
-                    }
-                }
-                status.textContent = '';
-                carregarSlides();
-            } catch (e) {
-                console.error(e);
-                alert('Falha ao converter o PDF: ' + e.message);
-                status.textContent = '';
-            }
-        }
-
-        mostrarPainel('videos');
-    </script>
+renderizarFila();
+renderizarFilaSlides();
+carregarVideos();
+mostrarPainel(location.hash.slice(1) || 'videos');
+</script>
 </body>
 </html>

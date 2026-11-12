@@ -55,7 +55,11 @@ let integracao = {
     ultimoErro: null,
     // Já foi marcado como ao_vivo nesta sessão? Evita chamar /iniciar de novo a
     // cada PLAY (ver `iniciarJogoNaApi` e o handler de `comando_cronometro`).
-    iniciado: false
+    iniciado: false,
+    // id do lance (gameState.lances) → uuid do evento enviado à API. É o que
+    // deixa a mesa estornar um lance qualquer da lista, e não só o último de
+    // cada time. Só em memória, como a fila.
+    uuidPorLance: {}
 };
 
 if (!integracaoConfigurada()) {
@@ -117,24 +121,44 @@ function idDoTime(timeChave) {
 
 // Traduz a ação já aplicada ao gameState (placar ou cronômetro) num evento
 // (ou estorno) para a fila — e dispara o envio, sem bloquear quem chamou.
+// Devolve o evento registrado (ou null) — quem chama pode querer guardar o uuid.
 function aplicarTraducaoNaFila(trad) {
-    if (!trad || trad.modo === 'ignorar') return;
+    if (!trad || trad.modo === 'ignorar') return null;
+    let evento = null;
     if (trad.modo === 'estornar') {
-        const evento = placarEventos.criarEstorno(integracao.fila, trad.chaveEstorno, trad.motivo);
+        evento = placarEventos.criarEstorno(integracao.fila, trad.chaveEstorno, trad.motivo);
         if (!evento) {
             console.warn(`Integração Placar Clube: nada para desfazer remotamente (${trad.chaveEstorno}) — sem evento rastreado nesta sessão.`);
         }
     } else if (trad.modo === 'registrar') {
         const timeId = trad.time ? idDoTime(trad.time) : undefined;
-        placarEventos.registrarEvento(integracao.fila, { ...trad.campos, time_id: timeId, chaveEstorno: trad.chaveEstorno });
+        evento = placarEventos.registrarEvento(integracao.fila, { ...trad.campos, time_id: timeId, chaveEstorno: trad.chaveEstorno });
     }
+    broadcastIntegracao();
+    tentarEnviarPendentes();
+    return evento;
+}
+
+// Correção de um lance específico da mesa (`estornar_lance`): estorna o evento
+// exato daquele lance. Sem uuid conhecido (lance de antes de carregar o jogo,
+// ou servidor reiniciado) só o placar local é corrigido — fica registrado no log.
+function registrarEstornoDeLance(lance) {
+    if (!integracaoConfigurada() || !integracao.jogoId || !lance) return;
+    const uuid = integracao.uuidPorLance[lance.id];
+    if (!uuid) {
+        console.warn(`Integração Placar Clube: lance #${lance.id} sem evento rastreado — corrigido só no placar local.`);
+        return;
+    }
+    delete integracao.uuidPorLance[lance.id];
+    const motivo = lance.tipo === 'falta' ? 'falta desfeita pelo operador' : 'ponto desfeito pelo operador';
+    placarEventos.estornarEvento(integracao.fila, uuid, motivo);
     broadcastIntegracao();
     tentarEnviarPendentes();
 }
 
 function registrarEventoDeAcaoPlacar(payload = {}) {
-    if (!integracaoConfigurada() || !integracao.jogoId) return;
-    aplicarTraducaoNaFila(placarEventos.traduzirAcaoPlacar({
+    if (!integracaoConfigurada() || !integracao.jogoId) return null;
+    return aplicarTraducaoNaFila(placarEventos.traduzirAcaoPlacar({
         acao: payload.acao,
         time: payload.time,
         valor: payload.valor,
@@ -196,6 +220,7 @@ function aplicarJogoNoEstado(resposta) {
     integracao.statusConexao = 'carregado';
     integracao.ultimoErro = null;
     integracao.iniciado = false;
+    integracao.uuidPorLance = {};
 }
 
 // Marca o jogo como ao_vivo na API. Chamada pelo botão manual
@@ -270,7 +295,12 @@ function payloadEstado() {
         totalParciais: logic.quantidadeParciais(gameState),
         parcialEmAndamento: logic.parcialEmAndamento(gameState),
         // 'timeA' | 'timeB' | null — quem está a um ponto de fechar a parcial.
-        setPoint: logic.pontoDeParcial(gameState)
+        setPoint: logic.pontoDeParcial(gameState),
+        // Lance a lance com `estornavel` já decidido (gaveta e "Desfazer" da mesa).
+        lances: logic.lancesParaTela(gameState),
+        // Aviso de faltas da mesa: limite do esporte e quem já chegou nele.
+        limiteFaltas: logic.limiteFaltas(gameState),
+        alertaFaltas: logic.alertaFaltas(gameState)
     };
 }
 
@@ -514,19 +544,23 @@ io.on('connection', (socket) => {
             }
             : null;
 
-        const { animacoes } = logic.comandoPlacar(gameState, payload);
+        const { animacoes, lance, estornado } = logic.comandoPlacar(gameState, payload, Date.now());
         animacoes.forEach(a => io.emit(a.name, a.payload));
         broadcast(); // otimista: telão atualiza antes de qualquer chamada à API
 
+        let evento = null;
         if (antesDoFechamento) {
-            registrarEventoDeAcaoPlacar({ ...payload, ...antesDoFechamento });
+            evento = registrarEventoDeAcaoPlacar({ ...payload, ...antesDoFechamento });
         } else if (acao === 'reabrir_set') {
             // Na reabertura o placar da parcial já voltou ao gameState, então o
             // vencedor (e com ele a chave do estorno) é lido DEPOIS do comando.
             registrarEventoDeAcaoPlacar({ ...payload, time: logic.vencedorParcial(gameState) });
+        } else if (acao === 'estornar_lance') {
+            registrarEstornoDeLance(estornado);
         } else {
-            registrarEventoDeAcaoPlacar(payload);
+            evento = registrarEventoDeAcaoPlacar(payload);
         }
+        if (lance && evento) integracao.uuidPorLance[lance.id] = evento.uuid;
     });
 
     // Gestão do Cronômetro
@@ -571,6 +605,7 @@ io.on('connection', (socket) => {
         integracao.statusConexao = integracaoConfigurada() ? 'ocioso' : 'nao_configurado';
         integracao.ultimoErro = null;
         integracao.iniciado = false;
+        integracao.uuidPorLance = {};
 
         broadcast();
         broadcastIntegracao();

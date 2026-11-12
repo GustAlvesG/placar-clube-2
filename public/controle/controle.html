@@ -1,641 +1,1431 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Controle do Jogo</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        .font-digital { font-family: 'Share Tech Mono', monospace; }
-        body { user-select: none; height: 100vh; height: 100dvh; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#111822">
+<title>Controle — Placar Clube</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&family=Bebas+Neue&display=swap">
+<style>
+/* Tema escuro fixo: ginásio, tablet ligado o jogo inteiro. As cores de cada
+   time são VARIÁVEIS (.tema-azul / .tema-vermelho, aplicadas por
+   aplicarTemas) para a cor andar junto com o time quando o operador inverte
+   os lados — não troque por cores fixas nos painéis.
+   Sem Tailwind de propósito: a mesa é a tela que não pode falhar, e assim ela
+   só depende da internet para as fontes (que têm fallback). */
+:root {
+  color-scheme: dark;
+  --bg: #090d13; --surface: #111822; --surface-2: #18212e; --surface-3: #212c3b;
+  --line: #2a3546; --fg: #eaf0f7; --muted: #8d9bb0; --faint: #5d6a7e;
+  --ok: #22c55e; --ok-fundo: #0d2a1a; --ok-texto: #04170b;
+  --run: #f5a524; --run-fundo: #2f2208; --run-texto: #2a1a00;
+  --perigo: #f04444; --perigo-fundo: #2a0f12;
+  --f-num: "Bebas Neue", "Barlow Condensed", Impact, "Arial Narrow", sans-serif;
+  --f-rot: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-txt: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.tema-azul     { --c: #2f6fe4; --c-claro: #8db7ff; --c-fundo: #0f1d38; --c-linha: #23427c; }
+.tema-vermelho { --c: #dc3a3a; --c-claro: #ffa3a3; --c-fundo: #2b1114; --c-linha: #6b2328; }
 
-        /* Cada time tem um TEMA de cor, e o tema anda junto com o time quando o
-           operador inverte os lados — é o que faz a troca ser percebida de
-           relance, em vez de só os nomes mudarem de lugar. Por isso as cores
-           são variáveis aplicadas por `aplicarTemas()`, e não classes fixas do
-           Tailwind espalhadas pelos elementos. */
-        .tema-azul {
-            --borda: #1e3a8a; --nome: #93c5fd; --rotulo: #60a5fa;
-            --ponto: #2563eb; --ponto-ativo: #60a5fa;
-            --acao: #1d4ed8;  --acao-ativo: #2563eb;
-            --fraco: #172554; --fraco-borda: #1e40af; --fraco-texto: #93c5fd;
-        }
-        .tema-vermelho {
-            --borda: #7f1d1d; --nome: #fca5a5; --rotulo: #f87171;
-            --ponto: #dc2626; --ponto-ativo: #f87171;
-            --acao: #b91c1c;  --acao-ativo: #dc2626;
-            --fraco: #450a0a; --fraco-borda: #991b1b; --fraco-texto: #fca5a5;
-        }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+body { font-family: var(--f-txt); font-size: 16px; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+button, a.btn { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; text-decoration: none; touch-action: manipulation; }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+[hidden] { display: none !important; }
 
-        .painel-time { border-color: var(--borda); }
-        .nome-time   { color: var(--nome); }
-        .rotulo-time { color: var(--rotulo); }
+.app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto 1fr; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
 
-        .btn-ponto, .btn-acao, .btn-fraco { transition: background-color .12s, border-color .12s, color .12s, transform .12s; }
-        .btn-ponto { background-color: var(--ponto); color: #fff; }
-        .btn-ponto:active { background-color: var(--ponto-ativo); }
-        .btn-acao  { background-color: var(--acao); color: #fff; }
-        .btn-acao:active { background-color: var(--acao-ativo); }
-        .btn-fraco { background-color: var(--fraco); border: 1px solid var(--fraco-borda); color: var(--fraco-texto); }
-        .btn-fraco:active { background-color: var(--fraco-borda); }
+/* ---------- Barra superior ---------- */
+.topo { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.chips { display: flex; gap: 8px; align-items: center; min-width: 0; overflow: hidden; }
+.chip { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px; border-radius: 10px; font-family: var(--f-rot); font-weight: 700; font-size: 15px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; background: var(--surface-2); color: var(--muted); }
+.chip .ponto { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.chip.vivo { color: var(--ok); background: var(--ok-fundo); }
+.chip.vivo .ponto { animation: pulsa 1.6s ease-in-out infinite; }
+.chip.sync { color: var(--run); background: var(--run-fundo); }
+.chip.erro { color: #ffb4b4; background: var(--perigo-fundo); }
+.chip.esporte { color: var(--fg); background: transparent; padding-left: 4px; font-size: 18px; letter-spacing: .1em; }
+@keyframes pulsa { 50% { opacity: .35; } }
+.abas { display: flex; gap: 4px; padding: 4px; background: var(--bg); border-radius: 14px; border: 1px solid var(--line); }
+.aba { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px; border-radius: 10px; font-family: var(--f-rot); font-weight: 700; font-size: 18px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.aba svg { font-size: 20px; }
+.aba[aria-selected="true"] { background: var(--surface-3); color: var(--fg); }
+.topo-dir { display: flex; justify-content: flex-end; gap: 8px; }
+.btn-topo { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-family: var(--f-rot); font-weight: 700; font-size: 17px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.btn-topo svg { font-size: 20px; }
+.btn-topo:active { background: var(--surface-3); }
+.contador { min-width: 24px; height: 24px; padding: 0 6px; border-radius: 8px; background: var(--surface-3); font-size: 15px; display: grid; place-items: center; }
 
-        button:disabled { opacity: .35; }
-    </style>
+.vista { min-height: 0; position: relative; }
+
+/* ---------- MESA ---------- */
+.mesa { height: 100%; display: grid; grid-template-rows: clamp(80px, 14vh, 116px) 1fr auto; gap: 12px; padding: 12px; }
+.relogio-linha { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; min-height: 0; }
+.relogio-esq { display: flex; align-items: stretch; min-width: 0; }
+.periodo-box { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 0 8px; gap: 4px; }
+.periodo-box .lbl { padding: 0 8px; text-align: center; line-height: 1; min-width: 72px; }
+.periodo-box .lbl b { display: block; font-family: var(--f-num); font-size: clamp(36px, 6vh, 52px); font-weight: 400; }
+.periodo-box .lbl small { font-family: var(--f-rot); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.mini { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; color: var(--muted); background: var(--surface-2); }
+.mini:active { background: var(--surface-3); }
+.parciais { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; align-content: center; }
+.parcial { font-family: var(--f-rot); font-weight: 700; font-size: 17px; padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.parcial b { color: var(--fg); }
+.parcial.atual { border-color: var(--fg); color: var(--fg); }
+
+.relogio { min-width: clamp(300px, 34vw, 460px); display: flex; align-items: center; justify-content: center; gap: 20px; border-radius: 22px; padding: 0 24px;
+  background: var(--ok-fundo); border: 3px solid var(--ok); color: #fff; transition: background-color .2s, border-color .2s, transform .1s; }
+.relogio:active { transform: scale(.98); }
+.relogio.rodando { background: var(--run-fundo); border-color: var(--run); }
+.relogio.zerado { background: var(--perigo-fundo); border-color: var(--perigo); }
+.relogio .ico { width: clamp(48px, 8vh, 64px); height: clamp(48px, 8vh, 64px); border-radius: 50%; display: grid; place-items: center; font-size: 28px; background: var(--ok); color: var(--ok-texto); }
+.relogio.rodando .ico { background: var(--run); color: var(--run-texto); }
+.relogio.zerado .ico { background: var(--perigo); color: #fff; }
+.relogio .ico svg { fill: currentColor; }
+.relogio .tempo { font-family: var(--f-num); font-size: clamp(56px, 11vh, 92px); line-height: 1; letter-spacing: .02em; font-variant-numeric: tabular-nums; padding-top: 6px; white-space: nowrap; }
+.relogio .tempo small { font-size: .55em; color: rgba(255,255,255,.7); }
+.relogio .dica { font-family: var(--f-rot); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.65); writing-mode: vertical-rl; transform: rotate(180deg); }
+.relogio-dir { display: flex; justify-content: flex-end; gap: 10px; align-items: stretch; }
+.btn-sec { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; min-width: 104px; padding: 0 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); font-family: var(--f-rot); font-weight: 700; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.btn-sec svg { font-size: 26px; color: var(--fg); }
+.btn-sec:active { background: var(--surface-2); }
+
+.paineis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; }
+.painel { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; min-height: 0; min-width: 0; padding: 12px; border-radius: 24px;
+  background: linear-gradient(180deg, var(--c-fundo), var(--surface) 70%); border: 2px solid var(--c-linha); position: relative; }
+.painel-cab { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 4px; }
+.escudo { width: 52px; height: 52px; border-radius: 14px; background: var(--c); display: grid; place-items: center; font-family: var(--f-rot); font-weight: 800; font-size: 19px; letter-spacing: .04em; color: #fff; flex: none; overflow: hidden; }
+.escudo img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.painel-nome { min-width: 0; flex: 1; }
+.painel-nome b { display: block; font-family: var(--f-rot); font-weight: 800; font-size: clamp(20px, 3.4vh, 28px); letter-spacing: .03em; text-transform: uppercase; color: var(--c-claro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+.painel-nome small { display: block; font-family: var(--f-rot); font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.placar { font-family: var(--f-num); font-size: clamp(64px, 15vh, 128px); line-height: .8; padding-top: 10px; font-variant-numeric: tabular-nums; min-width: 1.2ch; text-align: right; }
+.placar.bump { animation: bump .35s ease-out; }
+@keyframes bump { 30% { transform: scale(1.12); color: var(--c-claro); } }
+.selo { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 5px 14px; border-radius: 999px; font-family: var(--f-rot); font-weight: 800; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; background: var(--run); color: var(--run-texto); white-space: nowrap; z-index: 1; }
+
+.pontos { display: grid; gap: 10px; min-height: 0; }
+.btn-ponto { min-height: 0; border-radius: 22px; background: var(--c); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.22); transition: transform .08s, filter .08s; }
+.btn-ponto:active { transform: scale(.975); filter: brightness(1.18); }
+.btn-ponto b { font-family: var(--f-num); font-weight: 400; font-size: clamp(56px, 12vh, 96px); line-height: .9; }
+.btn-ponto small { font-family: var(--f-rot); font-weight: 700; font-size: 18px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+.pontos.tres .btn-ponto b { font-size: clamp(48px, 10vh, 84px); }
+.pontos.tres .btn-ponto small { font-size: 15px; }
+
+.rodape-time { display: grid; grid-template-columns: 1fr auto; gap: 10px; min-height: clamp(60px, 9vh, 76px); }
+.faltas { display: flex; align-items: center; gap: 12px; padding: 0 14px; border-radius: 18px; background: var(--surface-2); min-width: 0; }
+.faltas .rot { font-family: var(--f-rot); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); line-height: 1.1; }
+.faltas .rot b { display: block; font-family: var(--f-num); font-weight: 400; font-size: 38px; color: var(--fg); letter-spacing: 0; }
+.pips { display: flex; gap: 6px; }
+.pip { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); }
+.pip.on { background: var(--c-claro); border-color: var(--c-claro); }
+.pip.alerta { background: var(--run); border-color: var(--run); }
+.faltas .aviso { margin-left: auto; font-family: var(--f-rot); font-weight: 700; font-size: 15px; letter-spacing: .05em; text-transform: uppercase; color: var(--run); text-align: right; line-height: 1.1; min-width: 0; }
+.btn-falta { min-width: clamp(120px, 13vw, 168px); border-radius: 18px; background: var(--surface-3); border: 2px solid var(--c-linha); font-family: var(--f-rot); font-weight: 800; font-size: 22px; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-falta:active { background: var(--c-linha); }
+.sets { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-radius: 18px; background: var(--surface-2); }
+.sets .rot { font-family: var(--f-rot); font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.sets .bolas { display: flex; gap: 8px; }
+.sets .bola { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); }
+.sets .bola.on { background: var(--c); border-color: var(--c-claro); }
+.sets .n { margin-left: auto; font-family: var(--f-num); font-size: 42px; }
+
+/* Rodapé da mesa: último lance + Desfazer (sempre à mão) e a ação do momento. */
+.rodape-mesa { display: flex; gap: 12px; align-items: stretch; min-height: 72px; }
+.ultimo { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 0; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.ultimo .tarja { width: 8px; align-self: stretch; background: var(--faint); }
+.ultimo.novo { animation: flash .6s ease-out; }
+@keyframes flash { from { background: var(--surface-3); } }
+.ultimo .txt { flex: 1; min-width: 0; }
+.ultimo .txt small { display: block; font-family: var(--f-rot); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ultimo .txt b { display: block; font-family: var(--f-rot); font-weight: 700; font-size: 20px; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-desfazer { height: 56px; padding: 0 22px; border-radius: 14px; background: var(--fg); color: var(--bg); font-family: var(--f-rot); font-weight: 800; font-size: 19px; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex: none; }
+.btn-desfazer svg { font-size: 22px; }
+.btn-forte { min-height: 60px; padding: 0 26px; border-radius: 18px; background: var(--ok); color: var(--ok-texto); font-family: var(--f-rot); font-weight: 800; font-size: 21px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 10px; white-space: nowrap; }
+.btn-forte.alerta { background: var(--run); color: var(--run-texto); }
+.btn-forte svg { font-size: 24px; stroke-width: 3; }
+.btn-forte:active { filter: brightness(1.15); }
+
+/* ---------- Toast ---------- */
+/* Embaixo, acima do rodapé da mesa: no topo cobria o relógio. */
+.toast { position: fixed; left: 50%; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 60; padding: 12px 20px; border-radius: 14px; background: #f3f6fa; color: #0b111a; font-family: var(--f-rot); font-weight: 700; font-size: 19px; box-shadow: 0 12px 40px rgba(0,0,0,.5); transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Folhas e gaveta ---------- */
+.veu { position: fixed; inset: 0; z-index: 40; background: rgba(3,6,10,.74); display: flex; align-items: flex-end; justify-content: center; animation: aparece .15s ease-out; }
+.veu.lado { justify-content: flex-end; align-items: stretch; }
+.veu.centro { align-items: center; padding: 16px; }
+@keyframes aparece { from { opacity: 0; } }
+.folha { width: 100%; max-height: 94%; display: grid; grid-template-rows: auto 1fr auto; background: var(--surface); border-radius: 26px 26px 0 0; border-top: 4px solid var(--c, var(--line)); animation: sobe .22s cubic-bezier(.2,.9,.3,1); padding-bottom: env(safe-area-inset-bottom, 0); }
+.folha.neutra { max-width: 1000px; border-top-color: var(--line); }
+.folha.aviso { max-width: 640px; border-radius: 26px; border-top: 0; }
+@keyframes sobe { from { transform: translateY(40px); opacity: 0; } }
+.folha-cab { display: flex; align-items: center; gap: 14px; padding: 16px 20px 10px; }
+.folha-cab h2 { margin: 0; flex: 1; min-width: 0; font-family: var(--f-rot); font-weight: 800; font-size: 28px; letter-spacing: .03em; text-transform: uppercase; line-height: 1.1; }
+.folha-cab h2 small { display: block; font-size: 16px; letter-spacing: .1em; color: var(--muted); font-weight: 700; }
+.fechar { width: 56px; height: 56px; border-radius: 16px; background: var(--surface-2); display: grid; place-items: center; font-size: 26px; flex: none; }
+.folha-corpo { overflow-y: auto; padding: 4px 20px 16px; -webkit-overflow-scrolling: touch; }
+.folha-corpo p { color: var(--muted); line-height: 1.5; margin: 0 0 10px; }
+.folha-pe { display: flex; gap: 12px; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
+.secao-rot { font-family: var(--f-rot); font-size: 14px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 10px 0; display: flex; align-items: center; gap: 10px; }
+.secao-rot::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.grade-jog { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.grade-jog.banco { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.jog { min-height: 108px; border-radius: 18px; background: var(--c-fundo); border: 2px solid var(--c-linha); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px; min-width: 0; }
+.jog:active { background: var(--c); }
+.jog b { font-family: var(--f-num); font-weight: 400; font-size: 56px; line-height: .85; }
+.jog span { font-size: 15px; font-weight: 600; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grade-jog.banco .jog { min-height: 84px; background: var(--surface-2); border-color: var(--line); }
+.grade-jog.banco .jog b { font-size: 40px; }
+.btn-grande { flex: 1; min-height: 68px; border-radius: 18px; font-family: var(--f-rot); font-weight: 800; font-size: 20px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 16px; }
+.btn-grande svg { font-size: 24px; }
+.btn-grande.cinza { background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); flex: 0 0 auto; min-width: 200px; }
+.btn-grande.cor { background: var(--c); color: #fff; }
+.btn-grande.claro { background: var(--fg); color: var(--bg); }
+
+.gaveta { width: min(540px, 100%); height: 100%; background: var(--surface); border-left: 1px solid var(--line); display: grid; grid-template-rows: auto auto 1fr; animation: entra .22s cubic-bezier(.2,.9,.3,1); padding-bottom: env(safe-area-inset-bottom, 0); }
+@keyframes entra { from { transform: translateX(60px); opacity: 0; } }
+.gaveta .ajuda { margin: 0 20px 10px; color: var(--muted); font-size: 15px; line-height: 1.45; }
+.lances { overflow-y: auto; padding: 0 14px 20px; display: flex; flex-direction: column; gap: 8px; }
+.lance { display: grid; grid-template-columns: 6px 60px 1fr auto; align-items: center; gap: 12px; padding: 10px 10px 10px 0; border-radius: 14px; background: var(--surface-2); overflow: hidden; min-height: 68px; }
+.lance .cor { align-self: stretch; background: var(--c, var(--faint)); }
+.lance time { font-family: var(--f-rot); font-weight: 700; font-size: 18px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; line-height: 1.1; }
+.lance time small { display: block; font-size: 12px; letter-spacing: .08em; }
+.lance .txt { min-width: 0; }
+.lance .txt b { display: block; font-family: var(--f-rot); font-weight: 800; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; }
+.lance .txt span { font-size: 14px; color: var(--muted); }
+.lance.estornado .txt b { text-decoration: line-through; color: var(--faint); }
+.lance .tag { font-family: var(--f-rot); font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); padding: 0 8px; }
+.btn-estornar { height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); font-family: var(--f-rot); font-weight: 700; font-size: 16px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.confirma { display: flex; gap: 6px; }
+.confirma button { height: 48px; padding: 0 14px; border-radius: 12px; font-family: var(--f-rot); font-weight: 800; font-size: 16px; letter-spacing: .06em; text-transform: uppercase; }
+.confirma .sim { background: var(--perigo); color: #fff; }
+.confirma .nao { background: var(--surface-3); }
+.vazio { color: var(--muted); padding: 24px 8px; text-align: center; }
+
+/* Menu */
+.menu-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.cartao { background: var(--surface-2); border: 1px solid var(--line); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cartao h3 { margin: 0; font-family: var(--f-rot); font-size: 15px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.cartao p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.tempo-inputs { display: flex; align-items: center; gap: 8px; }
+.tempo-inputs input { width: 0; flex: 1; min-width: 0; height: 72px; border-radius: 14px; border: 2px solid var(--line); background: var(--bg); color: var(--fg); text-align: center; font-family: var(--f-num); font-size: 52px; font-variant-numeric: tabular-nums; }
+.tempo-inputs input:focus { border-color: var(--fg); outline: none; }
+.tempo-inputs span { font-family: var(--f-num); font-size: 44px; color: var(--muted); }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.preset { height: 48px; padding: 0 16px; border-radius: 12px; background: var(--surface-3); font-family: var(--f-rot); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+.preset:active { background: var(--fg); color: var(--bg); }
+.linha-btn { min-height: 60px; border-radius: 16px; background: var(--surface-3); display: flex; align-items: center; gap: 12px; padding: 8px 16px; font-family: var(--f-rot); font-weight: 700; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; text-align: left; }
+.linha-btn svg { font-size: 24px; }
+.linha-btn .sub { margin-left: auto; font-family: var(--f-txt); text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--muted); font-weight: 500; text-align: right; }
+.linha-btn.claro { background: var(--fg); color: var(--bg); }
+.chave { margin-left: auto; width: 60px; height: 34px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background-color .15s; }
+.chave::after { content: ""; position: absolute; top: 4px; left: 4px; width: 26px; height: 26px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.chave.on { background: var(--ok); }
+.chave.on::after { transform: translateX(26px); }
+
+/* Segurar para confirmar: a barra enche em 1,2 s; soltar antes cancela. */
+.segurar { position: relative; overflow: hidden; min-height: 60px; border-radius: 16px; display: flex; align-items: center; gap: 12px; padding: 8px 16px; font-family: var(--f-rot); font-weight: 800; font-size: 19px; letter-spacing: .04em; text-transform: uppercase; touch-action: none; text-align: left; }
+.segurar > * { position: relative; }
+.segurar .enche { position: absolute; inset: 0; transform: scaleX(0); transform-origin: 0 0; }
+.segurar svg { font-size: 24px; }
+.segurar .sub { margin-left: auto; font-family: var(--f-txt); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 500; opacity: .85; }
+.segurar.perigo { background: var(--perigo-fundo); color: #ffb4b4; border: 1px solid #5b1d22; }
+.segurar.perigo .enche { background: rgba(240,68,68,.45); }
+.segurar.ok { background: var(--ok-fundo); color: #9ff0bf; border: 1px solid #1b5234; }
+.segurar.ok .enche { background: rgba(34,197,94,.4); }
+.segurar.cheio .enche { transition: transform 1.2s linear; transform: scaleX(1); }
+
+/* ---------- PREPARAR ---------- */
+.preparar { height: 100%; display: grid; grid-template-columns: 1fr minmax(360px, 480px); gap: 14px; padding: 14px; min-height: 0; }
+.coluna { min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.coluna-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.coluna-cab h2 { margin: 0; font-family: var(--f-rot); font-weight: 800; font-size: 28px; letter-spacing: .03em; text-transform: uppercase; }
+.coluna-cab p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.data-nav { display: flex; gap: 6px; align-items: center; }
+.data-nav .dia { min-width: 150px; text-align: center; font-family: var(--f-rot); font-weight: 700; font-size: 18px; letter-spacing: .04em; }
+.jogos { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; flex: 1; min-height: 0; }
+.jogo { display: grid; grid-template-columns: 84px 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 20px; background: var(--surface); border: 2px solid var(--line); text-align: left; width: 100%; }
+.jogo.sel { border-color: var(--ok); background: linear-gradient(90deg, var(--ok-fundo), var(--surface) 60%); }
+.jogo .hora { text-align: center; line-height: 1; }
+.jogo .hora b { display: block; font-family: var(--f-num); font-size: 38px; font-weight: 400; }
+.jogo .hora small { font-family: var(--f-rot); font-size: 13px; letter-spacing: .1em; color: var(--muted); }
+.jogo .conf { min-width: 0; }
+.jogo .conf b { display: block; font-family: var(--f-rot); font-weight: 800; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jogo .conf b i { font-style: normal; color: var(--faint); padding: 0 6px; }
+.jogo .conf span { font-size: 15px; color: var(--muted); }
+.jogo .conf .status { font-family: var(--f-rot); font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 6px; background: var(--surface-3); margin-right: 6px; }
+.jogo .conf .status.ao_vivo { background: var(--ok-fundo); color: var(--ok); }
+.jogo .acao { height: 52px; padding: 0 18px; border-radius: 14px; background: var(--surface-3); font-family: var(--f-rot); font-weight: 800; font-size: 17px; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.jogo.sel .acao { background: var(--ok); color: var(--ok-texto); }
+.jogo-confirma { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding-top: 6px; color: var(--run); font-weight: 600; flex-wrap: wrap; }
+.jogo-confirma span { flex: 1; min-width: 200px; }
+.manual { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; border: 1px dashed var(--line); color: var(--muted); font-size: 15px; flex-wrap: wrap; }
+.manual b { color: var(--fg); }
+.manual .btn-topo { margin-left: auto; color: var(--fg); }
+.passos { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
+.passo { display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); }
+.passo .st { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-rot); font-weight: 800; font-size: 20px; background: var(--surface-3); color: var(--muted); }
+.passo.feito .st { background: var(--ok); color: var(--ok-texto); font-size: 24px; }
+.passo.pendente { border-color: var(--run); }
+.passo.pendente .st { background: var(--run); color: var(--run-texto); }
+.passo b { display: block; font-family: var(--f-rot); font-weight: 800; font-size: 20px; letter-spacing: .03em; text-transform: uppercase; }
+.passo span { font-size: 15px; color: var(--muted); }
+.passo .mini-acao { min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--surface-2); font-family: var(--f-rot); font-weight: 700; font-size: 16px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; white-space: nowrap; }
+.passo.pendente .mini-acao { background: var(--run); color: var(--run-texto); }
+.ir-mesa { margin-top: auto; min-height: 80px; border-radius: 22px; background: var(--fg); color: var(--bg); font-family: var(--f-rot); font-weight: 800; font-size: 26px; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 12px; flex: none; }
+.ir-mesa svg { font-size: 30px; stroke-width: 2.5; }
+
+/* ---------- TELÃO ---------- */
+.telao { height: 100%; display: grid; grid-template-rows: auto 1fr; gap: 14px; padding: 14px; min-height: 0; }
+.cenas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cena { min-height: 116px; border-radius: 22px; background: var(--surface); border: 2px solid var(--line); display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 14px 16px; text-align: left; }
+.cena svg { font-size: 32px; color: var(--muted); }
+.cena b { font-family: var(--f-rot); font-weight: 800; font-size: 24px; letter-spacing: .04em; text-transform: uppercase; display: block; }
+.cena span { font-size: 14px; color: var(--muted); }
+.cena[aria-pressed="true"] { border-color: var(--ok); background: linear-gradient(180deg, var(--ok-fundo), var(--surface)); }
+.cena[aria-pressed="true"] svg { color: var(--ok); }
+.no-ar { font-family: var(--f-rot); font-weight: 800; font-size: 13px; letter-spacing: .14em; color: var(--ok); }
+.telao-grade { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; min-height: 0; }
+.telao-grade .cartao { background: var(--surface); min-height: 0; }
+.fila { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; flex: 1; }
+.item-fila { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 14px; border-radius: 14px; background: var(--surface-2); text-align: left; width: 100%; border: 2px solid transparent; }
+.item-fila .n { font-family: var(--f-num); font-size: 28px; color: var(--faint); width: 28px; text-align: center; }
+.item-fila b { font-weight: 600; font-size: 17px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-fila.sel { border-color: var(--ok); }
+.item-fila.sel .n { color: var(--ok); }
+.linha-acoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.cartao > .btn-grande { flex: none; }
+.linha-acoes .btn-grande { min-height: 60px; font-size: 18px; }
+.slide-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+.slide-nav button { min-height: 92px; border-radius: 20px; background: var(--surface-3); font-family: var(--f-rot); font-weight: 800; font-size: 22px; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.slide-nav button svg { font-size: 30px; }
+.slide-nav .pos { text-align: center; font-family: var(--f-num); font-size: 54px; line-height: 1; font-variant-numeric: tabular-nums; min-width: 100px; }
+.slide-nav .pos small { display: block; font-family: var(--f-rot); font-size: 13px; letter-spacing: .14em; color: var(--muted); }
+.patros { display: flex; flex-wrap: wrap; gap: 8px; }
+.patro { min-height: 38px; padding: 0 12px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; font-family: var(--f-rot); font-weight: 700; font-size: 15px; letter-spacing: .04em; color: var(--muted); }
+.link-mais { color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.link-mais b { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Telas menores (tablet em pé) ---------- */
+@media (max-width: 1080px) {
+  .chip .rotulo-longo { display: none; }
+  .aba { padding: 0 12px; font-size: 16px; }
+  .btn-topo .rotulo-longo { display: none; }
+}
+@media (max-width: 900px) {
+  .topo { grid-template-columns: auto 1fr; }
+  .topo .chips { display: none; }
+  .abas { justify-self: start; }
+  .relogio-linha { grid-template-columns: auto 1fr auto; }
+  .relogio { min-width: 0; padding: 0 14px; gap: 12px; }
+  .relogio .dica { display: none; }
+  .preparar { grid-template-columns: 1fr; overflow-y: auto; }
+  .telao { overflow-y: auto; }
+  .telao-grade { grid-template-columns: 1fr; }
+  .rodape-time { grid-template-columns: 1fr; }
+  .btn-falta { min-height: 56px; }
+  .faltas { min-height: 60px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .segurar.cheio .enche { transition: transform 1.2s linear !important; }
+}
+</style>
 </head>
 <!--
-    MESA DE CONTROLE — tela única para os três esportes.
+    CONTROLE — tela única de operação, para os três esportes, pensada para tablet.
 
-    Layout organizado por FREQUÊNCIA DE USO, não por assunto:
+    Três abas, na ordem do dia de jogo (o hash da URL guarda a aba: #preparar,
+    #controle, #telao; #mesa, o nome antigo, ainda abre o Controle):
+      Preparar → escolhe o jogo da API e confere o checklist (elencos, relógio,
+                 telão). Editar elenco/logos/modo manual continua em configuracao.html.
+      Controle → o placar. Organizada por FREQUÊNCIA DE USO:
+                   topo    relógio (toque = liga/pausa) e período;
+                   meio    um painel por time, quase todo tomado pelo botão de
+                           ponto — o alvo acertado dezenas de vezes sem olhar;
+                   rodapé  o último lance com DESFAZER sempre disponível, e a
+                           ação do momento (fechar set, próximo período).
+                 Lances (gaveta) corrige qualquer lance; ⚙ Mais guarda o que se
+                 usa uma vez por jogo ou é destrutivo (segurar para confirmar).
+      Telão    → o que vai ao ar: placar, slides ou espera, e comerciais.
+                 Enviar/excluir arquivos fica em controle_anuncios.html.
 
-      topo    → cronômetro (o 2º controle mais usado) + status. Tocar no
-                relógio liga/pausa: um alvo só, em vez de escolher entre um
-                PLAY e um PAUSA dos quais apenas um faz sentido por vez.
-      meio    → um painel por time, quase inteiro tomado pelo botão de marcar
-                ponto — o alvo que o operador acerta dezenas de vezes por jogo,
-                sem olhar.
-      rodapé  → correção (−1 de cada lado) e a ação do momento (fechar set).
-      ⚙ MAIS  → tudo que se usa uma vez por jogo (definir tempo, período) ou
-                que é destrutivo (zerar, encerrar). Sai da frente para não ser
-                clicado por engano no meio de um lance.
-
-    Antes eram quatro arquivos quase idênticos (controle.html + um por
-    esporte); a diferença entre eles cabe no objeto ESPORTES lá embaixo.
+    Nenhuma regra de jogo mora aqui: set fechável, set point, lances
+    estornáveis e aviso de faltas chegam prontos em `atualizar_tela`
+    (gameLogic.js). O que muda por esporte na INTERFACE está em ESPORTES.
 -->
-<body class="bg-gray-950 text-white flex flex-col overflow-hidden">
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13"/></symbol>
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect width="20" height="15" x="2" y="7" rx="2"/><polyline points="17 2 12 7 7 2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18M3 7.5h4M3 12h18M3 16.5h4M17 3v18M17 7.5h4M17 16.5h4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M12 5v14M7 10v4M17 10v4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+</svg>
 
-    <!-- ================= TOPO: status + cronômetro ================= -->
-    <header class="shrink-0 grid items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800" style="grid-template-columns: 1fr auto 1fr">
-        <div class="flex items-center gap-2 min-w-0">
-            <span id="badge-esporte" class="font-black tracking-wider text-sm text-yellow-400 whitespace-nowrap">—</span>
-            <span id="badge-integracao" class="hidden px-2 py-1 rounded-lg font-black tracking-wider text-[10px] whitespace-nowrap" title="Status da integração com a API do Placar Clube"></span>
+<div class="app">
+  <header class="topo">
+    <div class="chips">
+      <span class="chip esporte" id="chip-esporte">—</span>
+      <span class="chip" id="chip-telao"><span class="ponto"></span><span class="rotulo-longo" id="chip-telao-txt">Telão</span></span>
+      <span class="chip" id="chip-api" hidden><svg class="i"><use href="#i-link"/></svg><span id="chip-api-txt"></span></span>
+    </div>
+    <nav class="abas" role="tablist" aria-label="Seções">
+      <button class="aba" role="tab" data-acao="vista" data-v="preparar" aria-selected="false"><svg class="i"><use href="#i-clip"/></svg>Preparar</button>
+      <button class="aba" role="tab" data-acao="vista" data-v="controle" aria-selected="true"><svg class="i"><use href="#i-board"/></svg>Controle</button>
+      <button class="aba" role="tab" data-acao="vista" data-v="telao" aria-selected="false"><svg class="i"><use href="#i-tv"/></svg>Telão</button>
+    </nav>
+    <div class="topo-dir">
+      <button class="btn-topo" id="btn-lances" data-acao="abrir-lances"><svg class="i"><use href="#i-list"/></svg><span class="rotulo-longo">Lances</span> <span class="contador" id="contador-lances">0</span></button>
+      <button class="btn-topo" data-acao="abrir-menu" aria-label="Mais controles"><svg class="i"><use href="#i-sliders"/></svg>Mais</button>
+    </div>
+  </header>
+
+  <!-- ================= MESA ================= -->
+  <main class="vista mesa" id="vista-controle">
+    <div class="relogio-linha">
+      <div class="relogio-esq">
+        <div class="periodo-box" id="periodo-box" hidden>
+          <button class="mini" data-acao="periodo" data-v="sub_periodo" aria-label="Voltar um período"><svg class="i"><use href="#i-minus"/></svg></button>
+          <div class="lbl"><b id="periodo-num">1º</b><small id="periodo-rot">tempo</small></div>
+          <button class="mini" data-acao="periodo" data-v="add_periodo" aria-label="Avançar um período"><svg class="i"><use href="#i-plus"/></svg></button>
         </div>
-
-        <!-- O relógio É o botão de liga/pausa: a cor diz o estado (verde =
-             parado, âmbar = correndo) e o ícone mostra o que o toque vai fazer. -->
-        <button id="btn-crono" onclick="toggleCronometro()"
-            class="flex items-center gap-3 px-5 py-2 rounded-2xl border-4 transition-transform active:scale-95 bg-emerald-700 border-emerald-500 text-white">
-            <span id="crono-icone" class="text-2xl leading-none">▶</span>
-            <span id="timer-display" class="font-digital text-4xl md:text-5xl leading-none tracking-tight">00:00</span>
-        </button>
-
-        <div class="flex justify-end">
-            <button onclick="abrirMais()" class="px-5 py-3 rounded-xl bg-gray-800 active:bg-gray-700 active:scale-95 border border-gray-600 font-bold text-sm transition-transform whitespace-nowrap">⚙ MAIS</button>
-        </div>
-    </header>
-
-    <!-- ================= MEIO: um painel por time ================= -->
-    <main class="flex-1 min-h-0 flex gap-2 p-2">
-
-        <!-- LADO ESQUERDO (o time — e o tema de cor dele — dependem de
-             `invertido`; ver timeDoLado e aplicarTemas) -->
-        <section data-lado="a" class="painel-time tema-azul flex-1 min-w-0 flex flex-col gap-2 rounded-3xl border-4 bg-gray-900 p-2">
-            <div class="shrink-0 flex items-center justify-between gap-2 px-2">
-                <h2 id="nome-a" class="nome-time min-w-0 truncate text-base md:text-xl font-black uppercase tracking-wider">CASA</h2>
-                <span id="score-a" class="shrink-0 font-digital text-5xl md:text-6xl leading-none text-white">0</span>
-            </div>
-
-            <!-- Botões de ponto: os três existem sempre no HTML e o esporte
-                 decide quantos aparecem (1 no futsal/vôlei, 3 no basquete). -->
-            <div id="pontos-a" class="flex-1 min-h-0 grid gap-2" style="grid-template-columns: repeat(1, minmax(0, 1fr))">
-                <button id="pt-a-1" onclick="marcar('esquerda', 1)" class="btn-ponto rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+1</button>
-                <button id="pt-a-2" onclick="marcar('esquerda', 2)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+2</button>
-                <button id="pt-a-3" onclick="marcar('esquerda', 3)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+3</button>
-            </div>
-
-            <div class="shrink-0">
-                <!-- Faltas (futsal / basquete) -->
-                <div id="faltas-a-box" class="hidden flex items-center gap-2">
-                    <button onclick="cmdPlacar('esquerda', 'sub_falta', 1)" class="btn-fraco shrink-0 w-14 rounded-xl font-black py-3 active:scale-95">−</button>
-                    <div class="shrink-0 text-center leading-none px-1">
-                        <div class="rotulo-time text-[10px] font-bold uppercase tracking-widest">Faltas</div>
-                        <div id="faltas-a" class="font-digital text-2xl text-white">0</div>
-                    </div>
-                    <button onclick="cmdPlacar('esquerda', 'add_falta', 1)" class="btn-acao flex-1 rounded-xl font-black py-3 text-base active:scale-95">+ FALTA</button>
-                </div>
-                <!-- Sets vencidos (vôlei) — só leitura: quem credita o set é o
-                     fechamento da parcial, no rodapé. -->
-                <div id="sets-a-box" class="hidden text-center leading-none py-2">
-                    <span class="rotulo-time text-xs font-bold uppercase tracking-widest">Sets</span>
-                    <span id="sets-a" class="font-digital text-3xl text-white ml-2">0</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- LADO DIREITO -->
-        <section data-lado="b" class="painel-time tema-vermelho flex-1 min-w-0 flex flex-col gap-2 rounded-3xl border-4 bg-gray-900 p-2">
-            <div class="shrink-0 flex items-center justify-between gap-2 px-2">
-                <h2 id="nome-b" class="nome-time min-w-0 truncate text-base md:text-xl font-black uppercase tracking-wider">VISITANTE</h2>
-                <span id="score-b" class="shrink-0 font-digital text-5xl md:text-6xl leading-none text-white">0</span>
-            </div>
-
-            <div id="pontos-b" class="flex-1 min-h-0 grid gap-2" style="grid-template-columns: repeat(1, minmax(0, 1fr))">
-                <button id="pt-b-1" onclick="marcar('direita', 1)" class="btn-ponto rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+1</button>
-                <button id="pt-b-2" onclick="marcar('direita', 2)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+2</button>
-                <button id="pt-b-3" onclick="marcar('direita', 3)" class="btn-ponto hidden rounded-2xl font-black text-3xl md:text-5xl shadow-lg active:scale-95">+3</button>
-            </div>
-
-            <div class="shrink-0">
-                <div id="faltas-b-box" class="hidden flex items-center gap-2">
-                    <button onclick="cmdPlacar('direita', 'sub_falta', 1)" class="btn-fraco shrink-0 w-14 rounded-xl font-black py-3 active:scale-95">−</button>
-                    <div class="shrink-0 text-center leading-none px-1">
-                        <div class="rotulo-time text-[10px] font-bold uppercase tracking-widest">Faltas</div>
-                        <div id="faltas-b" class="font-digital text-2xl text-white">0</div>
-                    </div>
-                    <button onclick="cmdPlacar('direita', 'add_falta', 1)" class="btn-acao flex-1 rounded-xl font-black py-3 text-base active:scale-95">+ FALTA</button>
-                </div>
-                <div id="sets-b-box" class="hidden text-center leading-none py-2">
-                    <span class="rotulo-time text-xs font-bold uppercase tracking-widest">Sets</span>
-                    <span id="sets-b" class="font-digital text-3xl text-white ml-2">0</span>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- ============ RODAPÉ: correção + ação do momento ============ -->
-    <footer class="shrink-0 grid items-stretch gap-2 px-2 pb-2" style="grid-template-columns: minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)">
-        <button id="menos-a" data-lado="a" onclick="corrigirPonto('esquerda')" class="btn-fraco tema-azul rounded-2xl font-bold py-3 px-2 text-sm md:text-base active:scale-95 truncate">
-            ↩ −1 <span id="menos-a-nome" class="opacity-70"></span>
-        </button>
-
-        <div id="centro-acao" class="min-w-0 flex items-center justify-center gap-2">
-            <!-- futsal / basquete: em que período o jogo está -->
-            <div id="info-periodo" class="hidden text-center text-gray-500 text-xs font-bold uppercase tracking-widest">
-                <span id="periodo-display-rodape">1</span>º período
-            </div>
-            <!-- vôlei: parciais fechadas + fechamento manual do set. O botão de
-                 fechar só aparece quando a pontuação fecha a parcial (regra em
-                 gameLogic.parcialFechavel — não é duplicada aqui). -->
-            <div id="area-set" class="hidden w-full flex items-center gap-2">
-                <div id="parciais-mesa" class="shrink-0 flex items-center gap-1 overflow-x-auto text-xs font-digital text-gray-400"></div>
-                <button id="btn-fechar-set" onclick="fecharSet()" class="hidden flex-1 rounded-2xl bg-emerald-600 active:bg-emerald-500 text-white font-black py-3 text-base shadow-lg transition-transform active:scale-95">
-                    ✔ FECHAR SET <span id="btn-fechar-set-detalhe" class="font-normal text-emerald-100 text-xs"></span>
-                </button>
-                <div id="aviso-set" class="flex-1 text-center text-gray-600 text-xs font-bold uppercase tracking-widest"></div>
-                <button id="btn-reabrir-set" onclick="reabrirSet()" class="hidden shrink-0 rounded-xl bg-gray-800 active:bg-gray-700 border border-gray-600 text-gray-300 font-bold px-3 py-3 text-xs transition-transform active:scale-95">↩ REABRIR</button>
-            </div>
-        </div>
-
-        <button id="menos-b" data-lado="b" onclick="corrigirPonto('direita')" class="btn-fraco tema-vermelho rounded-2xl font-bold py-3 px-2 text-sm md:text-base active:scale-95 truncate">
-            ↩ −1 <span id="menos-b-nome" class="opacity-70"></span>
-        </button>
-    </footer>
-
-    <!-- ================= ⚙ MAIS: o que se usa 1x por jogo ================= -->
-    <div id="painel-mais" class="hidden fixed inset-0 z-40 bg-black/85 flex flex-col">
-        <div class="shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-gray-900 border-b border-gray-700">
-            <span class="font-black text-lg">⚙ Mais controles</span>
-            <button onclick="fecharMais()" class="px-6 py-3 rounded-xl bg-gray-800 active:bg-gray-700 border border-gray-600 font-bold transition-transform active:scale-95">✕ Fechar</button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-4">
-            <div class="w-full max-w-3xl mx-auto space-y-5">
-
-                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
-                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Cronômetro</h3>
-                    <div class="flex gap-2 items-center">
-                        <input id="set-minutos" type="number" min="0" max="99" value="10"
-                            class="w-0 flex-1 bg-gray-950 text-white text-center text-2xl py-3 rounded-xl border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
-                        <span class="text-gray-400 font-bold text-2xl">:</span>
-                        <input id="set-segundos" type="number" min="0" max="59" value="00"
-                            class="w-0 flex-1 bg-gray-950 text-white text-center text-2xl py-3 rounded-xl border border-gray-600 focus:outline-none focus:border-yellow-500 font-digital">
-                        <button onclick="setTempo()" class="shrink-0 bg-gray-700 active:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-transform active:scale-95">DEFINIR</button>
-                    </div>
-                    <button id="mais-reiniciar-crono" onclick="zerarCronometro()" class="w-full bg-gray-800 active:bg-gray-700 text-gray-300 font-bold py-3 rounded-xl text-sm border border-gray-600 transition-transform active:scale-95">↺ Reiniciar cronômetro (volta ao tempo definido)</button>
-                </section>
-
-                <section id="mais-periodo" class="hidden bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
-                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Período — atual: <span id="mais-periodo-display" class="text-white font-digital">1</span></h3>
-                    <div class="flex gap-2">
-                        <button onclick="cmdPlacar('nenhum', 'sub_periodo', 1)" class="flex-1 bg-gray-800 active:bg-gray-700 text-gray-300 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">− Período</button>
-                        <button onclick="cmdPlacar('nenhum', 'add_periodo', 1)" class="flex-1 bg-gray-700 active:bg-gray-600 text-white font-bold py-3 rounded-xl transition-transform active:scale-95">+ Período</button>
-                    </div>
-                </section>
-
-                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
-                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Esta tela</h3>
-                    <button onclick="inverterLados()" class="w-full bg-gray-800 active:bg-gray-700 text-gray-200 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">🔁 Inverter lados</button>
-                    <p class="text-xs text-gray-500">Troca qual time fica à esquerda <b>só neste aparelho</b> — o telão e a configuração não mudam. Agora: <span id="estado-inversao" class="text-gray-300 font-bold"></span></p>
-                </section>
-
-                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
-                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Fim de jogo</h3>
-                    <button id="btn-fechar-jogo" onclick="fecharJogoApi()" class="hidden w-full bg-emerald-900 active:bg-emerald-800 text-emerald-200 font-bold py-4 rounded-xl border border-emerald-700 transition-transform active:scale-95">🏁 Fechar jogo (envia o resultado para a API)</button>
-                    <button onclick="pararTransmissao()" class="w-full bg-gray-800 active:bg-gray-700 text-gray-300 font-bold py-4 rounded-xl border border-gray-600 transition-transform active:scale-95">⏹ Parar transmissão do telão</button>
-                    <button onclick="zerarTudo()" class="w-full bg-red-950 active:bg-red-900 text-red-300 font-bold py-4 rounded-xl border border-red-800 transition-transform active:scale-95">⚠ Zerar placar, faltas e cronômetro</button>
-                </section>
-
-                <section class="bg-gray-900 rounded-2xl border border-gray-700 p-4 space-y-3">
-                    <h3 class="text-xs font-bold uppercase tracking-widest text-gray-400">Ir para</h3>
-                    <div class="flex gap-2">
-                        <a href="index.html" class="flex-1 text-center bg-gray-800 active:bg-gray-700 text-gray-200 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">⚙️ Configuração</a>
-                        <a href="controle_anuncios.html" class="flex-1 text-center bg-gray-800 active:bg-gray-700 text-gray-200 font-bold py-3 rounded-xl border border-gray-600 transition-transform active:scale-95">📺 Anúncios</a>
-                    </div>
-                </section>
-
-            </div>
-        </div>
+        <div class="parciais" id="parciais" hidden></div>
+      </div>
+      <!-- O relógio É o botão de liga/pausa: a cor diz o estado (verde parado,
+           âmbar correndo, vermelho esgotado) e o ícone, o que o toque faz. -->
+      <button class="relogio" id="relogio" data-acao="crono" aria-label="Iniciar ou pausar o cronômetro">
+        <span class="ico"><svg class="i"><use id="relogio-ico" href="#i-play"/></svg></span>
+        <span class="tempo" id="tempo">00:00</span>
+        <span class="dica" id="relogio-dica">Iniciar</span>
+      </button>
+      <div class="relogio-dir">
+        <button class="btn-sec" data-acao="abrir-menu" data-v="cronometro"><svg class="i"><use href="#i-clock"/></svg>Ajustar</button>
+      </div>
     </div>
 
-    <!-- ================= Modal de seleção de jogador ================= -->
-    <div id="modal-jogador" class="hidden fixed inset-0 z-50 bg-black/85 flex flex-col">
-        <div class="shrink-0 p-4 border-b border-gray-700 bg-gray-900">
-            <p id="modal-titulo" class="text-center text-white font-black text-xl"></p>
+    <div class="paineis">
+      <!-- Os painéis "a"/"b" são POSIÇÕES na tela, não os times A/B do jogo
+           (ver timeDoLado e aplicarTemas). -->
+      <section class="painel tema-azul" data-lado="a">
+        <span class="selo" id="selo-a" hidden>Set point</span>
+        <div class="painel-cab">
+          <span class="escudo" id="escudo-a"></span>
+          <div class="painel-nome"><b id="nome-a">Casa</b><small id="info-a"></small></div>
+          <span class="placar" id="placar-a">0</span>
         </div>
-        <div id="modal-lista" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 gap-3 content-start"></div>
-        <div class="shrink-0 p-4 border-t border-gray-700 bg-gray-900 flex gap-3">
-            <button onclick="cancelarJogador()" class="shrink-0 px-6 bg-gray-800 active:bg-gray-700 active:scale-95 text-gray-300 font-bold py-5 rounded-xl text-xl border border-gray-600 transition-transform">✕ Cancelar</button>
-            <button onclick="confirmarSemJogador()" class="flex-1 bg-gray-700 active:bg-gray-600 active:scale-95 text-gray-200 font-bold py-5 rounded-xl text-xl transition-transform">Sem jogador específico</button>
+        <div class="pontos" id="pontos-a"></div>
+        <div class="rodape-time" id="rodape-a"></div>
+      </section>
+      <section class="painel tema-vermelho" data-lado="b">
+        <span class="selo" id="selo-b" hidden>Set point</span>
+        <div class="painel-cab">
+          <span class="escudo" id="escudo-b"></span>
+          <div class="painel-nome"><b id="nome-b">Visitante</b><small id="info-b"></small></div>
+          <span class="placar" id="placar-b">0</span>
         </div>
+        <div class="pontos" id="pontos-b"></div>
+        <div class="rodape-time" id="rodape-b"></div>
+      </section>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
+    <div class="rodape-mesa">
+      <!-- Desfazer SEMPRE à mão: o último lance que ainda vale fica aqui até
+           o próximo, sem prazo. Substitui os antigos "−1" + confirm(). -->
+      <div class="ultimo" id="ultimo">
+        <span class="tarja" id="ultimo-tarja"></span>
+        <div class="txt"><small id="ultimo-rot">Último lance</small><b id="ultimo-txt">Nenhum lance ainda</b></div>
+        <button class="btn-desfazer" id="btn-desfazer" data-acao="desfazer" disabled><svg class="i"><use href="#i-undo"/></svg>Desfazer</button>
+      </div>
+      <button class="btn-forte" id="acao-momento" hidden></button>
+    </div>
+  </main>
 
-        // A diferença entre os três esportes cabe aqui: quantos botões de ponto
-        // o painel tem, se o time acumula falta (futsal/basquete) ou set
-        // (vôlei), se há período, e como o cronômetro conta. Todo o resto da
-        // tela é igual — foi por isso que as quatro telas viraram uma.
-        //
-        // `sets` (contador no painel do time) e `parciais` (barra de fechar
-        // set/quarto no rodapé) são separados de propósito: gameLogic já sabe
-        // fechar o QUARTO do basquete, que continuaria tendo faltas e nenhum
-        // contador de sets — para ligar isso basta `parciais: true` no basquete.
-        const ESPORTES = {
-            futsal:   { rotulo: '⚽ FUTSAL',   botoes: 1, textoPonto: '+1 GOL',   faltas: true,  periodo: true,  sets: false, parciais: false, crono: 'regressivo' },
-            basquete: { rotulo: '🏀 BASQUETE', botoes: 3, textoPonto: '+1',       faltas: true,  periodo: true,  sets: false, parciais: false, crono: 'regressivo_cs' },
-            volei:    { rotulo: '🏐 VÔLEI',    botoes: 1, textoPonto: '+1 PONTO', faltas: false, periodo: false, sets: true,  parciais: true,  crono: 'crescente' }
-        };
-        const ESPORTE_PADRAO = 'futsal';
+  <!-- ================= PREPARAR ================= -->
+  <main class="vista preparar" id="vista-preparar" hidden>
+    <div class="coluna">
+      <div class="coluna-cab">
+        <div><h2>Jogos</h2><p id="jogos-sub">Vindos do Placar Clube</p></div>
+        <div class="data-nav" id="data-nav">
+          <button class="mini" data-acao="dia" data-v="-1" aria-label="Dia anterior"><svg class="i"><use href="#i-left"/></svg></button>
+          <span class="dia" id="dia-txt">Hoje</span>
+          <button class="mini" data-acao="dia" data-v="1" aria-label="Próximo dia"><svg class="i"><use href="#i-right"/></svg></button>
+          <button class="mini" data-acao="buscar-jogos" aria-label="Atualizar lista"><svg class="i"><use href="#i-refresh"/></svg></button>
+        </div>
+      </div>
+      <div class="jogos" id="jogos"></div>
+      <div class="manual"><span>Jogo fora da lista ou sem internet? <b>Monte o jogo à mão</b> na configuração completa; o controle funciona igual.</span>
+        <a class="btn-topo btn" href="configuracao.html"><svg class="i"><use href="#i-gear"/></svg>Configuração</a></div>
+    </div>
+    <div class="coluna">
+      <div class="coluna-cab"><div><h2>Antes de começar</h2><p>Verde está pronto. Âmbar ainda precisa de você.</p></div></div>
+      <div class="passos" id="passos"></div>
+      <button class="ir-mesa" data-acao="ir-controle">Ir para o controle <svg class="i"><use href="#i-right"/></svg></button>
+    </div>
+  </main>
 
-        let estadoAtual = null;
-        let esporteMontado = null;   // remonta o layout só quando o esporte muda
-        let pendingAcao = null;
-        let integracao = { configurada: false, jogoId: null, statusConexao: 'nao_configurado', pendentes: 0 };
+  <!-- ================= TELÃO ================= -->
+  <main class="vista telao" id="vista-telao" hidden>
+    <div class="cenas" role="group" aria-label="O que o telão mostra">
+      <button class="cena" data-acao="cena" data-v="placar"><svg class="i"><use href="#i-board"/></svg><div><b>Placar</b><span id="cena-placar-sub">Jogo ao vivo</span></div></button>
+      <button class="cena" data-acao="cena" data-v="slides"><svg class="i"><use href="#i-image"/></svg><div><b>Slides</b><span id="cena-slides-sub"></span></div></button>
+      <button class="cena" data-acao="cena" data-v="espera"><svg class="i"><use href="#i-moon"/></svg><div><b>Espera</b><span id="cena-espera-sub">Vídeo de espera</span></div></button>
+    </div>
+    <div class="telao-grade">
+      <div class="cartao">
+        <h3>Comerciais · toque para escolher a ordem</h3>
+        <div class="fila" id="fila-videos"></div>
+        <div class="linha-acoes">
+          <button class="btn-grande cor" style="--c: var(--ok); color: var(--ok-texto)" data-acao="tocar-videos" id="btn-tocar-videos"><svg class="i"><use href="#i-play"/></svg><span id="btn-tocar-videos-txt">Tocar todos</span></button>
+          <button class="btn-grande cinza" data-acao="parar-video"><svg class="i"><use href="#i-stop"/></svg>Parar vídeo</button>
+        </div>
+      </div>
+      <div class="cartao">
+        <h3>Slides</h3>
+        <div class="slide-nav" id="slide-nav">
+          <button data-acao="slide" data-v="anterior"><svg class="i"><use href="#i-left"/></svg>Anterior</button>
+          <div class="pos" id="slide-pos">—<small>Slide</small></div>
+          <button data-acao="slide" data-v="proximo">Avançar<svg class="i"><use href="#i-right"/></svg></button>
+        </div>
+        <button class="btn-grande claro" id="btn-slides" data-acao="slides-iniciar"></button>
+        <h3 id="patros-titulo">Patrocinadores no carrossel</h3>
+        <div class="patros" id="patros"></div>
+        <a class="link-mais" href="controle_anuncios.html">Enviar ou excluir vídeos, slides e logos: <b>Arquivos de mídia</b></a>
+      </div>
+    </div>
+  </main>
+</div>
 
-        // Inversão de lados: preferência só deste aparelho (localStorage), nunca
-        // do jogo. Não manda nada ao servidor — o telão e a tela de configuração
-        // sempre mostram timeA/timeB na ordem original.
-        let invertido = false;
-        try { invertido = localStorage.getItem('placar_controle_invertido') === '1'; } catch (e) {}
-        // Aplica já no carregamento: a preferência vem do localStorage, então a
-        // tela tem de abrir com as cores certas, antes do primeiro broadcast.
-        aplicarTemas();
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="camada"></div>
 
-        function timeDoLado(lado) {
-            if (lado === 'esquerda') return invertido ? 'timeB' : 'timeA';
-            if (lado === 'direita') return invertido ? 'timeA' : 'timeB';
-            return lado; // 'nenhum' e chaves já resolvidas passam direto
-        }
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
 
-        // O tema de cor segue o TIME, não a posição: com os lados invertidos, o
-        // painel da esquerda veste o vermelho do visitante e o da direita o azul
-        // da casa. É o que faz a inversão ser percebida de relance — só os nomes
-        // trocando de lugar passa despercebido no meio do jogo.
-        function aplicarTemas() {
-            const temas = {
-                a: invertido ? 'tema-vermelho' : 'tema-azul',
-                b: invertido ? 'tema-azul' : 'tema-vermelho'
-            };
-            for (const lado of ['a', 'b']) {
-                document.querySelectorAll(`[data-lado="${lado}"]`).forEach(el => {
-                    el.classList.remove('tema-azul', 'tema-vermelho');
-                    el.classList.add(temas[lado]);
-                });
-            }
-        }
+// O que muda por esporte NA INTERFACE. Regra de jogo (set fechável, limite de
+// faltas, lances estornáveis) vem pronta do servidor — não duplique aqui.
+// `sets` = contador de sets no painel; `parciais` = faixa de parciais e botão
+// de fechar set. Para o basquete exibir/fechar quartos basta `parciais: true`
+// (gameLogic já sabe fechar quarto).
+const ESPORTES = {
+    futsal:   { nome: 'Futsal',   botoes: [{ v: 1, t: 'Gol' }], verbo: 'Gol', faltas: true, avisoFalta: 'Próxima falta:<br>tiro livre', periodo: 'tempo', periodos: 2, sets: false, parciais: false, crono: 'regressivo', presets: [20, 25, 15, 10] },
+    basquete: { nome: 'Basquete', botoes: [{ v: 1, t: 'Lance livre' }, { v: 2, t: 'Cesta' }, { v: 3, t: 'Três' }], verbo: 'Cesta', faltas: true, avisoFalta: 'Bônus:<br>lances livres', periodo: 'quarto', periodos: 4, sets: false, parciais: false, crono: 'regressivo_cs', presets: [10, 12, 8, 5] },
+    volei:    { nome: 'Vôlei',    botoes: [{ v: 1, t: 'Ponto' }], verbo: 'Ponto', faltas: false, periodo: null, periodos: 5, sets: true, parciais: true, crono: 'crescente', presets: [] }
+};
+const ESPORTE_PADRAO = 'futsal';
+const SETS_PARA_VENCER = 3;
 
-        function cfgEsporte(esporte) {
-            return ESPORTES[esporte] || ESPORTES[ESPORTE_PADRAO];
-        }
+let estado = null;
+let esporteMontado = null;
+let integracao = { configurada: false, jogoId: null, statusConexao: 'nao_configurado', pendentes: 0 };
+let primeiroStatusIntegracao = true;
+let vista = 'controle';
+let folha = null;          // null | 'jogador' | 'lances' | 'menu' | 'aviso'
+let pendente = null;       // ação esperando a escolha do jogador
+let confirmaEstorno = null;
+let ultimoLanceVisto = null;
+let placarAnterior = { a: null, b: null };
 
-        // ---- Estado vindo do servidor ----
+// Preferências SÓ deste aparelho (localStorage) — nunca vão ao servidor.
+function lerPref(chave) { try { return localStorage.getItem(chave) === '1'; } catch (e) { return false; } }
+function gravarPref(chave, valor) { try { localStorage.setItem(chave, valor ? '1' : '0'); } catch (e) {} }
+let invertido = lerPref('placar_controle_invertido');
+let modoRapido = lerPref('placar_controle_rapido');
 
-        socket.on('atualizar_tela', (dados) => {
-            if (dados.serverTime && dados.cronometro) {
-                const clockOffset = Date.now() - dados.serverTime;
-                dados.cronometro.inicioTimestamp += clockOffset;
-            }
-            estadoAtual = dados;
-            renderizar(dados);
+const $ = (id) => document.getElementById(id);
+const cfg = () => ESPORTES[estado?.esporte] || ESPORTES[ESPORTE_PADRAO];
+const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+
+function timeDoLado(lado) {
+    if (lado === 'a') return invertido ? 'timeB' : 'timeA';
+    if (lado === 'b') return invertido ? 'timeA' : 'timeB';
+    return lado;
+}
+// Tema de cor de um TIME (não da posição): casa azul, visitante vermelho.
+const temaDoTime = (time) => time === 'timeA' ? 'tema-azul' : 'tema-vermelho';
+
+function aplicarTemas() {
+    for (const lado of ['a', 'b']) {
+        document.querySelectorAll(`[data-lado="${lado}"]`).forEach(el => {
+            el.classList.remove('tema-azul', 'tema-vermelho');
+            el.classList.add(temaDoTime(timeDoLado(lado)));
         });
+    }
+}
+aplicarTemas();
 
-        function renderizar(dados) {
-            if (dados.esporte !== esporteMontado) montarEsporte(dados.esporte);
-            const cfg = cfgEsporte(dados.esporte);
+function siglaDe(nome) {
+    const palavras = String(nome || '').trim().split(/\s+/).filter(p => p.length > 2 || /^\d/.test(p));
+    if (palavras.length === 0) return '—';
+    if (palavras.length === 1) return palavras[0].slice(0, 3).toUpperCase();
+    return palavras.slice(0, 3).map(p => p[0]).join('').toUpperCase();
+}
+function nomeDoTime(chave) {
+    const t = estado?.[chave];
+    return (t && t.nome) || (chave === 'timeA' ? 'Casa' : 'Visitante');
+}
 
-            // Os painéis "a"/"b" são POSIÇÕES na tela, não os times A/B do jogo.
-            const times = { a: dados[timeDoLado('esquerda')], b: dados[timeDoLado('direita')] };
-            for (const lado of ['a', 'b']) {
-                const time = times[lado];
-                document.getElementById('nome-' + lado).innerText = time.nome || (lado === 'a' ? 'CASA' : 'VISITANTE');
-                document.getElementById('score-' + lado).innerText = time.placar;
-                document.getElementById('faltas-' + lado).innerText = time.faltas ?? 0;
-                document.getElementById('sets-' + lado).innerText = time.sets ?? 0;
-                document.getElementById('menos-' + lado + '-nome').innerText = time.nome || '';
-                // Sem ponto no placar não há o que corrigir — o botão apagado
-                // evita a pergunta de confirmação para uma ação que não faria nada.
-                document.getElementById('menos-' + lado).disabled = (time.placar || 0) <= 0;
-            }
+// ---- Estado vindo do servidor ----
+socket.on('atualizar_tela', (dados) => {
+    if (dados.serverTime && dados.cronometro) {
+        const clockOffset = Date.now() - dados.serverTime;
+        dados.cronometro.inicioTimestamp += clockOffset;
+    }
+    estado = dados;
+    renderizar();
+});
 
-            document.getElementById('periodo-display-rodape').innerText = dados.periodo || 1;
-            document.getElementById('mais-periodo-display').innerText = dados.periodo || 1;
-            atualizarBotaoCrono(!!(dados.cronometro && dados.cronometro.rodando));
-            if (cfg.parciais) atualizarBarraSet(dados);
+function renderizar() {
+    if (!estado) return;
+    if (estado.esporte !== esporteMontado) montarEsporte();
+    renderTopo();
+    renderMesa();
+    if (vista === 'preparar') renderPreparar();
+    if (vista === 'telao') renderTelao();
+    if (folha === 'lances') renderLances();
+    if (folha === 'menu') atualizarMenu();
+}
+
+// Monta o que muda por esporte. Só roda quando o esporte muda.
+function montarEsporte() {
+    esporteMontado = estado.esporte;
+    const c = cfg();
+    document.title = 'Controle — ' + c.nome;
+    $('chip-esporte').textContent = c.nome;
+    for (const lado of ['a', 'b']) {
+        const pontos = $('pontos-' + lado);
+        pontos.className = 'pontos' + (c.botoes.length === 3 ? ' tres' : '');
+        pontos.style.gridTemplateColumns = `repeat(${c.botoes.length}, minmax(0, 1fr))`;
+        pontos.innerHTML = c.botoes.map(b =>
+            `<button class="btn-ponto" data-acao="ponto" data-lado="${lado}" data-v="${b.v}"><b>+${b.v}</b><small>${esc(b.t)}</small></button>`).join('');
+        $('rodape-' + lado).innerHTML = c.faltas
+            ? `<div class="faltas"><div class="rot">Faltas<b id="faltas-${lado}">0</b></div><div class="pips" id="pips-${lado}"></div><div class="aviso" id="aviso-falta-${lado}" hidden>${c.avisoFalta}</div></div>
+               <button class="btn-falta" data-acao="falta" data-lado="${lado}">${ic('plus')}Falta</button>`
+            : c.sets
+                ? `<div class="sets"><span class="rot">Sets vencidos</span><div class="bolas" id="bolas-${lado}"></div><span class="n" id="sets-${lado}">0</span></div>`
+                : '';
+    }
+    $('periodo-box').hidden = !c.periodo;
+    $('parciais').hidden = !c.parciais;
+    $('periodo-rot').textContent = c.periodo || '';
+    $('relogio').setAttribute('aria-label', c.crono === 'crescente' ? 'Iniciar ou pausar a contagem do jogo' : 'Iniciar ou pausar o cronômetro');
+}
+
+function renderTopo() {
+    const noAr = !!estado.transmissaoAtiva;
+    $('chip-telao').className = 'chip ' + (noAr ? 'vivo' : '');
+    $('chip-telao-txt').textContent = noAr ? 'Telão no ar' : 'Telão em espera';
+    const chipApi = $('chip-api');
+    if (!integracao.configurada || !integracao.jogoId) {
+        chipApi.hidden = true;
+    } else {
+        chipApi.hidden = false;
+        const st = integracao.statusConexao;
+        const erro = st === 'erro' || st === 'erro_configuracao';
+        chipApi.className = 'chip ' + (erro ? 'erro' : integracao.pendentes ? 'sync' : '');
+        $('chip-api-txt').textContent = `#${integracao.jogoId} · ` +
+            (erro ? `erro, ${integracao.pendentes} na fila` : integracao.pendentes ? `${integracao.pendentes} enviando` : 'em dia');
+        chipApi.title = erro && integracao.ultimoErro ? integracao.ultimoErro : 'Sincronização com o Placar Clube';
+    }
+    const validos = (estado.lances || []).filter(l => !l.estornado).length;
+    $('contador-lances').textContent = validos;
+    $('btn-lances').hidden = vista !== 'controle';
+}
+
+// ---- Mesa ----
+function renderMesa() {
+    const c = cfg();
+    for (const lado of ['a', 'b']) {
+        const chave = timeDoLado(lado);
+        const time = estado[chave];
+        $('nome-' + lado).textContent = nomeDoTime(chave);
+        const titulares = (time.elenco || []).filter(j => j.titular).length;
+        $('info-' + lado).textContent = time.elenco && time.elenco.length
+            ? (titulares ? `${titulares} em quadra · ` : '') + `${time.elenco.length} no elenco`
+            : 'Sem elenco';
+        const escudo = $('escudo-' + lado);
+        const conteudo = time.logo ? `<img src="${esc(time.logo)}" alt="">` : esc(siglaDe(nomeDoTime(chave)));
+        if (escudo.dataset.conteudo !== conteudo) { escudo.innerHTML = conteudo; escudo.dataset.conteudo = conteudo; }
+
+        // Pulsa o número quando o placar DESTE time sobe (não ao inverter lados).
+        const placar = $('placar-' + lado);
+        const antes = placarAnterior[lado];
+        if (antes && antes.chave === chave && time.placar > antes.valor) {
+            placar.classList.remove('bump'); void placar.offsetWidth; placar.classList.add('bump');
         }
+        placar.textContent = time.placar;
+        placarAnterior[lado] = { chave, valor: time.placar };
 
-        // Aplica ao layout o que muda de um esporte para o outro. Só roda na
-        // troca de esporte, não a cada broadcast.
-        function montarEsporte(esporte) {
-            esporteMontado = esporte;
-            const cfg = cfgEsporte(esporte);
-            document.getElementById('badge-esporte').innerText = cfg.rotulo;
-            document.title = 'Controle — ' + cfg.rotulo.replace(/^\S+\s/, '');
+        $('selo-' + lado).hidden = estado.setPoint !== chave;
 
-            for (const lado of ['a', 'b']) {
-                document.getElementById('pontos-' + lado).style.gridTemplateColumns =
-                    `repeat(${cfg.botoes}, minmax(0, 1fr))`;
-                document.getElementById('pt-' + lado + '-1').innerText = cfg.textoPonto;
-                document.getElementById('pt-' + lado + '-2').classList.toggle('hidden', cfg.botoes < 2);
-                document.getElementById('pt-' + lado + '-3').classList.toggle('hidden', cfg.botoes < 3);
-                document.getElementById('faltas-' + lado + '-box').classList.toggle('hidden', !cfg.faltas);
-                document.getElementById('sets-' + lado + '-box').classList.toggle('hidden', !cfg.sets);
-            }
-
-            // Período e barra de parciais dividem o centro do rodapé: nunca
-            // ficam visíveis ao mesmo tempo hoje, mas a de parcial tem
-            // prioridade se algum dia um esporte tiver os dois.
-            document.getElementById('area-set').classList.toggle('hidden', !cfg.parciais);
-            document.getElementById('info-periodo').classList.toggle('hidden', !cfg.periodo || cfg.parciais);
-            document.getElementById('mais-periodo').classList.toggle('hidden', !cfg.periodo);
-            // Reiniciar cronômetro só faz sentido em cronômetro regressivo.
-            document.getElementById('mais-reiniciar-crono').classList.toggle('hidden', cfg.crono === 'crescente');
-            atualizarEstadoInversao();
+        if (c.faltas) {
+            const f = time.faltas || 0;
+            const limite = estado.limiteFaltas || 5;
+            const alerta = !!(estado.alertaFaltas && estado.alertaFaltas[chave]);
+            $('faltas-' + lado).textContent = f;
+            $('pips-' + lado).innerHTML = Array.from({ length: limite }, (_, i) =>
+                `<span class="pip ${i < f ? (alerta ? 'alerta' : 'on') : ''}"></span>`).join('');
+            $('aviso-falta-' + lado).hidden = !alerta;
         }
-
-        // ---- Cronômetro ----
-
-        function pad(n) { return String(n).padStart(2, '0'); }
-
-        // 50ms para os centissegundos do basquete correrem lisos; nos outros
-        // esportes o texto simplesmente repete.
-        setInterval(() => {
-            if (!estadoAtual) return;
-            const cfg = cfgEsporte(estadoAtual.esporte);
-            const crono = estadoAtual.cronometro;
-            let decorrido = crono.tempoAcumulado;
-            if (crono.rodando) decorrido += (Date.now() - crono.inicioTimestamp);
-
-            let texto;
-            if (cfg.crono === 'crescente') {
-                const total = Math.floor(decorrido / 1000);
-                texto = `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
-            } else {
-                const restante = Math.max(0, crono.duracaoConfigurada - decorrido);
-                texto = `${pad(Math.floor(restante / 60000))}:${pad(Math.floor((restante % 60000) / 1000))}`;
-                if (cfg.crono === 'regressivo_cs') texto += '.' + pad(Math.floor((restante % 1000) / 10));
-            }
-            document.getElementById('timer-display').innerText = texto;
-        }, 50);
-
-        function atualizarBotaoCrono(rodando) {
-            document.getElementById('crono-icone').innerText = rodando ? '⏸' : '▶';
-            document.getElementById('btn-crono').className = rodando
-                ? 'flex items-center gap-3 px-5 py-2 rounded-2xl border-4 transition-transform active:scale-95 bg-amber-600 border-amber-400 text-white'
-                : 'flex items-center gap-3 px-5 py-2 rounded-2xl border-4 transition-transform active:scale-95 bg-emerald-700 border-emerald-500 text-white';
+        if (c.sets) {
+            $('sets-' + lado).textContent = time.sets || 0;
+            $('bolas-' + lado).innerHTML = Array.from({ length: SETS_PARA_VENCER }, (_, i) =>
+                `<span class="bola ${i < (time.sets || 0) ? 'on' : ''}"></span>`).join('');
         }
+    }
 
-        // Dar PLAY aqui também marca o jogo como ao vivo na API (server.js faz
-        // isso no primeiro play) — não existe um "iniciar" separado na mesa.
-        function toggleCronometro() {
-            const rodando = !!(estadoAtual && estadoAtual.cronometro && estadoAtual.cronometro.rodando);
-            socket.emit('comando_cronometro', { acao: rodando ? 'pause' : 'play' });
+    if (c.periodo) $('periodo-num').textContent = (estado.periodo || 1) + 'º';
+    if (c.parciais) {
+        const parciais = Array.isArray(estado.parciais) ? estado.parciais : [];
+        const andamento = estado.parcialEmAndamento;
+        $('parciais').innerHTML = parciais.map((p, i) => `<span class="parcial">${i + 1}º <b>${p.a}×${p.b}</b></span>`).join('')
+            + (andamento ? `<span class="parcial atual">${andamento}º set</span>` : '');
+    }
+    renderUltimoLance();
+    renderAcaoMomento();
+    tick();
+}
+
+// Último lance que ainda vale. Desfazer só acende se ELE puder ser desfeito —
+// não pula para um lance mais antigo, para o botão nunca desfazer algo
+// diferente do que está escrito ao lado dele.
+function ultimoLanceValido() {
+    const lances = estado.lances || [];
+    for (let i = lances.length - 1; i >= 0; i--) if (!lances[i].estornado) return lances[i];
+    return null;
+}
+
+function tempoDoLance(l) {
+    const ms = cfg().crono === 'crescente' ? l.cronometroMs : l.restanteMs;
+    const t = Math.floor((ms || 0) / 1000);
+    return `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
+}
+function tituloDoLance(l) {
+    const c = cfg();
+    if (l.tipo === 'set') return `${l.parcial}º set fechado`;
+    if (l.tipo === 'falta') return 'Falta';
+    if (c.botoes.length > 1) { const b = c.botoes.find(x => x.v === l.valor); return b ? `+${l.valor} ${b.t}` : `+${l.valor}`; }
+    return c.verbo;
+}
+function quemDoLance(l) {
+    if (l.tipo === 'set') return l.placar ? `${l.placar.a}×${l.placar.b}` + (l.time ? ` para ${nomeDoTime(l.time)}` : '') : '';
+    return l.jogador ? `#${l.jogador.numero} ${l.jogador.nome}`.trim() : 'sem jogador';
+}
+
+function renderUltimoLance() {
+    const l = ultimoLanceValido();
+    const caixa = $('ultimo');
+    const btn = $('btn-desfazer');
+    if (!l) {
+        $('ultimo-rot').textContent = 'Último lance';
+        $('ultimo-txt').textContent = 'Nenhum lance ainda';
+        $('ultimo-tarja').style.background = '';
+        btn.disabled = true;
+        ultimoLanceVisto = null;
+        return;
+    }
+    const periodo = cfg().periodo ? ` · ${l.periodo}º ${cfg().periodo}` : '';
+    $('ultimo-rot').textContent = `Último lance · ${tempoDoLance(l)}${periodo}`;
+    const time = l.time ? ` · ${nomeDoTime(l.time)}` : '';
+    $('ultimo-txt').textContent = l.tipo === 'set'
+        ? `${tituloDoLance(l)} · ${quemDoLance(l)}`
+        : `${tituloDoLance(l)}${time} · ${quemDoLance(l)}`;
+    caixa.classList.remove('tema-azul', 'tema-vermelho');
+    if (l.time) caixa.classList.add(temaDoTime(l.time));
+    $('ultimo-tarja').style.background = l.time ? 'var(--c)' : '';
+    btn.disabled = !l.estornavel;
+    btn.title = l.estornavel ? '' : 'Este lance já não pode ser desfeito daqui. Use Lances.';
+    if (ultimoLanceVisto !== null && ultimoLanceVisto !== l.id && l.id > ultimoLanceVisto) {
+        caixa.classList.remove('novo'); void caixa.offsetWidth; caixa.classList.add('novo');
+    }
+    ultimoLanceVisto = l.id;
+}
+
+// Ação do momento, ao lado do Desfazer: fechar o set (vôlei, quando a
+// pontuação permite — regra no servidor), trocar de período quando o relógio
+// zera, ou encerrar quando o jogo acabou. Nada disso acontece sozinho.
+function renderAcaoMomento() {
+    const c = cfg();
+    const btn = $('acao-momento');
+    let html = null, acao = null, alerta = false;
+    if (c.parciais) {
+        const temParciais = (estado.parciais || []).length > 0;
+        if (estado.parcialEmAndamento == null && temParciais) {
+            html = `${ic('flag')}Jogo decidido · encerrar`; acao = 'abrir-menu'; alerta = true;
+        } else if (estado.parcialFechavel) {
+            html = `${ic('check')}Fechar ${estado.parcialAtual}º set · ${estado.timeA.placar}×${estado.timeB.placar}`; acao = 'fechar-set';
         }
+    } else if (c.crono !== 'crescente' && restanteMs() === 0 && estado.cronometro.duracaoConfigurada > 0) {
+        const periodo = estado.periodo || 1;
+        if (periodo < c.periodos) { html = `${ic('right')}Ir para o ${periodo + 1}º ${c.periodo}`; acao = 'proximo-periodo'; alerta = true; }
+        else { html = `${ic('flag')}Fim do ${periodo}º ${c.periodo} · encerrar`; acao = 'abrir-menu'; alerta = true; }
+    }
+    btn.hidden = !html;
+    if (html) {
+        btn.innerHTML = html;
+        btn.dataset.acao = acao;
+        btn.className = 'btn-forte' + (alerta ? ' alerta' : '');
+    }
+}
 
-        function setTempo() {
-            const minutos = parseInt(document.getElementById('set-minutos').value) || 0;
-            const segundos = parseInt(document.getElementById('set-segundos').value) || 0;
-            if (minutos > 0 || segundos > 0) {
-                socket.emit('comando_cronometro', { acao: 'set', valor: minutos, segundos });
-            }
-        }
+// ---- Cronômetro ----
+function decorridoMs() {
+    const cr = estado.cronometro;
+    return cr.tempoAcumulado + (cr.rodando ? Date.now() - cr.inicioTimestamp : 0);
+}
+function restanteMs() { return Math.max(0, estado.cronometro.duracaoConfigurada - decorridoMs()); }
 
-        // Volta o cronômetro para o tempo configurado (re-aplica a duração atual)
-        function zerarCronometro() {
-            const dur = estadoAtual?.cronometro?.duracaoConfigurada ?? 600000;
-            socket.emit('comando_cronometro', {
-                acao: 'set',
-                valor: Math.floor(dur / 60000),
-                segundos: Math.floor((dur % 60000) / 1000)
-            });
-        }
+let zeradoAntes = null;
+// 50 ms para os centésimos do basquete correrem lisos.
+function tick() {
+    if (!estado) return;
+    const c = cfg();
+    let texto;
+    if (c.crono === 'crescente') {
+        const t = Math.floor(decorridoMs() / 1000);
+        texto = `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
+    } else {
+        const r = restanteMs();
+        texto = `${pad(Math.floor(r / 60000))}:${pad(Math.floor((r % 60000) / 1000))}`;
+        if (c.crono === 'regressivo_cs') texto += `<small>.${pad(Math.floor((r % 1000) / 10))}</small>`;
+    }
+    const el = $('tempo');
+    if (el.innerHTML !== texto) el.innerHTML = texto;
+    const rodando = !!estado.cronometro.rodando;
+    const zerado = c.crono !== 'crescente' && restanteMs() === 0 && estado.cronometro.duracaoConfigurada > 0;
+    const rel = $('relogio');
+    rel.classList.toggle('rodando', rodando && !zerado);
+    rel.classList.toggle('zerado', zerado);
+    $('relogio-ico').setAttribute('href', rodando ? '#i-pause' : '#i-play');
+    $('relogio-dica').textContent = zerado ? 'Esgotado' : rodando ? 'Pausar' : 'Iniciar';
+    if (zerado !== zeradoAntes) { zeradoAntes = zerado; renderAcaoMomento(); }
+}
+setInterval(tick, 50);
 
-        // ---- Placar ----
+// Dar PLAY também marca o jogo como ao vivo na API (server.js, no 1º play).
+function toggleCronometro() {
+    if (!estado) return;
+    socket.emit('comando_cronometro', { acao: estado.cronometro.rodando ? 'pause' : 'play' });
+}
 
-        function marcar(lado, valor) {
-            const time = timeDoLado(lado);
-            const elenco = estadoAtual?.[time]?.elenco || [];
-            if (elenco.length > 0) abrirModal(time, 'add_ponto', valor, elenco);
-            else socket.emit('comando_placar', { time, acao: 'add_ponto', valor });
-        }
+// ---- Placar e faltas ----
+function pedirJogador(time, acao, valor) {
+    const elenco = estado?.[time]?.elenco || [];
+    if (modoRapido || elenco.length === 0) {
+        socket.emit('comando_placar', { time, acao, valor });
+        return;
+    }
+    pendente = { time, acao, valor };
+    abrirFolha('jogador');
+}
 
-        function cmdPlacar(lado, acao, valor) {
-            const time = timeDoLado(lado);
-            const elenco = estadoAtual?.[time]?.elenco || [];
-            if (acao === 'add_falta' && elenco.length > 0) abrirModal(time, acao, valor, elenco);
-            else socket.emit('comando_placar', { time, acao, valor });
-        }
+function compararPorNumero(a, b) {
+    const na = parseInt(a.numero, 10), nb = parseInt(b.numero, 10);
+    return (Number.isNaN(na) ? Infinity : na) - (Number.isNaN(nb) ? Infinity : nb);
+}
 
-        // Tirar ponto pede confirmação: os botões de correção ficam no rodapé,
-        // ao alcance do polegar de quem está marcando, e apagar um ponto legítimo
-        // por engano custa mais caro que o segundo da confirmação. A pergunta diz
-        // de qual time é e como o placar fica, para pegar também o erro de lado.
-        function corrigirPonto(lado) {
-            if (!estadoAtual) return;
-            const time = timeDoLado(lado);
-            const dados = estadoAtual[time];
-            if ((dados.placar || 0) <= 0) return;
-            if (!confirm(`Tirar 1 ponto de ${dados.nome}?\n\nO placar dele vai de ${dados.placar} para ${dados.placar - 1}.`)) return;
-            socket.emit('comando_placar', { time, acao: 'sub_ponto', valor: 1 });
-        }
+function htmlJogador() {
+    const { time, acao, valor } = pendente;
+    const elenco = (estado[time].elenco || []).slice().sort(compararPorNumero);
+    const tile = (j, i) => `<button class="jog" data-acao="jogador" data-v="${i}"><b>${esc(j.numero || '—')}</b><span>${esc(j.nome || '')}</span></button>`;
+    const idx = new Map(elenco.map((j, i) => [j, i]));
+    const titulares = elenco.filter(j => j.titular);
+    const banco = elenco.filter(j => !j.titular);
+    const c = cfg();
+    const titulo = acao === 'add_falta' ? 'Falta'
+        : c.botoes.length > 1 ? `+${valor} ${(c.botoes.find(b => b.v === valor) || {}).t || ''}` : c.verbo;
+    pendente.elenco = elenco;
+    const corpo = titulares.length
+        ? `<div class="secao-rot">Em quadra</div><div class="grade-jog">${titulares.map(j => tile(j, idx.get(j))).join('')}</div>
+           ${banco.length ? `<div class="secao-rot">Banco</div><div class="grade-jog banco">${banco.map(j => tile(j, idx.get(j))).join('')}</div>` : ''}`
+        : `<div class="grade-jog">${elenco.map((j, i) => tile(j, i)).join('')}</div>`;
+    return `<div class="veu" data-acao="cancelar-jogador"><div class="folha ${temaDoTime(time)}" role="dialog" aria-modal="true" aria-label="Escolher jogador" data-parar>
+        <div class="folha-cab"><span class="escudo">${estado[time].logo ? `<img src="${esc(estado[time].logo)}" alt="">` : esc(siglaDe(nomeDoTime(time)))}</span>
+          <h2>${esc(titulo)} · quem foi?<small>${esc(nomeDoTime(time))}</small></h2>
+          <button class="fechar" data-acao="cancelar-jogador" aria-label="Cancelar sem marcar" data-foco>${ic('x')}</button></div>
+        <div class="folha-corpo">${corpo}</div>
+        <div class="folha-pe">
+          <button class="btn-grande cinza" data-acao="cancelar-jogador">${ic('x')}Cancelar</button>
+          <button class="btn-grande cor" data-acao="sem-jogador">${ic('users')}Marcar sem jogador</button>
+        </div></div></div>`;
+}
 
-        // ---- Parciais (vôlei) ----
+// Desfazer = estornar o último lance. Fechamento de set desfaz com
+// `reabrir_set` (a mesma regra do "Reabrir" da lista de lances).
+function desfazerLance(l) {
+    if (!l || !l.estornavel) return;
+    if (l.tipo === 'set') socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
+    else socket.emit('comando_placar', { time: 'nenhum', acao: 'estornar_lance', lanceId: l.id, valor: 0 });
+    toast(`Desfeito: ${tituloDoLance(l)}${l.time && l.tipo !== 'set' ? ' · ' + nomeDoTime(l.time) : ''}`);
+}
 
-        // `parcialFechavel` e `parcialAtual` vêm calculados do servidor
-        // (gameLogic.parcialFechavel) — a regra do 25/15 com 2 de vantagem não é
-        // duplicada aqui.
-        function atualizarBarraSet(dados) {
-            const fechavel = !!dados.parcialFechavel;
-            const parciais = Array.isArray(dados.parciais) ? dados.parciais : [];
+// ---- Lances (gaveta) ----
+function renderLances() {
+    const lista = (estado.lances || []).slice().reverse();
+    const c = cfg();
+    const item = (l) => {
+        let acao;
+        if (l.estornado) acao = `<span class="tag">${l.tipo === 'set' ? 'Reaberto' : 'Estornado'}</span>`;
+        else if (!l.estornavel) acao = '';
+        else if (confirmaEstorno === l.id) acao = `<div class="confirma"><button class="sim" data-acao="estornar-sim" data-v="${l.id}">${l.tipo === 'set' ? 'Reabrir' : 'Estornar'}</button><button class="nao" data-acao="estornar-nao">Não</button></div>`;
+        else acao = `<button class="btn-estornar" data-acao="estornar" data-v="${l.id}">${ic('undo')}${l.tipo === 'set' ? 'Reabrir' : 'Estornar'}</button>`;
+        const tema = l.time ? temaDoTime(l.time) : '';
+        const quando = c.periodo ? `${l.periodo}º` : `${l.parcial}º set`;
+        const titulo = l.tipo === 'set' ? tituloDoLance(l) : `${tituloDoLance(l)} · ${siglaDe(nomeDoTime(l.time))}`;
+        return `<div class="lance ${tema} ${l.estornado ? 'estornado' : ''}"><span class="cor"></span>
+            <time>${tempoDoLance(l)}<small>${quando}</small></time>
+            <div class="txt"><b>${esc(titulo)}</b><span>${esc(quemDoLance(l))}</span></div>${acao}</div>`;
+    };
+    $('lista-lances').innerHTML = lista.length ? lista.map(item).join('') : '<p class="vazio">Nenhum lance ainda. Pontos e faltas aparecem aqui.</p>';
+    $('lances-placar').textContent = `${siglaDe(nomeDoTime('timeA'))} ${estado.timeA.placar} × ${estado.timeB.placar} ${siglaDe(nomeDoTime('timeB'))}`;
+}
 
-            document.getElementById('btn-fechar-set').classList.toggle('hidden', !fechavel);
-            const aviso = document.getElementById('aviso-set');
-            aviso.classList.toggle('hidden', fechavel);
-            aviso.innerText = `${dados.parcialAtual || 1}º set em andamento`;
+function htmlLances() {
+    return `<div class="veu lado" data-acao="fechar-folha"><aside class="gaveta" role="dialog" aria-modal="true" aria-label="Lance a lance" data-parar>
+        <div class="folha-cab"><h2>Lance a lance<small id="lances-placar"></small></h2>
+          <button class="fechar" data-acao="fechar-folha" aria-label="Fechar" data-foco>${ic('x')}</button></div>
+        <p class="ajuda">Estornar não apaga: registra uma correção na súmula e ajusta o placar. Use para lance marcado no time ou no jogador errado.</p>
+        <div class="lances" id="lista-lances"></div></aside></div>`;
+}
 
-            if (fechavel) {
-                const vencedor = dados.timeA.placar > dados.timeB.placar ? dados.timeA.nome : dados.timeB.nome;
-                document.getElementById('btn-fechar-set-detalhe').innerText =
-                    `${dados.timeA.placar}×${dados.timeB.placar} · ${vencedor || ''}`;
-            }
+// ---- ⚙ Mais ----
+function htmlMenu() {
+    const c = cfg();
+    const dur = estado.cronometro.duracaoConfigurada || 0;
+    const relogio = c.crono === 'crescente'
+        ? `<p>No vôlei o relógio só conta a duração do jogo; não há tempo a definir.</p>
+           <button class="linha-btn" data-acao="crono-zerar-duracao">${ic('reset')}Zerar a contagem</button>`
+        : `<div class="tempo-inputs">
+             <input id="set-minutos" type="number" inputmode="numeric" min="0" max="99" value="${pad(Math.floor(dur / 60000))}" aria-label="Minutos">
+             <span>:</span>
+             <input id="set-segundos" type="number" inputmode="numeric" min="0" max="59" value="${pad(Math.floor((dur % 60000) / 1000))}" aria-label="Segundos">
+           </div>
+           <div class="presets">${c.presets.map(p => `<button class="preset" data-acao="preset" data-v="${p}">${pad(p)}:00</button>`).join('')}</div>
+           <button class="linha-btn claro" data-acao="definir-tempo">${ic('clock')}Definir relógio<span class="sub" style="color:inherit">para o relógio e mostra este tempo</span></button>
+           <button class="linha-btn" data-acao="recomecar-periodo">${ic('reset')}Recomeçar o ${c.periodo}<span class="sub" id="menu-recomecar-sub"></span></button>`;
+    return `<div class="veu" data-acao="fechar-folha"><div class="folha neutra" role="dialog" aria-modal="true" aria-label="Mais controles" data-parar>
+        <div class="folha-cab"><h2>Mais controles<small>O que se usa uma vez por jogo</small></h2>
+          <button class="fechar" data-acao="fechar-folha" aria-label="Fechar" data-foco>${ic('x')}</button></div>
+        <div class="folha-corpo"><div class="menu-grade">
+          <div class="cartao" id="cartao-cronometro"><h3>Cronômetro</h3>${relogio}</div>
+          <div class="cartao"><h3>Esta tela</h3>
+            <button class="linha-btn" data-acao="inverter">${ic('swap')}Inverter lados<span class="sub" id="menu-inversao"></span></button>
+            <button class="linha-btn" data-acao="modo-rapido" aria-pressed="${modoRapido}">${ic('zap')}Modo rápido<span class="chave ${modoRapido ? 'on' : ''}" id="chave-rapido"></span></button>
+            <p>Modo rápido marca ponto e falta sem perguntar o jogador. As duas opções valem só neste tablet; o telão não muda.</p>
+          </div>
+          <div class="cartao"><h3>Fim de jogo</h3>
+            <button class="segurar ok" data-segurar="encerrar" id="menu-encerrar"><span class="enche"></span>${ic('flag')}<span>Encerrar jogo na API</span><span class="sub">segure</span></button>
+            <button class="linha-btn" data-acao="transmissao" id="menu-transmissao"></button>
+          </div>
+          <div class="cartao"><h3>Corrigir e recomeçar</h3>
+            <button class="linha-btn" data-acao="reabrir-set" id="menu-reabrir">${ic('undo')}Reabrir o último set</button>
+            <button class="segurar perigo" data-segurar="zerar-faltas" id="menu-zerar-faltas"><span class="enche"></span>${ic('reset')}<span>Zerar faltas</span><span class="sub">segure</span></button>
+            <button class="segurar perigo" data-segurar="zerar"><span class="enche"></span>${ic('reset')}<span>Zerar placar e relógio</span><span class="sub">segure</span></button>
+            <p>Times, elencos e o vínculo com a API continuam. Zerar não é enviado à súmula.</p>
+          </div>
+          <div class="cartao"><h3>Ir para</h3>
+            <a class="linha-btn btn" href="configuracao.html">${ic('gear')}Configuração completa<span class="sub">elenco, logos, modo manual</span></a>
+            <a class="linha-btn btn" href="controle_anuncios.html">${ic('film')}Arquivos de mídia<span class="sub">vídeos, slides, patrocinadores</span></a>
+          </div>
+        </div></div></div></div>`;
+}
 
-            document.getElementById('btn-reabrir-set').classList.toggle('hidden', parciais.length === 0);
+function atualizarMenu() {
+    const c = cfg();
+    const temJogoApi = !!(integracao.configurada && integracao.jogoId);
+    $('menu-encerrar').hidden = !temJogoApi;
+    const noAr = !!estado.transmissaoAtiva;
+    $('menu-transmissao').innerHTML = `${ic('power')}${noAr ? 'Parar a transmissão' : 'Pôr o telão no ar'}<span class="sub">${noAr ? 'telão volta para a espera' : 'telão mostra o placar'}</span>`;
+    $('menu-reabrir').hidden = !(c.parciais && (estado.parciais || []).length > 0);
+    $('menu-zerar-faltas').hidden = !c.faltas;
+    $('menu-inversao').textContent = `${nomeDoTime(timeDoLado('a'))} à esquerda`;
+    const sub = $('menu-recomecar-sub');
+    if (sub) { const d = estado.cronometro.duracaoConfigurada; sub.textContent = `volta a ${pad(Math.floor(d / 60000))}:${pad(Math.floor((d % 60000) / 1000))}`; }
+}
 
-            const faixa = document.getElementById('parciais-mesa');
-            faixa.innerHTML = '';
-            parciais.forEach((p, i) => {
-                const item = document.createElement('span');
-                item.className = 'px-2 py-1 rounded-lg bg-gray-800 border border-gray-700 whitespace-nowrap';
-                item.textContent = `${i + 1}º ${p.a}×${p.b}`;
-                faixa.appendChild(item);
-            });
-        }
+// ---- Folhas: abrir/fechar ----
+function abrirFolha(qual, opcoes = {}) {
+    folha = qual;
+    confirmaEstorno = null;
+    const cam = $('camada');
+    if (qual === 'jogador') cam.innerHTML = htmlJogador();
+    else if (qual === 'lances') { cam.innerHTML = htmlLances(); renderLances(); }
+    else if (qual === 'menu') {
+        cam.innerHTML = htmlMenu(); atualizarMenu();
+        if (opcoes.secao === 'cronometro') $('cartao-cronometro')?.scrollIntoView({ block: 'nearest' });
+    }
+    else if (qual === 'aviso') cam.innerHTML = htmlAviso(opcoes.titulo, opcoes.texto);
+    else if (qual === 'por-no-ar') cam.innerHTML = htmlPorNoAr();
+    cam.querySelector('[data-foco]')?.focus();
+}
 
-        function fecharSet() {
-            socket.emit('comando_placar', { time: 'nenhum', acao: 'fechar_set', valor: 0 });
-        }
+// "Ir para o controle" com o telão ainda na espera: pergunta se o jogo já vai
+// ao ar. É o momento natural de ligar a transmissão — sem isso o operador
+// começava a marcar e o telão continuava no vídeo de espera.
+function htmlPorNoAr() {
+    const jogo = `${nomeDoTime('timeA')} × ${nomeDoTime('timeB')}`;
+    const id = integracao.jogoId ? ` (#${integracao.jogoId})` : '';
+    return `<div class="veu centro" data-acao="fechar-folha"><div class="folha aviso neutra" role="alertdialog" aria-modal="true" aria-label="Colocar o jogo no telão" data-parar>
+        <div class="folha-cab"><h2>Deseja colocar o jogo ${esc(jogo)}${esc(id)} no telão agora?</h2></div>
+        <div class="folha-corpo"><p>O telão sai da tela de espera e passa a mostrar o placar. Dá para mudar depois na aba Telão.</p></div>
+        <div class="folha-pe">
+          <button class="btn-grande cinza" data-acao="ir-sem-telao">Agora não</button>
+          <button class="btn-grande claro" data-acao="ir-com-telao" data-foco>${ic('power')}Sim, pôr no ar</button>
+        </div></div></div>`;
+}
+function fecharFolha() { folha = null; pendente = null; confirmaEstorno = null; $('camada').innerHTML = ''; }
 
-        function reabrirSet() {
-            if (!confirm('Reabrir o último set? O placar dele volta para o painel e o set sai da contagem.')) return;
-            socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
-        }
+// Substitui alert(): o aviso fica na tela até o operador fechar.
+function htmlAviso(titulo, texto) {
+    return `<div class="veu centro" data-acao="fechar-folha"><div class="folha aviso neutra" role="alertdialog" aria-modal="true" aria-label="${esc(titulo)}" data-parar>
+        <div class="folha-cab"><h2>${esc(titulo)}</h2></div>
+        <div class="folha-corpo">${texto.split('\n').map(p => `<p>${esc(p)}</p>`).join('')}</div>
+        <div class="folha-pe"><button class="btn-grande claro" data-acao="fechar-folha" data-foco>Entendi</button></div></div></div>`;
+}
+function avisar(titulo, texto) { abrirFolha('aviso', { titulo, texto }); }
 
-        // ---- Modal de seleção de jogador ----
+let toastTimer = null;
+function toast(texto) {
+    const t = $('toast');
+    t.textContent = texto;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+}
 
-        // Jogadores sem número (ou número inválido) vão para o fim da lista,
-        // não para o começo (senão "—" ficaria misturado com o 1, 2, 3...).
-        function compararPorNumero(a, b) {
-            const na = parseInt(a.numero, 10);
-            const nb = parseInt(b.numero, 10);
-            return (Number.isNaN(na) ? Infinity : na) - (Number.isNaN(nb) ? Infinity : nb);
-        }
+// ---- Abas ----
+function mudarVista(v, { historico = true } = {}) {
+    // `#mesa` era o nome antigo da aba: links salvos continuam abrindo o Controle.
+    if (v === 'mesa') v = 'controle';
+    if (!['preparar', 'controle', 'telao'].includes(v)) v = 'controle';
+    vista = v;
+    for (const nome of ['preparar', 'controle', 'telao']) $('vista-' + nome).hidden = nome !== v;
+    document.querySelectorAll('.aba').forEach(b => b.setAttribute('aria-selected', b.dataset.v === v));
+    if (historico && location.hash !== '#' + v) history.replaceState(null, '', '#' + v);
+    if (v === 'preparar') { if (!jogosBuscados) buscarJogos(); renderPreparar(); }
+    if (v === 'telao') { socket.emit('solicitar_videos'); socket.emit('solicitar_slides'); renderTelao(); }
+    if (estado) renderTopo();
+}
+window.addEventListener('hashchange', () => mudarVista(location.hash.slice(1), { historico: false }));
 
-        function abrirModal(time, acao, valor, elenco) {
-            pendingAcao = { time, acao, valor };
-            const titulos = { add_ponto: `+${valor} — Quem marcou?`, add_falta: 'Falta — Qual jogador?' };
-            document.getElementById('modal-titulo').innerText = titulos[acao] || 'Selecione o jogador';
-            const lista = document.getElementById('modal-lista');
-            lista.innerHTML = '';
-            elenco.slice().sort(compararPorNumero).forEach(j => {
-                const btn = document.createElement('button');
-                btn.className = 'bg-gray-700 active:bg-gray-600 active:scale-95 text-white rounded-xl py-6 px-2 flex flex-col items-center justify-center gap-1.5 transition-transform';
-                btn.innerHTML = `<span class="font-black leading-none text-6xl">${j.numero || '—'}</span><span class="text-sm text-gray-300 truncate max-w-full">${(j.nome || '').replace(/</g, '&lt;')}</span>`;
-                btn.onclick = () => confirmarComJogador(j);
-                lista.appendChild(btn);
-            });
-            document.getElementById('modal-jogador').classList.remove('hidden');
-        }
+// ---- Preparar ----
+let diaOffset = 0;
+let jogosApi = [];
+let jogosBuscados = false;
+let jogosErro = null;
+let buscando = false;
+let jogoTroca = null; // id do jogo esperando confirmação de troca
 
-        function confirmarComJogador(jogador) {
-            document.getElementById('modal-jogador').classList.add('hidden');
-            if (!pendingAcao) return;
-            socket.emit('comando_placar', { ...pendingAcao, jogador });
-            pendingAcao = null;
-        }
+function dataDoDia() {
+    const d = new Date(); d.setDate(d.getDate() + diaOffset);
+    return d;
+}
+function isoDia(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function rotuloDia() {
+    if (diaOffset === 0) return 'Hoje';
+    if (diaOffset === 1) return 'Amanhã';
+    if (diaOffset === -1) return 'Ontem';
+    return dataDoDia().toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+}
 
-        function confirmarSemJogador() {
-            document.getElementById('modal-jogador').classList.add('hidden');
-            if (!pendingAcao) return;
-            socket.emit('comando_placar', { ...pendingAcao });
-            pendingAcao = null;
-        }
+// Mesmo formato tolerante da configuração: /jogos pode vir paginado ou não.
+function extrairLista(dado) {
+    if (Array.isArray(dado)) return dado;
+    if (dado && Array.isArray(dado.data)) return dado.data;
+    return [];
+}
+function nomeTimeDoJogo(t) {
+    if (!t) return '?';
+    return (t.equipe && (t.equipe.nome || t.equipe.nome_curto)) || t.nome_exibicao || ('Time ' + (t.id ?? '?'));
+}
+function categoriaDoJogo(j) {
+    const casa = j.time_casa && j.time_casa.categoria, fora = j.time_fora && j.time_fora.categoria;
+    if (casa && fora && casa !== fora) return casa + ' × ' + fora;
+    return casa || fora || '';
+}
 
-        // Desiste da ação e volta à mesa: nada é enviado ao servidor. Não
-        // confundir com "sem jogador específico", que MARCA o ponto/falta e só
-        // não credita a ninguém.
-        function cancelarJogador() {
-            document.getElementById('modal-jogador').classList.add('hidden');
-            pendingAcao = null;
-        }
+function buscarJogos() {
+    if (!integracao.configurada) { renderPreparar(); return; }
+    buscando = true; jogosErro = null; renderPreparar();
+    socket.emit('placar_chamar', { acao: 'listarJogos', payload: { data: isoDia(dataDoDia()) } }, (resp) => {
+        buscando = false; jogosBuscados = true;
+        if (!resp || !resp.ok) { jogosErro = (resp && resp.erro) || 'sem resposta'; jogosApi = []; }
+        else jogosApi = extrairLista(resp.dado).slice().sort((a, b) => String(a.data_hora).localeCompare(String(b.data_hora)));
+        renderPreparar();
+    });
+}
 
-        // ---- Painel ⚙ MAIS ----
+function carregarJogo(id) {
+    socket.emit('placar_carregar_jogo', { jogoId: id }, (resp) => {
+        jogoTroca = null;
+        if (!resp || !resp.ok) { avisar('Não deu para carregar o jogo', `A API respondeu: ${(resp && resp.erro) || 'sem resposta'}.\nConfira a conexão e tente de novo.`); renderPreparar(); return; }
+        toast(`Jogo #${id} carregado`);
+        renderPreparar();
+    });
+}
 
-        function abrirMais() { document.getElementById('painel-mais').classList.remove('hidden'); }
-        function fecharMais() { document.getElementById('painel-mais').classList.add('hidden'); }
+function renderPreparar() {
+    $('dia-txt').textContent = rotuloDia();
+    const lista = $('jogos');
+    $('data-nav').hidden = !integracao.configurada;
+    if (!integracao.configurada) {
+        $('jogos-sub').textContent = 'Integração com o Placar Clube desligada neste servidor';
+        lista.innerHTML = `<p class="vazio">Sem a API (LARAVEL_BASE_URL e LARAVEL_API_TOKEN no .env), o jogo é montado à mão na configuração completa.</p>`;
+    } else if (buscando) {
+        $('jogos-sub').textContent = 'Buscando…';
+    } else if (jogosErro) {
+        $('jogos-sub').textContent = 'Vindos do Placar Clube';
+        lista.innerHTML = `<p class="vazio">Não deu para buscar os jogos: ${esc(jogosErro)}.<br>Toque em atualizar para tentar de novo.</p>`;
+    } else {
+        $('jogos-sub').textContent = `Vindos do Placar Clube · ${jogosApi.length} jogo${jogosApi.length === 1 ? '' : 's'}`;
+        const temLances = (estado?.lances || []).some(l => !l.estornado);
+        lista.innerHTML = jogosApi.length ? jogosApi.map(j => {
+            const sel = integracao.jogoId === j.id;
+            const d = j.data_hora ? new Date(j.data_hora) : null;
+            const hora = d && !isNaN(d) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '—';
+            const info = [categoriaDoJogo(j), j.local].filter(Boolean).map(esc).join(' · ');
+            const status = j.status ? `<span class="status ${esc(j.status)}">${esc(String(j.status).replace('_', ' '))}</span>` : '';
+            const confirma = jogoTroca === j.id
+                ? `<div class="jogo-confirma"><span>${temLances ? 'Trocar de jogo zera o placar e os lances do controle.' : 'Trocar de jogo?'}</span>
+                     <button class="btn-topo" data-acao="trocar-sim" data-v="${j.id}">Trocar</button><button class="btn-topo" data-acao="trocar-nao">Não</button></div>` : '';
+            return `<div class="jogo ${sel ? 'sel' : ''}" role="group">
+                <div class="hora"><b>${hora}</b><small>#${j.id}</small></div>
+                <div class="conf"><b>${esc(nomeTimeDoJogo(j.time_casa))}<i>×</i>${esc(nomeTimeDoJogo(j.time_fora))}</b><span>${status}${info}</span></div>
+                <button class="acao" data-acao="carregar-jogo" data-v="${j.id}" ${sel ? 'aria-pressed="true"' : ''}>${sel ? ic('check') + 'Carregado' : 'Carregar'}</button>
+                ${confirma}</div>`;
+        }).join('') : `<p class="vazio">Nenhum jogo cadastrado para ${rotuloDia().toLowerCase()}.</p>`;
+    }
+    renderPassos();
+}
 
-        function atualizarEstadoInversao() {
-            if (!estadoAtual) return;
-            const esq = estadoAtual[timeDoLado('esquerda')].nome || 'Time A';
-            const dir = estadoAtual[timeDoLado('direita')].nome || 'Time B';
-            document.getElementById('estado-inversao').innerText = `${esq} à esquerda, ${dir} à direita`;
-        }
+function renderPassos() {
+    if (!estado) return;
+    const c = cfg();
+    const nomesPadrao = ['Time Local', 'Visitante'];
+    const jogoOk = integracao.jogoId ? true : !nomesPadrao.includes(estado.timeA.nome) || !nomesPadrao.includes(estado.timeB.nome);
+    const ea = estado.timeA.elenco || [], eb = estado.timeB.elenco || [];
+    const titA = ea.filter(j => j.titular).length, titB = eb.filter(j => j.titular).length;
+    const dur = estado.cronometro.duracaoConfigurada;
+    const passos = [
+        { ok: jogoOk, t: 'Jogo', d: integracao.jogoId ? `#${integracao.jogoId} · ${nomeDoTime('timeA')} × ${nomeDoTime('timeB')}` : jogoOk ? `Manual · ${nomeDoTime('timeA')} × ${nomeDoTime('timeB')}` : 'Escolha um jogo na lista' },
+        { ok: ea.length > 0 && eb.length > 0, t: 'Elencos', d: `${ea.length} × ${eb.length} atletas` + (titA || titB ? ` · titulares ${titA} e ${titB}` : ''), a: 'Editar', href: 'configuracao.html' },
+        { ok: true, t: 'Relógio', d: c.crono === 'crescente' ? `${c.nome}: conta a duração a partir de 00:00` : `${pad(Math.floor(dur / 60000))}:${pad(Math.floor((dur % 60000) / 1000))} por ${c.periodo} · ${c.nome}`, a: c.crono === 'crescente' ? null : 'Alterar', acao: 'abrir-menu', v: 'cronometro' },
+        { ok: !!estado.transmissaoAtiva, t: 'Telão', d: estado.transmissaoAtiva ? 'No ar, mostrando o placar' : 'Na espera (vídeo de espera)', a: estado.transmissaoAtiva ? 'Parar' : 'Pôr no ar', acao: 'transmissao' }
+    ];
+    $('passos').innerHTML = passos.map((p, i) => {
+        const btn = !p.a ? '<span></span>'
+            : p.href ? `<a class="mini-acao btn" href="${p.href}">${p.a}</a>`
+            : `<button class="mini-acao" data-acao="${p.acao}" ${p.v ? `data-v="${p.v}"` : ''}>${p.a}</button>`;
+        return `<div class="passo ${p.ok ? 'feito' : 'pendente'}"><span class="st">${p.ok ? ic('check') : i + 1}</span>
+            <div><b>${p.t}</b><span>${esc(p.d)}</span></div>${btn}</div>`;
+    }).join('');
+}
 
-        function inverterLados() {
-            invertido = !invertido;
-            try { localStorage.setItem('placar_controle_invertido', invertido ? '1' : '0'); } catch (e) {}
-            aplicarTemas();
-            if (estadoAtual) { renderizar(estadoAtual); atualizarEstadoInversao(); }
-        }
+// ---- Telão ----
+let videos = [];
+let slidesDisponiveis = [];
+let filaVideos = []; // ordem escolhida pelo operador (nomes)
 
-        function zerarTudo() {
-            if (confirm('Zerar placar, sets, faltas e cronômetro? A configuração do jogo (times e elenco) é preservada.')) {
-                socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 });
-                fecharMais();
-            }
-        }
+socket.on('lista_videos', (lista) => {
+    videos = Array.isArray(lista) ? lista.slice().sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) : [];
+    filaVideos = filaVideos.filter(n => videos.includes(n));
+    if (vista === 'telao') renderTelao();
+});
+socket.on('lista_slides', (lista) => {
+    slidesDisponiveis = Array.isArray(lista) ? lista : [];
+    if (vista === 'telao') renderTelao();
+});
 
-        // Só desliga a transmissão do telão: não zera nada nem sai desta tela.
-        function pararTransmissao() {
-            if (confirm('Parar a transmissão do telão?')) {
-                socket.emit('comando_transmissao', { ativa: false });
-                fecharMais();
-            }
-        }
+const semExtensao = (n) => String(n).replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
 
-        // ---- Integração com a API do Placar Clube ----
+function cenaAtual() {
+    if (!estado) return null;
+    if (estado.slides && estado.slides.ativo) return 'slides';
+    return estado.transmissaoAtiva ? 'placar' : 'espera';
+}
 
-        socket.on('integracao_status', (status) => {
-            integracao = status;
-            const badge = document.getElementById('badge-integracao');
-            const btnFechar = document.getElementById('btn-fechar-jogo');
-            if (!integracao.configurada || !integracao.jogoId) {
-                badge.classList.add('hidden');
-                btnFechar.classList.add('hidden');
-                return;
-            }
-            badge.classList.remove('hidden');
-            btnFechar.classList.remove('hidden');
-            const cores = {
-                sincronizado: 'bg-emerald-900 text-emerald-300',
-                carregado: 'bg-emerald-900 text-emerald-300',
-                sincronizando: 'bg-yellow-900 text-yellow-300'
-            };
-            badge.className = `px-2 py-1 rounded-lg font-black tracking-wider text-[10px] whitespace-nowrap ${cores[integracao.statusConexao] || 'bg-red-900 text-red-300'}`;
-            badge.innerText = `🔗 #${integracao.jogoId}` + (integracao.pendentes ? ` · ${integracao.pendentes} pend.` : ' · ok');
-        });
+function renderTelao() {
+    if (!estado) return;
+    const cena = cenaAtual();
+    document.querySelectorAll('.cena').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === cena));
+    const noAr = '<span class="no-ar">● NO AR</span> · ';
+    const sl = estado.slides || { arquivos: [], indice: 0, ativo: false };
+    $('cena-placar-sub').innerHTML = (cena === 'placar' ? noAr : '') + 'Jogo ao vivo';
+    $('cena-slides-sub').innerHTML = (cena === 'slides' ? noAr : '') + `${slidesDisponiveis.length} slide${slidesDisponiveis.length === 1 ? '' : 's'} na pasta`;
+    $('cena-espera-sub').innerHTML = (cena === 'espera' ? noAr : '') + (estado.videoStandby ? 'Vídeo de espera' : 'Cartão de espera');
 
-        socket.on('integracao_eventos_rejeitados', (rejeitados) => {
-            alert(`A API do Placar Clube rejeitou ${rejeitados.length} evento(s):\n` + rejeitados.map(r => `• ${r.motivo}`).join('\n'));
-        });
+    $('fila-videos').innerHTML = videos.length ? videos.map(n => {
+        const pos = filaVideos.indexOf(n);
+        return `<button class="item-fila ${pos >= 0 ? 'sel' : ''}" data-acao="video-fila" data-v="${esc(n)}"><span class="n">${pos >= 0 ? pos + 1 : '·'}</span><b>${esc(semExtensao(n))}</b></button>`;
+    }).join('') : '<p class="vazio">Nenhum vídeo enviado. Envie em Arquivos de mídia.</p>';
+    $('btn-tocar-videos').disabled = videos.length === 0;
+    $('btn-tocar-videos-txt').textContent = filaVideos.length ? `Tocar ${filaVideos.length} escolhido${filaVideos.length === 1 ? '' : 's'}` : 'Tocar todos';
 
-        function fecharJogoApi() {
-            if (!integracao.jogoId || !estadoAtual) return;
-            if (!confirm(`Encerrar o jogo #${integracao.jogoId} na API? Isso marca a partida como encerrada e fecha o placar.`)) return;
-            socket.emit('placar_encerrar_jogo', {
-                jogoId: integracao.jogoId,
-                placar_casa: estadoAtual.timeA.placar,
-                placar_fora: estadoAtual.timeB.placar,
-                sets_casa: estadoAtual.timeA.sets,
-                sets_fora: estadoAtual.timeB.sets,
-                periodos_jogados: estadoAtual.periodo
-            }, (resp) => {
-                if (!resp.ok) { alert('Erro ao encerrar o jogo: ' + resp.erro); return; }
-                const obs = resp.dado && resp.dado.observacoes;
-                alert(obs
-                    ? `Jogo encerrado. A API registrou uma divergência para conferência:\n${obs}`
-                    : 'Jogo encerrado na API.');
-                fecharMais();
-            });
-        }
+    $('slide-nav').hidden = !sl.ativo;
+    if (sl.ativo) $('slide-pos').innerHTML = `${sl.indice + 1}/${sl.arquivos.length}<small>Slide</small>`;
+    const btnSlides = $('btn-slides');
+    btnSlides.innerHTML = sl.ativo ? `${ic('stop')}Parar apresentação` : `${ic('play')}Começar com todos os slides (${slidesDisponiveis.length})`;
+    btnSlides.dataset.acao = sl.ativo ? 'slides-parar' : 'slides-iniciar';
+    btnSlides.disabled = !sl.ativo && slidesDisponiveis.length === 0;
 
-        // Esc fecha o que estiver aberto, do mais interno para o mais externo.
-        document.addEventListener('keydown', (ev) => {
-            if (ev.key !== 'Escape') return;
-            if (!document.getElementById('modal-jogador').classList.contains('hidden')) cancelarJogador();
-            else if (!document.getElementById('painel-mais').classList.contains('hidden')) fecharMais();
-        });
-    </script>
+    const patros = estado.patrocinadores || [];
+    $('patros-titulo').textContent = `Patrocinadores no carrossel · ${patros.length}`;
+    $('patros').innerHTML = patros.length ? patros.map(p => `<span class="patro">${esc(semExtensao(p))}</span>`).join('') : '<span class="patro">Nenhum</span>';
+}
+
+function irParaCena(cena) {
+    const sl = estado.slides || {};
+    if (cena === 'placar') {
+        if (sl.ativo) socket.emit('comando_slides', { acao: 'parar' });
+        socket.emit('comando_video', { acao: 'stop' });
+        socket.emit('comando_transmissao', { ativa: true });
+    } else if (cena === 'espera') {
+        if (sl.ativo) socket.emit('comando_slides', { acao: 'parar' });
+        socket.emit('comando_video', { acao: 'stop' });
+        socket.emit('comando_transmissao', { ativa: false });
+    } else if (cena === 'slides' && !sl.ativo) {
+        if (slidesDisponiveis.length === 0) { toast('Nenhum slide na pasta'); return; }
+        socket.emit('comando_slides', { acao: 'iniciar', arquivos: [...slidesDisponiveis] });
+    }
+}
+
+// ---- Segurar para confirmar (1,2 s; soltar antes cancela) ----
+let segurando = null;
+const ACOES_SEGURAR = {
+    zerar: () => { socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_tudo', valor: 0 }); fecharFolha(); toast('Placar e relógio zerados'); },
+    'zerar-faltas': () => { socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_faltas', valor: 0 }); fecharFolha(); toast('Faltas zeradas'); },
+    encerrar: () => encerrarJogoApi()
+};
+function comecarSegurar(el) {
+    if (segurando) return;
+    el.classList.add('cheio');
+    segurando = { el, t: setTimeout(() => {
+        el.classList.remove('cheio'); segurando = null;
+        ACOES_SEGURAR[el.dataset.segurar]?.();
+    }, 1200) };
+}
+function soltarSegurar() {
+    if (!segurando) return;
+    clearTimeout(segurando.t); segurando.el.classList.remove('cheio'); segurando = null;
+}
+document.addEventListener('pointerdown', (ev) => { const el = ev.target.closest('[data-segurar]'); if (el) { ev.preventDefault(); comecarSegurar(el); } });
+['pointerup', 'pointercancel'].forEach(e => document.addEventListener(e, soltarSegurar));
+document.addEventListener('pointerout', (ev) => { if (segurando && ev.target.closest('[data-segurar]') === segurando.el && !segurando.el.contains(ev.relatedTarget)) soltarSegurar(); });
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest('[data-segurar]')) ev.preventDefault(); });
+document.addEventListener('keydown', (ev) => {
+    const el = document.activeElement;
+    if ((ev.key === 'Enter' || ev.key === ' ') && el?.dataset?.segurar && !ev.repeat) { ev.preventDefault(); comecarSegurar(el); }
+});
+document.addEventListener('keyup', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') soltarSegurar(); });
+
+// ---- Integração com a API ----
+socket.on('integracao_status', (status) => {
+    integracao = status;
+    // Fluxo principal é pela API: com ela ligada e nenhum jogo carregado, a
+    // tela abre em Preparar (a menos que a URL já peça uma aba).
+    if (primeiroStatusIntegracao) {
+        primeiroStatusIntegracao = false;
+        if (!location.hash && integracao.configurada && !integracao.jogoId) mudarVista('preparar');
+    }
+    if (estado) renderTopo();
+    // A aba pode ter aberto antes de o servidor dizer se há API: busca agora.
+    if (vista === 'preparar') {
+        if (integracao.configurada && !jogosBuscados && !buscando) buscarJogos();
+        else renderPreparar();
+    }
+    if (folha === 'menu' && estado) atualizarMenu();
+});
+
+socket.on('integracao_eventos_rejeitados', (rejeitados) => {
+    avisar('A API recusou lances', `O Placar Clube rejeitou ${rejeitados.length} evento(s). O placar do telão não muda, mas a súmula pode ficar diferente:\n` +
+        rejeitados.map(r => `• ${r.motivo}`).join('\n'));
+});
+
+function encerrarJogoApi() {
+    if (!integracao.jogoId || !estado) return;
+    socket.emit('placar_encerrar_jogo', {
+        jogoId: integracao.jogoId,
+        placar_casa: estado.timeA.placar,
+        placar_fora: estado.timeB.placar,
+        sets_casa: estado.timeA.sets,
+        sets_fora: estado.timeB.sets,
+        periodos_jogados: estado.periodo
+    }, (resp) => {
+        if (!resp || !resp.ok) { avisar('Jogo não encerrado', `A API respondeu: ${(resp && resp.erro) || 'sem resposta'}.\nNada mudou; tente de novo.`); return; }
+        const obs = resp.dado && resp.dado.observacoes;
+        avisar('Jogo encerrado na API', obs ? `A API registrou uma divergência para conferência:\n${obs}` : 'O resultado foi enviado ao Placar Clube.');
+    });
+}
+
+// ---- Cliques (delegação: um único listener para a tela toda) ----
+const ACOES = {
+    vista: (v) => mudarVista(v),
+    crono: () => toggleCronometro(),
+    periodo: (v) => socket.emit('comando_placar', { time: 'nenhum', acao: v, valor: 1 }),
+    ponto: (v, el) => pedirJogador(timeDoLado(el.dataset.lado), 'add_ponto', Number(v)),
+    falta: (v, el) => pedirJogador(timeDoLado(el.dataset.lado), 'add_falta', 1),
+    jogador: (v) => {
+        if (!pendente) return;
+        const jogador = pendente.elenco[Number(v)];
+        socket.emit('comando_placar', { time: pendente.time, acao: pendente.acao, valor: pendente.valor, jogador });
+        fecharFolha();
+    },
+    'sem-jogador': () => {
+        if (!pendente) return;
+        socket.emit('comando_placar', { time: pendente.time, acao: pendente.acao, valor: pendente.valor });
+        fecharFolha();
+    },
+    // Desiste e volta à mesa: nada é enviado. Não confundir com "sem jogador",
+    // que MARCA o lance e só não o credita a ninguém.
+    'cancelar-jogador': () => fecharFolha(),
+    desfazer: () => desfazerLance(ultimoLanceValido()),
+    'abrir-lances': () => abrirFolha('lances'),
+    'abrir-menu': (v) => abrirFolha('menu', { secao: v }),
+    'fechar-folha': () => fecharFolha(),
+    // Telão já no ar: vai direto. Na espera: pergunta antes (htmlPorNoAr).
+    'ir-controle': () => {
+        if (estado && estado.transmissaoAtiva) mudarVista('controle');
+        else abrirFolha('por-no-ar');
+    },
+    'ir-com-telao': () => {
+        socket.emit('comando_transmissao', { ativa: true });
+        fecharFolha();
+        mudarVista('controle');
+        toast('Jogo no telão');
+    },
+    'ir-sem-telao': () => { fecharFolha(); mudarVista('controle'); },
+    estornar: (v) => { confirmaEstorno = Number(v); renderLances(); },
+    'estornar-nao': () => { confirmaEstorno = null; renderLances(); },
+    'estornar-sim': (v) => {
+        const l = (estado.lances || []).find(x => x.id === Number(v));
+        confirmaEstorno = null;
+        desfazerLance(l);
+    },
+    'fechar-set': () => socket.emit('comando_placar', { time: 'nenhum', acao: 'fechar_set', valor: 0 }),
+    'reabrir-set': () => {
+        const l = (estado.lances || []).slice().reverse().find(x => x.tipo === 'set' && !x.estornado);
+        socket.emit('comando_placar', { time: 'nenhum', acao: 'reabrir_set', valor: 0 });
+        fecharFolha();
+        toast(l ? `${l.parcial}º set reaberto` : 'Set reaberto');
+    },
+    // Fim do período: avança, zera as faltas (falta coletiva é por período) e
+    // recarrega o relógio com a mesma duração.
+    'proximo-periodo': () => {
+        const d = estado.cronometro.duracaoConfigurada;
+        socket.emit('comando_placar', { time: 'nenhum', acao: 'add_periodo', valor: 1 });
+        if (cfg().faltas) socket.emit('comando_placar', { time: 'nenhum', acao: 'zerar_faltas', valor: 0 });
+        socket.emit('comando_cronometro', { acao: 'set', valor: Math.floor(d / 60000), segundos: Math.floor((d % 60000) / 1000) });
+        toast(`${(estado.periodo || 1) + 1}º ${cfg().periodo}${cfg().faltas ? ' · faltas zeradas' : ''}`);
+    },
+    preset: (v) => { $('set-minutos').value = pad(Number(v)); $('set-segundos').value = '00'; },
+    'definir-tempo': () => {
+        const m = Math.min(99, Math.max(0, parseInt($('set-minutos').value, 10) || 0));
+        const s = Math.min(59, Math.max(0, parseInt($('set-segundos').value, 10) || 0));
+        if (m === 0 && s === 0) { toast('Informe um tempo maior que zero'); return; }
+        socket.emit('comando_cronometro', { acao: 'set', valor: m, segundos: s });
+        fecharFolha();
+        toast(`Relógio em ${pad(m)}:${pad(s)}`);
+    },
+    'recomecar-periodo': () => {
+        const d = estado.cronometro.duracaoConfigurada;
+        socket.emit('comando_cronometro', { acao: 'set', valor: Math.floor(d / 60000), segundos: Math.floor((d % 60000) / 1000) });
+        fecharFolha();
+    },
+    'crono-zerar-duracao': () => { socket.emit('comando_cronometro', { acao: 'set', valor: 0, segundos: 0 }); fecharFolha(); },
+    inverter: () => {
+        invertido = !invertido; gravarPref('placar_controle_invertido', invertido);
+        aplicarTemas(); placarAnterior = { a: null, b: null };
+        renderizar();
+    },
+    'modo-rapido': (v, el) => {
+        modoRapido = !modoRapido; gravarPref('placar_controle_rapido', modoRapido);
+        el.setAttribute('aria-pressed', modoRapido);
+        $('chave-rapido').classList.toggle('on', modoRapido);
+    },
+    transmissao: () => socket.emit('comando_transmissao', { ativa: !estado.transmissaoAtiva }),
+    dia: (v) => { diaOffset += Number(v); jogoTroca = null; buscarJogos(); },
+    'buscar-jogos': () => buscarJogos(),
+    'carregar-jogo': (v) => {
+        const id = Number(v);
+        if (integracao.jogoId === id) return;
+        // Trocar com um jogo já carregado zera a mesa: pede confirmação na
+        // própria linha (confirm() não é usado nesta tela).
+        if (integracao.jogoId || (estado?.lances || []).some(l => !l.estornado)) { jogoTroca = id; renderPreparar(); return; }
+        carregarJogo(id);
+    },
+    'trocar-sim': (v) => carregarJogo(Number(v)),
+    'trocar-nao': () => { jogoTroca = null; renderPreparar(); },
+    cena: (v) => irParaCena(v),
+    'video-fila': (v) => {
+        const i = filaVideos.indexOf(v);
+        if (i >= 0) filaVideos.splice(i, 1); else filaVideos.push(v);
+        renderTelao();
+    },
+    'tocar-videos': () => {
+        const lista = filaVideos.length ? [...filaVideos] : [...videos];
+        if (!lista.length) return;
+        socket.emit('comando_video', { acao: 'playlist', arquivos: lista, loop: false });
+        toast(`Tocando ${lista.length} vídeo${lista.length === 1 ? '' : 's'} no telão`);
+    },
+    'parar-video': () => { socket.emit('comando_video', { acao: 'stop' }); toast('Vídeo parado'); },
+    slide: (v) => socket.emit('comando_slides', { acao: v }),
+    'slides-iniciar': () => irParaCena('slides'),
+    'slides-parar': () => socket.emit('comando_slides', { acao: 'parar' })
+};
+
+document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-acao]');
+    if (!el || el.disabled) return;
+    // Toque dentro da folha não pode cair no véu de fundo (que fecha).
+    if (el.classList.contains('veu') && ev.target.closest('[data-parar]')) return;
+    const fn = ACOES[el.dataset.acao];
+    if (fn) fn(el.dataset.v, el);
+});
+
+// Esc fecha o que estiver aberto (cancelar jogador não envia nada).
+document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && folha) fecharFolha();
+});
+
+// Tablet ligado o jogo inteiro: pede para a tela não apagar (se o navegador deixar).
+async function manterTelaAcesa() {
+    try { if ('wakeLock' in navigator && document.visibilityState === 'visible') await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', manterTelaAcesa);
+manterTelaAcesa();
+
+mudarVista(location.hash.slice(1) || 'controle', { historico: !!location.hash });
+</script>
 </body>
 </html>

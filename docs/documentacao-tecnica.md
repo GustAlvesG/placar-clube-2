@@ -33,12 +33,13 @@ vôlei**. Um servidor Node.js mantém o estado de um único jogo em memória e o
 transmite via **Socket.IO** para todas as telas conectadas na rede local:
 
 - **Telão** (`/`) — o placar exibido na TV/projetor; pode haver vários.
-- **Configuração** (`/controle/`) — escolhe esporte, times, logos, elenco; carrega
+- **Configuração** (`/controle/configuracao.html`) — escolhe esporte, times, logos, elenco; carrega
   jogos da API do clube; liga/desliga a transmissão.
-- **Mesa de controle** (`/controle/controle.html`) — marca pontos, faltas, sets,
-  controla o cronômetro.
-- **Anúncios** (`/controle/controle_anuncios.html`) — vídeos comerciais, slides e
-  logos de patrocinadores.
+- **Controle** (`/controle/controle.html`; `/controle/` abre na aba Preparar) — para tablet: prepara o jogo,
+  marca pontos, faltas, sets, controla o cronômetro e o que vai ao telão.
+- **Mídia** (`/controle/controle_anuncios.html`) — envia e organiza vídeos
+  comerciais, slides e logos de patrocinadores.
+- **Placares paralelos**, só leitura: `static.html` e `placar-neutro.html`.
 
 Opcionalmente o servidor se integra a uma **API Laravel externa** ("Placar Clube"),
 fonte de verdade de equipes, times, jogadores, jogos e do log de eventos (súmula).
@@ -61,12 +62,12 @@ Dependências de produção: apenas `express` e `socket.io`.
 `devDependencies`: `nodemon`, `playwright` (verificação manual end-to-end — não há
 specs Playwright no repositório) e `socket.io-client`.
 
-**Dependências de CDN no frontend** (exigem internet nas máquinas de controle):
+**Dependências de CDN no frontend** (sem internet, só as funções da tabela param — nenhuma tela usa mais Tailwind):
 
 | Página | CDN | Para quê |
 |---|---|---|
-| páginas de controle | `cdn.tailwindcss.com` | classes utilitárias de CSS |
-| `controle/index.html` | `cdn.sheetjs.com` (xlsx 0.20.3) | importar elenco de `.xlsx`/`.xls` |
+| telas de controle e placar neutro | Google Fonts (Barlow, Barlow Condensed, Bebas Neue / Inter) | fontes; todas têm fallback do sistema |
+| `controle/configuracao.html` | `cdn.sheetjs.com` (xlsx 0.20.3) | importar elenco de `.xlsx`/`.xls` (`.txt`/`.csv` funcionam sem) |
 | `controle_anuncios.html` | `cdnjs` pdf.js 3.11.174 (carregado sob demanda) | converter PDF em slides |
 
 O `.env` é lido por um carregador próprio ([env.js](../env.js)), sem `dotenv`. Ele
@@ -95,10 +96,12 @@ placar-clube-2/
 ├── test/
 │   ├── gameLogic.test.js
 │   ├── placarApi.test.js
-│   └── placarEventos.test.js
+│   ├── placarEventos.test.js
+│   └── lances.test.js
 └── public/                # Servido estaticamente
     ├── index.html         # Telão
     ├── static.html        # Placar minimalista (só números), sem arte
+    ├── placar-neutro.html # Placar neutro claro/escuro, só pela URL
     ├── style.css          # Estilos do telão
     ├── base/              # Arte do telão (VERSIONADA no Git)
     │   ├── background.png, FUNDO.png, waiting.mp4
@@ -107,9 +110,11 @@ placar-clube-2/
     ├── slides/            # Slides            (gitignored, criada no boot)
     ├── patrocinadores/    # Logos do carrossel(gitignored, criada no boot)
     └── controle/
-        ├── index.html                 # Configuração
-        ├── controle.html              # Mesa de controle (única p/ os 3 esportes)
-        ├── controle_anuncios.html     # Vídeos, slides, patrocinadores
+        ├── ui.css / ui.js             # Base visual e diálogos da configuração e da mídia
+        ├── index.html                 # /controle/ → redireciona p/ controle.html#preparar
+        ├── configuracao.html          # Configuração
+        ├── controle.html              # Controle (única p/ os 3 esportes)
+        ├── controle_anuncios.html     # Mídia: vídeos, slides, patrocinadores
         └── controle_{futsal,basquete,volei}.html  # Só redirecionam p/ controle.html
 ```
 
@@ -206,6 +211,13 @@ Observações:
   carregado da API). Vão inteiras em todo `atualizar_tela`.
 - Campos `video`, `jogador_id`, `titular`, `capitao` no elenco só existem quando o
   jogo vem da API (ou foi editado depois de vir).
+- `lances` (lance a lance) e `seqLance` (contador de ids): cada lance é
+  `{ id, tipo: 'ponto'|'falta'|'set', time, valor, jogador: { numero, nome } | null,
+  periodo, parcial, cronometroMs, restanteMs, estornado }` (o de `set` traz também
+  `placar: { a, b }`). O jogador vai **sem foto** — o lance trafega em todo
+  broadcast. `zerar_tudo` esvazia `lances` mas **não** volta `seqLance` a zero: o
+  `server.js` liga id de lance → uuid na API, e um id reaproveitado apontaria para
+  o evento errado.
 
 ### 5.1 Payload de `atualizar_tela`
 
@@ -220,6 +232,9 @@ HTMLs não reimplementem regra:
 | `totalParciais` | `quantidadeParciais()` | quantas colunas a grade de parciais desenha |
 | `parcialEmAndamento` | `parcialEmAndamento()` | nº da parcial em disputa, ou `null` com o jogo decidido |
 | `setPoint` | `pontoDeParcial()` | `'timeA'`/`'timeB'`/`null` — quem está a 1 ponto de fechar |
+| `lances` | `lancesParaTela()` | lance a lance, cada um com `estornavel` (substitui `state.lances` no payload) |
+| `limiteFaltas` | `limiteFaltas()` | 5 no futsal, 4 no basquete, `null` no vôlei |
+| `alertaFaltas` | `alertaFaltas()` | `{ timeA, timeB }` — quem já está no limite (a próxima falta muda a cobrança) |
 
 ---
 
@@ -234,6 +249,7 @@ HTMLs não reimplementem regra:
 | `EXTENSOES_SLIDE` | imagens + vídeos |
 | `TEXTOS_PONTO` (interna) | futsal `GOL!`, basquete `CESTA!`, vôlei `PONTO!` |
 | `REGRAS_PARCIAL` | regras de set (vôlei) e quarto (basquete), ver 6.3 |
+| `REGRAS_FALTA` | limite de falta coletiva para o aviso da mesa: futsal 5 (a 6ª é tiro livre), basquete 4 (da 5ª em diante, lances livres — FIBA) |
 
 ### 6.2 Funções
 
@@ -241,7 +257,10 @@ HTMLs não reimplementem regra:
 |---|---|
 | `criarEstadoInicial()` | novo estado padrão |
 | `configurarJogo(state, dados)` | aplica `esporte`, `timeA_nome`/`timeB_nome` (só se não vazios), `timeA_logo`/`timeB_logo` (aceita `''` para remover), `timeA_elenco`/`timeB_elenco`, `sacando` |
-| `comandoPlacar(state, { time, acao, valor, jogador })` | ações de placar (tabela 6.4); devolve `{ animacoes }` |
+| `comandoPlacar(state, { time, acao, valor, jogador, lanceId }, now)` | ações de placar (tabela 6.4); devolve `{ animacoes, lance, estornado }` — o lance criado e o lance desfeito, se houver. `now` injetável |
+| `lanceEstornavel(state, lance)` | se o lance ainda pode ser corrigido (ver 6.6) |
+| `lancesParaTela(state)` | cópia dos lances com `estornavel` calculado |
+| `limiteFaltas(state)` / `alertaFaltas(state)` | limite de faltas do esporte / quem já chegou nele |
 | `comandoCronometro(state, { acao, valor, segundos }, now)` | `play` / `pause` / `set` (minutos + segundos). `now` injetável para teste |
 | `tempoDecorrido(cronometro, agora)` | ms decorridos do cronômetro do jogo (acumulado + trecho corrente) |
 | `comandoTransmissao(state, { ativa })` | liga/desliga a transmissão |
@@ -281,18 +300,30 @@ precisa poder encerrar fora da regra (WO, jogo interrompido).
 
 | Ação | Efeito | Animação emitida |
 |---|---|---|
-| `add_ponto` | `placar += valor`; `sacando = time` | `animacao_ponto` com `tipo: 'ponto'` (com jogador) ou `'ponto_time'` (sem jogador) |
-| `sub_ponto` | `placar -= valor` se placar > 0 | — |
+| `add_ponto` | `placar += valor`; `sacando = time`; registra lance `ponto` | `animacao_ponto` com `tipo: 'ponto'` (com jogador) ou `'ponto_time'` (sem jogador) |
+| `sub_ponto` | `placar -= valor` se placar > 0 (legado; a mesa usa `estornar_lance`) | — |
 | `add_set` / `sub_set` | ±1 set (piso 0) | — |
-| `add_falta` | +1 falta | `animacao_ponto` `tipo: 'falta'`, **só se houver jogador** |
-| `sub_falta` | −1 falta (piso 0) | — |
-| `fechar_set` | empurra `{a,b}` em `parciais`, +1 set ao vencedor (nenhum em empate), zera placares e `sacando` | `animacao_parcial` (`tipo: 'parcial'` ou `'jogo'` quando decidido) |
-| `reabrir_set` | desfaz o último fechamento: devolve o placar e retira o set | — |
+| `add_falta` | +1 falta; registra lance `falta` | `animacao_ponto` `tipo: 'falta'`, **só se houver jogador** |
+| `sub_falta` | −1 falta (piso 0) (legado) | — |
+| `estornar_lance` | com `lanceId`: tira do placar/faltas exatamente o que aquele lance pôs e marca `estornado` (não apaga). Ignora lance de `set` (use `reabrir_set`) e lance não estornável | — |
+| `zerar_faltas` | zera as faltas dos dois times (troca de período); `add_periodo` sozinho não zera, para o ± período servir de correção | — |
+| `fechar_set` | empurra `{a,b}` em `parciais`, +1 set ao vencedor (nenhum em empate), zera placares e `sacando`; registra lance `set` | `animacao_parcial` (`tipo: 'parcial'` ou `'jogo'` quando decidido) |
+| `reabrir_set` | desfaz o último fechamento: devolve o placar, retira o set e marca o lance `set` como estornado | — |
 | `add_periodo` / `sub_periodo` | ±1 período (piso 1) | — |
-| `zerar_tudo` | zera placar/sets/faltas/parciais/sacando/período/cronômetro (mantém times, elenco, transmissão e vínculo com a API) | — |
+| `zerar_tudo` | zera placar/sets/faltas/parciais/lances/sacando/período/cronômetro (mantém times, elenco, transmissão e vínculo com a API) | — |
 
 O payload de `animacao_parcial` carrega o **retrato do fechamento** (placar, sets,
 nomes, número), porque o `atualizar_tela` seguinte já chega com o placar zerado.
+
+### 6.6 Lances e correção (`lanceEstornavel`)
+
+Um lance pode ser corrigido enquanto desfazê-lo ainda faz sentido no placar atual:
+
+- **ponto**: só da parcial em disputa (`lance.parcial === numeroParcialAtual`). Depois
+  que o set fecha, o placar dele foi para o histórico; se o set for reaberto, os
+  pontos dele voltam a ser estornáveis.
+- **falta**: só do período atual e com o time tendo falta a tirar.
+- **set**: só o último fechamento — e por `reabrir_set`, não por `estornar_lance`.
 
 ### 6.5 Cronômetro
 
@@ -306,8 +337,8 @@ Direção de exibição (decidida no frontend): **futsal** regressivo MM:SS,
 **Sincronização entre telas:** cada `atualizar_tela` traz `serverTime`. O cliente
 calcula `clockOffset = Date.now() - serverTime` e soma em
 `cronometro.inicioTimestamp`, de modo que todos os telões mostram o mesmo tempo
-independentemente da latência ou do relógio local. Esse bloco está **duplicado**
-em `public/index.html` e `public/controle/controle.html`.
+independentemente da latência ou do relógio local. Esse bloco está **repetido**
+em `public/index.html`, `public/controle/controle.html` e `public/placar-neutro.html`.
 
 ---
 
@@ -448,6 +479,10 @@ O log da API é **append-only**. O módulo:
    `estorno` que referencia o uuid original (via `ultimosPorChave`, chave
    `"timeA:ponto"` etc.). Sem rastro em memória (ex.: servidor reiniciado),
    `criarEstorno` devolve `null` e só o placar local é ajustado.
+4. `estornarEvento(fila, uuid, motivo)` estorna um evento **específico** pelo uuid —
+   é o caminho de `estornar_lance` (a mesa corrige qualquer lance da lista, não só
+   o último de cada time). Esquece as chaves de `ultimosPorChave` que apontavam
+   para aquele uuid, para um `sub_ponto` posterior não estornar o mesmo evento.
 
 Tradução de ações:
 
@@ -456,7 +491,9 @@ Tradução de ações:
 | `add_ponto` | `ponto` (`valor`, `jogador_id`, `periodo`, `cronometro_ms`) |
 | `add_falta` | `falta` (`jogador_id`, `periodo`, `cronometro_ms`) |
 | `add_set` / `fechar_set` | `set` (`fechar_set` leva `payload: { numero, placar_casa, placar_visitante }`; `time_id` `null` em quarto empatado) |
-| `sub_*` / `reabrir_set` | `estorno` |
+| `sub_*` / `reabrir_set` | `estorno` (pelo último uuid da chave) |
+| `estornar_lance` | `estorno` do uuid daquele lance (`integracao.uuidPorLance`) |
+| `zerar_faltas` | **ignorado** |
 | `add_periodo` / `sub_periodo` | `periodo` |
 | cronômetro `play`/`pause`/`set` | `crono_play` / `crono_pause` / `crono_set` |
 | `zerar_tudo` | **ignorado** (não existe "desfazer tudo" no log) |
@@ -472,7 +509,9 @@ permanecem para o próximo lote.
 ### 10.4 Bookkeeping em `server.js`
 
 O objeto `integracao` (`jogoId`, `timeAId`, `timeBId`, `fila`, `statusConexao`,
-`ultimoErro`, `iniciado`) fica **fora** do `gameState`: é transporte, não regra.
+`ultimoErro`, `iniciado`, `uuidPorLance`) fica **fora** do `gameState`: é
+transporte, não regra. `uuidPorLance` liga o id de cada lance ao uuid do evento
+enviado; é zerado ao carregar jogo e em `zerar_configuracao_completa`.
 
 - `aplicarJogoNoEstado(resposta)` — faz `zerar_tudo`, copia esporte, nomes, logos
   (`logo_url`) e elencos (`mapearElencoApi`), e reinicia a fila.
@@ -510,69 +549,147 @@ Sem build, sem framework, sem bundler. Edite os arquivos direto; o nodemon ignor
 `public/` (basta recarregar a página). Todas as páginas usam o cliente servido em
 `/socket.io/socket.io.js` e expõem um `socket` global.
 
-### 11.1 Configuração — `public/controle/index.html`
+### 11.0 Base comum — `public/controle/ui.css` e `ui.js`
 
-- Painel **Integração com o Placar Clube** com três modos: *Selecionar jogo
-  existente* (recomendado, padrão), *Criar jogo agora* (avulso) e *Manual*. Com
-  integração disponível e nenhum jogo carregado, a tela muda sozinha para
-  "Selecionar" e já busca.
+Configuração e mídia compartilham o desenho da mesa (tema escuro fixo, tablet,
+Barlow, alvos de toque grandes, sem Tailwind):
+
+- `ui.css`: tokens (as **mesmas** cores da mesa, que tem CSS próprio embutido —
+  mude nos dois), barra superior com as abas **Controle · Configuração · Mídia**,
+  botões (`.btn` + `claro`/`ok`/`perigo`/`cor`/`leve`/`grande`), cartões, campos,
+  segmentados, listas, chave, diálogo e toast. O reset usa `:where()` para
+  `label.btn` não ganhar de `.btn`.
+- `ui.js` (script comum, sem módulo): sprite de ícones e `ic()`, `esc()`,
+  `toast()`, `avisar(titulo, texto)` e `confirmar({...})` → `Promise<boolean>` —
+  **nenhuma tela de operação usa `alert()`/`confirm()`**. Botões com
+  `data-segurar` só disparam depois de 1,2 s pressionados e emitem o evento
+  `segurado`.
+
+### 11.1 Configuração — `public/controle/configuracao.html`
+
+`/controle/` (`controle/index.html`) não é mais a configuração: só redireciona
+para `controle.html#preparar`, a entrada do operador.
+
+Em ordem de montagem: **1 Jogo**, **2 Transmissão**, **3 Esporte**, os dois
+times, ajuda de importação e as ações finais.
+
+- **1 Jogo**: três modos (segmentado): *Selecionar jogo* (recomendado, padrão),
+  *Criar jogo agora* (avulso) e *Manual*. Com integração disponível e nenhum jogo
+  carregado, a tela muda sozinha para "Selecionar" e já busca. Jogo carregado
+  aparece marcado na lista e numa faixa verde.
 - `aplicarRespostaJogoNaTela()` (usada por **Carregar** e pela criação avulsa)
   preenche a tela e chama **`enviarConfiguracao()`** direto — o fluxo da API não
   precisa de "Salvar", e **não trava** o formulário, porque editar o elenco logo
   depois é comum.
 - `salvarConfig()` = `enviarConfiguracao()` + validação + **trava** do formulário
-  (confirmação do modo manual). Não mover a trava para dentro de
-  `enviarConfiguracao`.
-- O cartão de transmissão fica logo abaixo do de API; `#lista-jogos` tem altura
-  limitada com rolagem própria — para a agenda não empurrar o botão para fora da
-  tela.
-- Elenco: adicionar/remover/editar jogadores, foto por jogador, checkboxes de
-  titular/capitão, `💾 Salvar escalação (API)` (só jogadores com `jogador_id`).
+  (inputs/botões dentro de `main`, menos *Zerar tudo* e *Transmissão*) + aviso de
+  travado. Não mover a trava para dentro de `enviarConfiguracao`.
+- **2 Transmissão** fica logo abaixo do jogo; `#lista-jogos` tem altura limitada
+  com rolagem própria — para a agenda não empurrar a transmissão para longe.
+  Ligar leva para `controle.html#controle`.
+- O esporte marcado e ainda não salvo **não** é desfeito por `atualizar_tela`
+  (`esporteEditado`): enviar uma logo dispara broadcast, que antes trazia de volta
+  o esporte antigo.
+- Times: nome, logo com prévia (**Remover** envia `timeX_logo: ''`), elenco com
+  número, nome, **T**/**C** (titular/capitão, só com jogo da API), indicador de
+  vídeo, foto e remover. *Salvar escalação na API* aparece só com jogo da API (só
+  jogadores com `jogador_id`). O elenco é redesenhado pelo status da API só quando
+  muda a presença de jogo carregado — para não tirar o foco de quem digita.
 - Importação de elenco (`importarElenco`): `.txt/.csv` (`;`, `,`, TAB ou espaço) e
-  `.xlsx/.xls` via SheetJS; **substitui** o elenco com confirmação.
+  `.xlsx/.xls` via SheetJS; **substitui** o elenco depois de `confirmar()`.
 - Modo avulso: `criarTime` para A e B (a API faz *firstOrCreate* por
   `equipe_nome`) e depois `placar_criar_jogo`.
+- **Zerar tudo** (`zerar_configuracao_completa`) é de segurar 1,2 s e destrava o
+  formulário.
 
-### 11.2 Mesa — `public/controle/controle.html`
+### 11.2 Controle — `public/controle/controle.html`
 
-- **Uma tela para os três esportes.** O que muda fica no objeto `ESPORTES`:
+Na interface a tela e a aba se chamam **Controle** (antes, "Mesa"). No código
+alguns nomes internos ainda usam "mesa" (`.mesa`, `renderMesa`).
 
-  ```js
-  futsal:   { botoes: 1, textoPonto: '+1 GOL',   faltas: true,  periodo: true,  sets: false, parciais: false, crono: 'regressivo' }
-  basquete: { botoes: 3, textoPonto: '+1',       faltas: true,  periodo: true,  sets: false, parciais: false, crono: 'regressivo_cs' }
-  volei:    { botoes: 1, textoPonto: '+1 PONTO', faltas: false, periodo: false, sets: true,  parciais: true,  crono: 'crescente' }
-  ```
 
-  `sets` (contador no painel) e `parciais` (barra de fechar/reabrir) são flags
-  separadas de propósito.
-- Layout por frequência de uso: relógio no topo (toque = play/pause), botão de
-  ponto ocupando a altura do painel, rodapé com −1 (com `confirm()`) e ação
-  contextual, e o resto atrás de **⚙ MAIS** (definir tempo, reiniciar, período,
-  inverter lados, fechar jogo, parar transmissão, zerar).
-- **Inverter lados** é só do aparelho (`localStorage` `placar_controle_invertido`),
-  nunca muda o servidor nem o telão.
+Feita para **tablet** (paisagem; funciona em pé). CSS próprio, sem Tailwind — a
+mesa só depende da internet para as fontes, que têm fallback. Tema escuro fixo.
+
+- **Três abas** no topo, guardadas no hash (`#preparar`, `#controle`, `#telao`; o antigo
+  `#mesa` ainda abre o Controle). Sem hash, abre no Controle; com a API configurada e nenhum jogo carregado, abre em
+  Preparar (fluxo da API é o principal).
+  - **Preparar**: lista os jogos do dia (`placar_chamar` `listarJogos` com
+    `data`, navegação ◀ dia ▶) e carrega com `placar_carregar_jogo` — o servidor
+    já aplica tudo, não precisa de `configurar_jogo`. Trocar de jogo com outro
+    carregado pede confirmação na própria linha. Checklist: jogo, elencos,
+    relógio, telão. Editar elenco/logos e o modo manual continuam em `configuracao.html`.
+    **Ir para o controle** com `transmissaoAtiva` falsa pergunta *"Deseja colocar o
+    jogo A × B (#id) no telão agora?"* (`htmlPorNoAr`): *Sim* emite
+    `comando_transmissao { ativa: true }` e abre o Controle; *Agora não* só abre;
+    Esc/toque fora fica no Preparar. Com o telão no ar, vai direto.
+  - **Controle**: o placar (abaixo).
+  - **Telão**: cenas Placar / Slides / Espera (derivadas de `transmissaoAtiva` e
+    `slides.ativo`), comerciais (`comando_video` `playlist` na ordem tocada pelo
+    operador, ou todos), slides (iniciar com todos, anterior/avançar, parar) e a
+    lista de patrocinadores. Upload/exclusão continuam em `controle_anuncios.html`.
+- **Uma tela para os três esportes.** O que muda na interface fica em `ESPORTES`
+  (`botoes` com valor e rótulo, `verbo`, `faltas` + `avisoFalta`, `periodo` +
+  `periodos`, `sets`, `parciais`, `crono`, `presets` de tempo). `sets` (contador
+  no painel) e `parciais` (faixa de parciais e fechar set) são flags separadas.
+- Layout por frequência de uso: relógio no topo (toque = play/pause; verde parado,
+  âmbar correndo, vermelho esgotado) com ± período ao lado; botão de ponto
+  ocupando o painel; rodapé com o **último lance + Desfazer** e a **ação do
+  momento**; o resto atrás de **Mais**.
+- **Desfazer fica sempre disponível** (sem prazo): age sobre o último lance não
+  estornado, e só acende se *ele* for estornável — nunca pula para um lance mais
+  antigo. Ponto/falta → `estornar_lance`; fechamento de set → `reabrir_set`.
+  Substitui os antigos “−1” com `confirm()`.
+- **Lances** (gaveta à direita): lance a lance com minuto, período e jogador;
+  *Estornar*/*Reabrir* com confirmação na própria linha. O que pode ser corrigido
+  vem em `lance.estornavel` (servidor).
+- **Ação do momento**: vôlei → *Fechar Nº set* quando `parcialFechavel` (e *Jogo
+  decidido* com `parcialEmAndamento === null`); futsal/basquete com o relógio
+  zerado → *Ir para o Nº período* (`add_periodo` + `zerar_faltas` + `set` do
+  cronômetro com a mesma duração) ou *Fim do período* no último.
+- **Faltas**: pontos até `limiteFaltas`; com `alertaFaltas[time]` os pontos ficam
+  âmbar e aparece o aviso do esporte (tiro livre / bônus).
+- **Mais**: cronômetro (MM:SS, presets, *Definir relógio*, *Recomeçar o
+  período*), inverter lados, **modo rápido**, encerrar jogo na API, transmissão,
+  reabrir set, zerar faltas, zerar placar, links para configuração e mídia.
+  Ações destrutivas (**zerar**, **zerar faltas**, **encerrar na API**) exigem
+  **segurar 1,2 s** (`data-segurar`); soltar antes cancela.
+- **Inverter lados** e **modo rápido** são só do aparelho (`localStorage`
+  `placar_controle_invertido` / `placar_controle_rapido`), nunca vão ao servidor.
+  Modo rápido marca ponto/falta sem abrir a escolha de jogador.
 - **Cores dos times são variáveis CSS** (`.tema-azul`/`.tema-vermelho`) aplicadas a
   `[data-lado]` por `aplicarTemas()`, para a cor seguir o *time* na inversão. Não
-  use classes Tailwind de cor fixas nos painéis.
-- Modal de jogador: elenco ordenado por número (sem número no fim);
-  "Sem jogador específico" marca sem creditar; "✕ Cancelar"/`Esc` desiste sem
-  enviar nada (limpa `pendingAcao`).
-- Badge `🔗 #id · ok/N pend.` reflete `integracao_status`;
-  `integracao_eventos_rejeitados` vira `alert`.
+  use cores fixas nos painéis.
+- Folha de jogador: cor do time, “Em quadra” (titulares) antes de “Banco”, ordem
+  por número; *Marcar sem jogador* marca sem creditar; *Cancelar*/`Esc`/toque fora
+  desiste sem enviar nada.
+- Sem `alert()`/`confirm()`: avisos (eventos rejeitados, resposta do encerramento,
+  erro ao carregar jogo) abrem uma folha que fica até o operador fechar; retornos
+  rápidos usam um toast.
+- Chip `#id · em dia / N enviando / erro` reflete `integracao_status`.
+- Pede `wakeLock` para a tela do tablet não apagar (se o navegador permitir).
 - `controle_futsal.html`, `controle_basquete.html`, `controle_volei.html` são só
   redirecionamentos para manter atalhos antigos dos tablets.
 
-### 11.3 Anúncios — `public/controle/controle_anuncios.html`
+### 11.3 Mídia — `public/controle/controle_anuncios.html`
 
-Abas **🎬 Vídeos** e **🖼️ Slides**, mais a seção de **📣 Patrocinadores**.
+Três sub-abas, guardadas no hash: **Comerciais** (`#videos`), **Slides**
+(`#slides`) e **Patrocinadores** (`#patrocinadores`). Altura fixa: biblioteca e
+fila rolam por dentro, a barra de ação fica sempre no rodapé.
 
-- Vídeos: lista, upload (`⬆ Enviar vídeo`), exclusão, fila, `🔁 LOOP`,
-  `▶ REPRODUZIR FILA` (`comando_video` `playlist`), `⏹ PARAR`.
-- Slides: upload de imagens/vídeos, **📄 Enviar PDF** (cada página vira um PNG
-  `<nome>_001.png`… convertido no navegador com pdf.js), fila, iniciar, anterior,
-  avançar, parar. O estado dos slides vive no `gameState` — telão que reconecta no
-  meio da apresentação sincroniza sozinho.
-- Patrocinadores: upload/exclusão de logos.
+- Comerciais: biblioteca (enviar vários, *Todos na fila*, recarregar, excluir) e
+  fila (ordem, tirar, limpar); barra com **Repetir** (`loop`), *Tocar fila no
+  telão* (`comando_video` `playlist`) e *Parar*.
+- Slides: enviar imagens/vídeos ou **PDF** (cada página vira um PNG
+  `<nome>_001.png`… convertido no navegador com pdf.js), montar a ordem, começar,
+  anterior/avançar com contador, parar. O estado dos slides vive no `gameState` —
+  telão que reconecta no meio da apresentação sincroniza sozinho, e várias telas
+  de controle ficam em sincronia.
+- Patrocinadores: grade de logos com prévia em **fundo escuro** (como a faixa do
+  carrossel no telão — logo branca vazada some em fundo branco), enviar e excluir.
+- Excluir pede `confirmar()`; falhas de envio são juntadas num único `avisar()`.
+- A aba **Telão** da mesa põe no ar o que já está no servidor; esta tela é para
+  enviar, excluir e montar a ordem.
 
 ### 11.4 Telão — `public/index.html` + `public/style.css`
 
@@ -582,6 +699,27 @@ Ver seção 12.
 
 Placar minimalista (fundo preto, só números de placar e sets do vôlei), sem arte
 nem animações. Útil como saída alternativa ou para diagnóstico.
+
+### 11.6 `public/placar-neutro.html`
+
+Placar paralelo, **só leitura** e **acessível apenas pela URL** — nenhuma tela
+linka para ele de propósito (monitor da mesa, stream, TV secundária). Visual
+neutro, sem a arte do telão: times com logo (ou sigla), placar, relógio
+sincronizado, período, faltas com aviso de limite (futsal/basquete), sets, quem
+saca, set point e a grade de parciais (vôlei).
+
+- Só escuta `atualizar_tela`; não emite nada. Não segue `transmissaoAtiva` (fica
+  sempre visível) e não mostra animações, vídeos nem patrocinadores.
+- Tudo usa derivados do servidor (`setPoint`, `limiteFaltas`, `alertaFaltas`,
+  `totalParciais`, `parcialEmAndamento`) — sem regra própria.
+- **Tema claro/escuro**: `?tema=claro|escuro` na URL (fica salvo em
+  `localStorage` `placar_neutro_tema`) → escolha salva → tema do sistema. Botão no
+  canto inferior direito e tecla **T** alternam. Botão e cursor somem após 3 s
+  parados.
+- Escala por `--u` (1% de um quadro 16:9 que cabe na tela); com a tela em pé, os
+  times ficam um sobre o outro.
+- Basquete mostra centésimos só no último minuto.
+- Tem uma terceira cópia do bloco de `clockOffset` (ver 6.5).
 
 ---
 
@@ -729,8 +867,9 @@ node --test test/gameLogic.test.js    # um arquivo
 | `test/gameLogic.test.js` | estado inicial, placar, parciais/set point, cronômetro, configuração, slides, filtros, `escolherVideoBase`, sanitização |
 | `test/placarApi.test.js` | URLs, cabeçalhos, query strings, erros tipados (via `fetchImpl` falso) |
 | `test/placarEventos.test.js` | uuid/sequência, estorno, tradução de ações, envio em lote e retry |
+| `test/lances.test.js` | lance a lance, `estornar_lance`, `lanceEstornavel`, `zerar_faltas`, aviso de faltas, `estornarEvento` |
 
-Estado atual: **128 testes, todos passando**.
+Estado atual: **149 testes, todos passando**.
 
 Não há testes automatizados para os handlers de `server.js`, os endpoints HTTP nem
 o frontend. Verificação end-to-end é manual com Playwright (ver
@@ -772,10 +911,12 @@ journalctl -u placar-clube -f
 | Tela | URL |
 |---|---|
 | Telão | `http://<ip>:4000/` |
-| Configuração | `http://<ip>:4000/controle/` |
-| Mesa | `http://<ip>:4000/controle/controle.html` |
-| Anúncios | `http://<ip>:4000/controle/controle_anuncios.html` |
+| Controle, aba Preparar (entrada do operador) | `http://<ip>:4000/controle/` |
+| Configuração | `http://<ip>:4000/controle/configuracao.html` |
+| Controle | `http://<ip>:4000/controle/controle.html` |
+| Mídia | `http://<ip>:4000/controle/controle_anuncios.html` |
 | Placar simples | `http://<ip>:4000/static.html` |
+| Placar neutro (claro/escuro) | `http://<ip>:4000/placar-neutro.html` (`?tema=claro` ou `?tema=escuro`) |
 
 A porta está fixa no código (`server.listen(4000, ...)`).
 
@@ -791,9 +932,9 @@ A porta está fixa no código (`server.listen(4000, ...)`).
 - **Handlers síncronos sem `try/catch`** (`comando_placar`, `comando_cronometro`,
   `configurar_jogo`) — payload malformado (ex.: `time` inválido) pode lançar.
 - **Fotos/logos em base64** trafegam inteiras em todo `atualizar_tela`.
-- **Dependências de CDN** nas telas de controle (Tailwind, SheetJS, pdf.js).
+- **Dependências de CDN** só para importar planilha (SheetJS) e converter PDF (pdf.js); fontes do Google têm fallback. Tailwind saiu de todas as telas.
 - **Parciais não voltam da API** (10.5).
-- Bloco de `clockOffset` duplicado entre telão e mesa.
+- Bloco de `clockOffset` repetido no telão, na mesa e no placar neutro.
 - `.gitignore` lista `CLAUDE.md`, mas o arquivo já é versionado (continua rastreado).
 
 ---
@@ -807,7 +948,7 @@ A porta está fixa no código (`server.listen(4000, ...)`).
 **Adicionar um esporte** → `TEXTOS_PONTO` e, se tiver parciais, `REGRAS_PARCIAL`
 (`gameLogic.js`); entrada em `ESPORTES` (`controle.html`); `sportConfig` e arte em
 `public/base/<esporte>/` (`index.html`); opção na configuração
-(`controle/index.html`); `traduzirAcaoPlacar` se houver ação nova.
+(`controle/configuracao.html`); `traduzirAcaoPlacar` se houver ação nova.
 
 **Novo tipo de arquivo enviado pelo operador** → entrada em `TIPOS_ARQUIVO`
 (`server.js`), lista de extensões em `gameLogic.js`, pasta no `.gitignore` e no

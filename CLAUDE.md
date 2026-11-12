@@ -30,7 +30,7 @@ várias telas via WebSocket na rede local do ginásio.
 ```bash
 npm start              # produção (node server.js) — porta 4000
 npm run dev            # nodemon (recarrega só em server.js / gameLogic.js)
-npm test               # node --test — 3 arquivos em test/, 128 testes
+npm test               # node --test — 4 arquivos em test/, 149 testes
 npm run test:watch
 node --test test/gameLogic.test.js   # um arquivo só
 ```
@@ -53,11 +53,14 @@ A porta 4000 costuma estar ocupada pelo servidor de dev do usuário.
 | [placarEventos.js](placarEventos.js) | Fila de eventos para a API: uuid/sequência no momento da ação, estorno, envio em lote. |
 | [env.js](env.js) | Carregador mínimo de `.env` (sem `dotenv`); nunca sobrescreve variáveis do ambiente. |
 | `public/index.html` + `style.css` | **Telão**. |
-| `public/controle/index.html` | Configuração (esporte, times, elenco, API, transmissão). |
-| `public/controle/controle.html` | Mesa de controle — **uma tela para os três esportes**. |
-| `public/controle/controle_anuncios.html` | Vídeos, slides (inclui PDF→PNG), patrocinadores. |
+| `public/controle/index.html` | Só redireciona `/controle/` para `controle.html#preparar` (entrada do operador). |
+| `public/controle/configuracao.html` | Configuração (esporte, times, elenco, API, transmissão). |
+| `public/controle/controle.html` | **Controle** (antes "Mesa") — **uma tela para os três esportes**. |
+| `public/controle/controle_anuncios.html` | **Mídia**: vídeos, slides (inclui PDF→PNG), patrocinadores. |
+| `public/controle/ui.css` + `ui.js` | Base visual e diálogos (`avisar`/`confirmar`/`toast`/`data-segurar`) da configuração e da mídia. |
 | `public/controle/controle_{futsal,basquete,volei}.html` | Só redirecionam para `controle.html` (atalhos antigos nos tablets). **Não apagar.** |
 | `public/static.html` | Placar minimalista (só números). |
+| `public/placar-neutro.html` | Placar paralelo neutro, tema claro/escuro, só leitura e **só pela URL** (não linkar). |
 | `public/base/` | Arte do telão, **versionada**. Sem endpoint de upload. |
 | `public/videos/`, `slides/`, `patrocinadores/` | Mídia enviada pelo operador — gitignored, criadas no boot. |
 
@@ -79,7 +82,8 @@ inclusive a fila de eventos pendentes da API).
 
 Formato do estado: ver `criarEstadoInicial()` e a seção 5 da documentação técnica.
 Campos derivados em `atualizar_tela`: `parcialFechavel`, `parcialAtual`,
-`totalParciais`, `parcialEmAndamento`, `setPoint`.
+`totalParciais`, `parcialEmAndamento`, `setPoint`, `lances` (com `estornavel`),
+`limiteFaltas`, `alertaFaltas`.
 
 ## Invariantes e decisões que NÃO devem ser desfeitas
 
@@ -97,6 +101,14 @@ Campos derivados em `atualizar_tela`: `parcialFechavel`, `parcialAtual`,
 - Textos: futsal `GOL!`, basquete `CESTA!`, vôlei `PONTO!`.
 - Cronômetro: futsal regressivo MM:SS; basquete regressivo MM:SS.cc; vôlei
   crescente. Funções que dependem de tempo recebem `now` injetável (testes).
+- **Lances**: `add_ponto`, `add_falta` e `fechar_set` registram um lance em
+  `state.lances` (jogador sem foto). Correção = `estornar_lance` (marca
+  `estornado`, nunca apaga) ou `reabrir_set`. O que pode ser corrigido é
+  `lanceEstornavel` (ponto só da parcial atual, falta só do período atual, set só
+  o último). `seqLance` não zera no `zerar_tudo` (ids ligam lance → uuid na API).
+- Faltas: `REGRAS_FALTA` (futsal 5, basquete 4) só gera **aviso** (`alertaFaltas`).
+  `zerar_faltas` é ação separada de `add_periodo` de propósito (± período corrige
+  sem apagar faltas).
 
 ### Dois "zerar", ambos necessários
 - `comando_placar` / `zerar_tudo` (mesa): zera números e cronômetro, **preserva**
@@ -106,13 +118,16 @@ Campos derivados em `atualizar_tela`: `parcialFechavel`, `parcialAtual`,
 
 ### Sincronização do relógio
 Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
-`cronometro.inicioTimestamp`. Bloco duplicado em `public/index.html` e
-`public/controle/controle.html` — mude nos dois.
+`cronometro.inicioTimestamp`. Bloco repetido em `public/index.html`,
+`public/placar-neutro.html` e
+`public/controle/controle.html` — mude nos três.
 
 ### Integração com a API Laravel
 - Configurada por `LARAVEL_BASE_URL` (sem `/api/placar`) e `LARAVEL_API_TOKEN` no
   `.env`. Sem elas: modo manual, nada quebra.
-- Bookkeeping (`integracao`: ids, fila, status) fica **fora** do `gameState`.
+- Bookkeeping (`integracao`: ids, fila, status, `uuidPorLance`) fica **fora** do
+  `gameState`. `estornar_lance` estorna o uuid exato do lance
+  (`placarEventos.estornarEvento`), não o "último da chave".
 - Log da API é **append-only**: correção = evento `estorno` referenciando o uuid
   original, nunca update/delete. `zerar_tudo` não é sincronizado.
 - `cronometro_ms` é **obrigatório** em `ponto`/`falta`: use
@@ -127,28 +142,52 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
   (ver `docs/prompt-api-parciais.md`). Comentários citam
   `docs/placar-clube-api.md`, que **não está neste repo** (é do time Laravel).
 
-### Tela de configuração (`public/controle/index.html`)
+### Tela de configuração (`public/controle/configuracao.html`)
 - `enviarConfiguracao()` = só emite. `salvarConfig()` = emite + valida + **trava**
   o formulário. `aplicarRespostaJogoNaTela` (Carregar e avulso) chama
   `enviarConfiguracao()` e **não trava** — editar elenco logo após carregar é
   normal. Não coloque a trava dentro de `enviarConfiguracao`.
 - O cartão de transmissão fica logo abaixo do cartão da API; `#lista-jogos` tem
   altura limitada com rolagem própria.
+- O esporte marcado e não salvo não é desfeito por `atualizar_tela`
+  (`esporteEditado`) — enviar uma logo dispara broadcast.
 
-### Mesa (`public/controle/controle.html`)
+### Configuração e mídia (base comum)
+- Mesmo desenho da mesa (escuro, tablet, sem Tailwind) via `ui.css`/`ui.js`. A
+  mesa tem CSS próprio com os **mesmos tokens** — mude cores nos dois lugares.
+- Nenhuma tela de operação usa `alert()`/`confirm()`: use `avisar()`,
+  `confirmar()` (Promise) e `toast()` de `ui.js`. Destrutivo de verdade (zerar
+  tudo) é `data-segurar` (evento `segurado`).
+
+### Controle (`public/controle/controle.html`)
+- Na interface o nome é **Controle**, nunca "Mesa" (pedido do usuário). Nomes
+  internos antigos (`.mesa`, `renderMesa`) podem ficar.
+- Feita para **tablet** (paisagem; funciona em pé). CSS próprio, **sem Tailwind**,
+  tema escuro fixo. Três abas no hash: `#preparar` (jogos da API + checklist),
+  `#controle` (o antigo `#mesa` ainda funciona), `#telao` (cenas placar/slides/espera, comerciais, slides). Sem hash e
+  com API configurada sem jogo carregado, abre em Preparar. "Ir para o controle"
+  pergunta se põe o jogo no telão quando a transmissão está desligada.
 - O que muda por esporte vive no objeto `ESPORTES` no topo do script
-  (`botoes`, `textoPonto`, `faltas`, `periodo`, `sets`, `parciais`, `crono`).
-  Para um esporte novo ou regra de UI por esporte, edite ali — **não** duplique a página.
+  (`botoes` com valor/rótulo, `verbo`, `faltas`/`avisoFalta`, `periodo`/`periodos`,
+  `sets`, `parciais`, `crono`, `presets`). Para um esporte novo ou regra de UI por
+  esporte, edite ali — **não** duplique a página.
 - Layout por frequência de uso: relógio no topo (toque = play/pause), botão de
-  ponto ocupando o painel, −1 (com `confirm()`) e ação contextual no rodapé,
-  o resto (tempo, período, inverter, fechar jogo, parar transmissão, zerar) atrás
-  de `⚙ MAIS`.
+  ponto ocupando o painel, rodapé com **último lance + Desfazer** e a ação do
+  momento (fechar set / próximo período); o resto atrás de **Mais**.
+- **Desfazer não tem prazo** (pedido explícito do usuário — não volte a um
+  "desfazer por 5 s"). Age só sobre o último lance não estornado e só acende se
+  ele for `estornavel`; nunca pula para um lance mais antigo. Ponto/falta →
+  `estornar_lance`; set → `reabrir_set`. Lances antigos: gaveta **Lances**.
+- Ações destrutivas no Mais (zerar, zerar faltas, encerrar na API) são de
+  **segurar 1,2 s** (`data-segurar`). A tela não usa `alert()`/`confirm()`:
+  avisos abrem uma folha (`avisar()`), retornos rápidos usam `toast()`.
 - Cores dos times são **variáveis CSS** (`.tema-azul`/`.tema-vermelho`, via
   `aplicarTemas()` em `[data-lado]`), para a cor seguir o time ao inverter lados.
-  Não use classes Tailwind de cor fixas nos painéis.
-- Inverter lados é só do aparelho (`localStorage`), nunca do servidor/telão.
-- Modal de jogador: "Sem jogador específico" marca sem creditar; "✕ Cancelar"/Esc
-  não envia nada e limpa `pendingAcao`.
+  Não use cores fixas nos painéis.
+- Inverter lados e modo rápido são só do aparelho (`localStorage`), nunca do
+  servidor/telão.
+- Folha de jogador: "Marcar sem jogador" marca sem creditar; "Cancelar"/Esc/toque
+  fora não envia nada e limpa `pendente`.
 
 ### Telão (`public/index.html` + `public/style.css`)
 - **Escala uniforme 2:1**: `.placar-container` com `width: min(100vw, 200vh)`;
@@ -194,8 +233,8 @@ Clientes fazem `clockOffset = Date.now() - serverTime` e somam em
 
 Estado só em memória; um jogo por processo; sem autenticação nos sockets nem nos
 uploads; sem limite de tamanho de upload; handlers síncronos sem `try/catch`;
-fotos base64 em todo broadcast; telas de controle dependem de CDN (Tailwind,
-SheetJS, pdf.js); sem testes de `server.js`/frontend. O roadmap dessas melhorias
+fotos base64 em todo broadcast; importar planilha e PDF dependem de CDN
+(SheetJS, pdf.js); sem testes de `server.js`/frontend. O roadmap dessas melhorias
 foi discutido com o usuário — pergunte antes de iniciar uma delas.
 
 ## Convenções

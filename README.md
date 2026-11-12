@@ -46,10 +46,12 @@ O servidor escuta na porta **4000**, em todas as interfaces de rede.
 | Tela | Endereço |
 |---|---|
 | Telão | `http://<ip-do-servidor>:4000/` |
-| Configuração | `http://<ip-do-servidor>:4000/controle/` |
-| Mesa de controle | `http://<ip-do-servidor>:4000/controle/controle.html` |
-| Anúncios (vídeos, slides, patrocinadores) | `http://<ip-do-servidor>:4000/controle/controle_anuncios.html` |
+| Controle (abre em Preparar) | `http://<ip-do-servidor>:4000/controle/` |
+| Configuração | `http://<ip-do-servidor>:4000/controle/configuracao.html` |
+| Controle (endereço direto) | `http://<ip-do-servidor>:4000/controle/controle.html` |
+| Mídia (vídeos, slides, patrocinadores) | `http://<ip-do-servidor>:4000/controle/controle_anuncios.html` |
 | Placar simples (só números) | `http://<ip-do-servidor>:4000/static.html` |
+| Placar neutro, claro ou escuro (só pela URL) | `http://<ip-do-servidor>:4000/placar-neutro.html` |
 
 ## Scripts
 
